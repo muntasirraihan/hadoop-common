@@ -54,6 +54,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.JobId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
@@ -356,6 +358,25 @@ public class MRClientService extends AbstractService
       return response;
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public SuspendTaskAttemptResponse suspendTaskAttempt(
+        SuspendTaskAttemptRequest request) throws YarnRemoteException {
+      TaskAttemptId taskAttemptId = request.getTaskAttemptId();
+      String message = "(bcho2) Suspend task attempt received from client " + taskAttemptId;
+      LOG.info(message);
+      verifyAndGetAttempt(taskAttemptId, true);
+      /*
+      appContext.getEventHandler().handle(
+          new TaskAttemptDiagnosticsUpdateEvent(taskAttemptId, message));
+      appContext.getEventHandler().handle(
+          new TaskAttemptEvent(taskAttemptId, 
+              TaskAttemptEventType.TA_FAILMSG));
+      */
+      SuspendTaskAttemptResponse response = recordFactory.
+        newRecordInstance(SuspendTaskAttemptResponse.class);
+      return response;
+    }
     @Override
     public GetTaskReportsResponse getTaskReports(
         GetTaskReportsRequest request) throws YarnRemoteException {

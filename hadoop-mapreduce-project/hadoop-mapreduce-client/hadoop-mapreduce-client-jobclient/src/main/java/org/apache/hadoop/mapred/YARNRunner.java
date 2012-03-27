@@ -491,6 +491,12 @@ public class YARNRunner implements ClientProtocol {
   }
 
   @Override
+  public boolean suspendTask(TaskAttemptID arg0) throws IOException,
+      InterruptedException {
+    return clientCache.getClient(arg0.getJobID()).suspendTask(arg0);
+  }
+  
+  @Override
   public AccessControlList getQueueAdmins(String arg0) throws IOException {
     return new AccessControlList("*");
   }

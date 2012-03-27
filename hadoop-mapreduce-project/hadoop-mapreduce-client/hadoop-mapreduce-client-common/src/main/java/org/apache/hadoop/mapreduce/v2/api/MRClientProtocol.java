@@ -40,6 +40,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 
 public interface MRClientProtocol {
@@ -54,4 +56,5 @@ public interface MRClientProtocol {
   public KillTaskResponse killTask(KillTaskRequest request) throws YarnRemoteException;
   public KillTaskAttemptResponse killTaskAttempt(KillTaskAttemptRequest request) throws YarnRemoteException;
   public FailTaskAttemptResponse failTaskAttempt(FailTaskAttemptRequest request) throws YarnRemoteException;
+  public SuspendTaskAttemptResponse suspendTaskAttempt(SuspendTaskAttemptRequest request) throws YarnRemoteException;
 }

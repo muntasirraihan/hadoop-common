@@ -55,6 +55,7 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillJobRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
 import org.apache.hadoop.mapreduce.v2.api.records.Counters;
 import org.apache.hadoop.mapreduce.v2.api.records.JobReport;
@@ -268,6 +269,7 @@ public class ClientServiceDelegate {
     } catch (NoSuchMethodException e) {
       throw new YarnException("Method name mismatch", e);
     }
+    int failCount = 0;
     while (true) {
       try {
         return methodOb.invoke(getProxy(), args);
@@ -281,11 +283,16 @@ public class ClientServiceDelegate {
           LOG.debug("Tracing remote error ", e.getTargetException());
           throw (YarnRemoteException) e.getTargetException();
         }
+        LOG.info("(bcho2) stacktrace", e);
         LOG.info("Failed to contact AM/History for job " + jobId + 
             " retrying..");
         LOG.debug("Failed exception on AM/History contact", 
             e.getTargetException());
         // Force reconnection by setting the proxy to null.
+        failCount++;
+        LOG.info("(bcho2) Fail count: "+failCount);
+        if (failCount > 5)
+          return null;
         realProxy = null;
       } catch (Exception e) {
         LOG.info("Failed to contact AM/History for job " + jobId
@@ -394,6 +401,20 @@ public class ClientServiceDelegate {
     }
     return true;
   }
+  
+  public boolean suspendTask(TaskAttemptID taskAttemptID)
+       throws YarnRemoteException {
+    // TODO: implement (bcho2)
+    LOG.info("(bcho2)");
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID
+      = TypeConverter.toYarn(taskAttemptID);
+    SuspendTaskAttemptRequest suspendRequest =
+      recordFactory.newRecordInstance(SuspendTaskAttemptRequest.class);
+    suspendRequest.setTaskAttemptId(attemptID);
+    invoke("suspendTaskAttempt", SuspendTaskAttemptRequest.class, suspendRequest);
+    LOG.info("(bcho2)");
+    return true;
+  }  
 
   public boolean killJob(JobID oldJobID)
        throws YarnRemoteException {

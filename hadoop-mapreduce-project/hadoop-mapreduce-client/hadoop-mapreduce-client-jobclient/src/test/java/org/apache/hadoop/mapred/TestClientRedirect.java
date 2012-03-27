@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.Counter;
 import org.apache.hadoop.mapreduce.v2.api.records.CounterGroup;
 import org.apache.hadoop.mapreduce.v2.api.records.Counters;
@@ -92,6 +94,7 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.impl.pb.YarnRemoteExceptionPBImpl;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.factory.providers.YarnRemoteExceptionFactoryProvider;
@@ -480,6 +483,13 @@ public class TestClientRedirect {
     @Override
     public FailTaskAttemptResponse failTaskAttempt(
         FailTaskAttemptRequest request) throws YarnRemoteException {
+      return null;
+    }
+
+    @Override
+    public SuspendTaskAttemptResponse suspendTaskAttempt(
+        SuspendTaskAttemptRequest request) throws YarnRemoteException {
+      LOG.info("(bcho2)3");
       return null;
     }
   }

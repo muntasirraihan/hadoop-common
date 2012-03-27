@@ -99,3 +99,10 @@ message FailTaskAttemptRequestProto {
 }
 message FailTaskAttemptResponseProto {
 }
+
+message SuspendTaskAttemptRequestProto {
+  optional TaskAttemptIdProto task_attempt_id = 1;
+}
+message SuspendTaskAttemptResponseProto {
+}
+

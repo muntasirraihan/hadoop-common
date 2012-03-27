@@ -187,6 +187,15 @@ public interface ClientProtocol extends VersionedProtocol {
    */ 
   public boolean killTask(TaskAttemptID taskId, boolean shouldFail) 
   throws IOException, InterruptedException;
+
+  /**
+   * Kill indicated task attempt.
+   * @param taskId the id of the task to kill.
+   * @param shouldFail if true the task is failed and added to failed tasks list, otherwise
+   * it is just killed, w/o affecting job failure status.  
+   */ 
+  public boolean suspendTask(TaskAttemptID taskId) 
+  throws IOException, InterruptedException;
   
   /**
    * Grab a handle to a job that is already known to the JobTracker.

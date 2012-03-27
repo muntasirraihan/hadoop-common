@@ -48,12 +48,17 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.impl.pb.YarnRemoteExceptionPBImpl;
 import org.apache.hadoop.yarn.factories.impl.pb.RpcClientFactoryPBImpl;
 import org.apache.hadoop.yarn.factories.impl.pb.RpcServerFactoryPBImpl;
 import org.junit.Test;
+
+import clover.org.jfree.util.Log;
 
 public class TestRPCFactories {
   
@@ -197,6 +202,13 @@ public class TestRPCFactories {
       // TODO Auto-generated method stub
       return null;
     }
-    
+
+    @Override
+    public SuspendTaskAttemptResponse suspendTaskAttempt(
+        SuspendTaskAttemptRequest request) throws YarnRemoteException {
+      System.err.println("(bcho2)2");
+      // TODO Auto-generated method stub
+      return null;
+    }    
   }
 }
