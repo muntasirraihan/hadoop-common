@@ -365,14 +365,29 @@ public class MRClientService extends AbstractService
       TaskAttemptId taskAttemptId = request.getTaskAttemptId();
       String message = "(bcho2) Suspend task attempt received from client " + taskAttemptId;
       LOG.info(message);
-      verifyAndGetAttempt(taskAttemptId, true);
+      // (bcho2) Added 3/29 -- below are examples of what we can do here
       /*
+      TaskAttempt taskAttempt = verifyAndGetAttempt(taskAttemptId, true);
+      JobId jobId = taskAttempt.getID().getTaskId().getJobId();
+      */
+      // either (a) work with Job directly:
+      // Job job = verifyAndGetJob(jobId, true);
+      //              somthing similar to this will give msg access to individual containers:
+      // job.getTaskAttemptListener();
+      
+      //     or (b) create a job handler, and call it:
+      /*
+      appContext.getEventHandler().handle(
+          new JobEvent(jobId, JobEventType.JOB_KILL));
+      */
+      //     or (c) create a task attempt handler, and call it:
+      
       appContext.getEventHandler().handle(
           new TaskAttemptDiagnosticsUpdateEvent(taskAttemptId, message));
       appContext.getEventHandler().handle(
           new TaskAttemptEvent(taskAttemptId, 
-              TaskAttemptEventType.TA_FAILMSG));
-      */
+              TaskAttemptEventType.TA_SUSPEND));
+      
       SuspendTaskAttemptResponse response = recordFactory.
         newRecordInstance(SuspendTaskAttemptResponse.class);
       return response;

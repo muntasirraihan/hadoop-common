@@ -45,6 +45,7 @@ import org.apache.hadoop.mapreduce.v2.app.TaskAttemptListener;
 import org.apache.hadoop.mapreduce.v2.app.TaskHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.job.Job;
 import org.apache.hadoop.mapreduce.v2.app.job.Task;
+import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
@@ -468,5 +469,26 @@ public class TaskAttemptListenerImpl extends CompositeService
       long clientVersion, int clientMethodsHash) throws IOException {
     return ProtocolSignature.getProtocolSignature(this, 
         protocol, clientVersion, clientMethodsHash);
+  }
+
+  @Override
+  public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+    // TODO: Find out if we have to suspend?
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    Job job = context.getJob(attemptID.getTaskId().getJobId());
+    Task task = job.getTask(attemptID.getTaskId());
+    
+    boolean shouldSuspend = task.shouldSuspend(attemptID);
+    
+    // (bcho2) TODO: for now, just send RESUME, to put back to RUNNING state
+    if (shouldSuspend) {
+      context.getEventHandler().handle(
+          new TaskAttemptEvent(attemptID, 
+              TaskAttemptEventType.TA_RESUME));
+    }
+    
+    return shouldSuspend;
   }
 }

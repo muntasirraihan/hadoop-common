@@ -551,6 +551,12 @@ public class LocalJobRunner implements ClientProtocol {
       return new MapTaskCompletionEventsUpdate(
         org.apache.hadoop.mapred.TaskCompletionEvent.EMPTY_ARRAY, false);
     }
+
+    @Override
+    public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+      // TODO Auto-generated method stub (bcho2)
+      return true;
+    }
     
   }
 

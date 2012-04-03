@@ -478,6 +478,15 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
     return canCommit;
   }
+  
+  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+    if (getType() == TaskType.REDUCE) {
+      // Look at state, find out if we should?
+      return (TaskAttemptState.SUSPEND_PENDING.equals(getAttempt(taskAttemptID).getState()));
+    } else {
+      return false;
+    }
+  }
 
   protected abstract TaskAttemptImpl createAttempt();
 

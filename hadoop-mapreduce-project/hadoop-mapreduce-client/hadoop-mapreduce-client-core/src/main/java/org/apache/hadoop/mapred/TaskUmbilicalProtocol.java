@@ -89,6 +89,9 @@ public interface TaskUmbilicalProtocol extends VersionedProtocol {
   boolean statusUpdate(TaskAttemptID taskId, TaskStatus taskStatus) 
   throws IOException, InterruptedException;
   
+  // (bcho2)
+  boolean shouldSuspend(TaskAttemptID taskId) throws IOException;
+  
   /** Report error messages back to parent.  Calls should be sparing, since all
    *  such messages are held in the job tracker.
    *  @param taskid the id of the task involved

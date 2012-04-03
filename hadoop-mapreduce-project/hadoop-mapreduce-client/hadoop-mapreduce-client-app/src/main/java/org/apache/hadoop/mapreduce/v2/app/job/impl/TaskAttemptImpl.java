@@ -161,6 +161,7 @@ public abstract class TaskAttemptImpl implements
   private int shufflePort = -1;
   private String trackerName;
   private int httpPort;
+  private boolean shouldSuspend; // (bcho2) This should be changed within a state machine transition
 
   private static final CleanupContainerTransition CLEANUP_CONTAINER_TRANSITION =
     new CleanupContainerTransition();
@@ -250,7 +251,16 @@ public abstract class TaskAttemptImpl implements
      .addTransition(TaskAttemptState.RUNNING,
          TaskAttemptState.KILL_CONTAINER_CLEANUP, TaskAttemptEventType.TA_KILL,
          CLEANUP_CONTAINER_TRANSITION)
-
+     // Queue task suspend
+     .addTransition(TaskAttemptState.RUNNING,
+         TaskAttemptState.SUSPEND_PENDING, TaskAttemptEventType.TA_SUSPEND,
+         new SuspendPendingTransition())
+     
+     // Transitions from SUSPEND_PENDING state.    
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.RUNNING, TaskAttemptEventType.TA_RESUME,
+         new ResumeTransition())
+         
      // Transitions from COMMIT_PENDING state
      .addTransition(TaskAttemptState.COMMIT_PENDING,
          TaskAttemptState.COMMIT_PENDING, TaskAttemptEventType.TA_UPDATE,
@@ -418,6 +428,9 @@ public abstract class TaskAttemptImpl implements
              TaskAttemptEventType.TA_DONE,
              TaskAttemptEventType.TA_FAILMSG))
 
+     // Transitions from SUSPEND_PENDING state
+     // (none yet!!!)
+             
      // create the topology tables
      .installTopology();
 
@@ -852,11 +865,17 @@ public abstract class TaskAttemptImpl implements
       } catch (InvalidStateTransitonException e) {
         LOG.error("Can't handle this event at current state for "
             + this.attemptId, e);
-        eventHandler.handle(new JobDiagnosticsUpdateEvent(
-            this.attemptId.getTaskId().getJobId(), "Invalid event " + event.getType() + 
-            " on TaskAttempt " + this.attemptId));
-        eventHandler.handle(new JobEvent(this.attemptId.getTaskId().getJobId(),
-            JobEventType.INTERNAL_ERROR));
+        if (!event.getType().equals(TaskAttemptEventType.TA_SUSPEND)
+            && !event.getType().equals(TaskAttemptEventType.TA_DIAGNOSTICS_UPDATE)
+            && !oldState.equals(TaskAttemptState.SUSPEND_PENDING)
+            && false) { // TODO: (bcho2) remove this once state machine is completely implemented
+          LOG.error("(bcho2) inside if block");
+          eventHandler.handle(new JobDiagnosticsUpdateEvent(
+              this.attemptId.getTaskId().getJobId(), "Invalid event " + event.getType() + 
+              " on TaskAttempt " + this.attemptId));
+          eventHandler.handle(new JobEvent(this.attemptId.getTaskId().getJobId(),
+              JobEventType.INTERNAL_ERROR));
+        }
       }
       if (oldState != getState()) {
           LOG.info(attemptId + " TaskAttempt Transitioned from " 
@@ -1186,6 +1205,24 @@ public abstract class TaskAttemptImpl implements
     }
   }
 
+  private static class SuspendPendingTransition implements
+      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+    @Override
+    public void transition(TaskAttemptImpl taskAttempt, 
+        TaskAttemptEvent event) {
+      LOG.info("(bcho2) suspend pending transition!");
+    }
+  }
+
+  private static class ResumeTransition implements
+      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+    @Override
+    public void transition(TaskAttemptImpl taskAttempt, 
+        TaskAttemptEvent event) {
+      LOG.info("(bcho2) back to running state transition!");
+    }
+  }
+  
   private static class TaskCleanupTransition implements
       SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
     @SuppressWarnings("unchecked")

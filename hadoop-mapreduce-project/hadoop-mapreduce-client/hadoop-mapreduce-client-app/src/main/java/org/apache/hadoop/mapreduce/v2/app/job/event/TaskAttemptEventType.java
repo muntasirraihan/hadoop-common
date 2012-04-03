@@ -29,6 +29,8 @@ public enum TaskAttemptEventType {
 
   //Producer:Client, Task
   TA_KILL,
+  TA_SUSPEND,
+  TA_RESUME,
 
   //Producer:ContainerAllocator
   TA_ASSIGNED,

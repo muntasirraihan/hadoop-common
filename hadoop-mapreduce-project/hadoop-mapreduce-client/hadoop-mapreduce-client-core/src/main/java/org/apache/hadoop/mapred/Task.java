@@ -543,6 +543,12 @@ abstract public class Task implements Writable, Configurable {
     }
   }
   
+  public boolean suspend() {
+    System.err.println("(bcho2) -- suspend called!");
+    LOG.info("(bcho2) -- suspend called!");
+    return true;
+  }
+  
   @InterfaceAudience.Private
   @InterfaceStability.Unstable
   protected class TaskReporter 
@@ -683,6 +689,10 @@ abstract public class Task implements Writable, Configurable {
             System.exit(66);
           }
 
+          if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
+            suspend();
+          }
+          
           sendProgress = resetProgressFlag(); 
           remainingRetries = MAX_RETRIES;
         } 
