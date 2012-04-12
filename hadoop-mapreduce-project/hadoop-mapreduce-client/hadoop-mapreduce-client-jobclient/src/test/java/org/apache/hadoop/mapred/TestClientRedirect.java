@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.Counter;
@@ -490,6 +492,13 @@ public class TestClientRedirect {
     public SuspendTaskAttemptResponse suspendTaskAttempt(
         SuspendTaskAttemptRequest request) throws YarnRemoteException {
       LOG.info("(bcho2)3");
+      return null;
+    }
+
+    @Override
+    public ResumeTaskResponse resumeTask(ResumeTaskRequest request)
+        throws YarnRemoteException {
+      LOG.info("(bcho2)3b");
       return null;
     }
   }

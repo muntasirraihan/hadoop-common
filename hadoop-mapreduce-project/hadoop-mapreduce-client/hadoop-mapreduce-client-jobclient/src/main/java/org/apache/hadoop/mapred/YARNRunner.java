@@ -45,6 +45,7 @@ import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.QueueAclsInfo;
 import org.apache.hadoop.mapreduce.QueueInfo;
+import org.apache.hadoop.mapreduce.TaskID;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TaskCompletionEvent;
 import org.apache.hadoop.mapreduce.TaskReport;
@@ -495,6 +496,12 @@ public class YARNRunner implements ClientProtocol {
       InterruptedException {
     return clientCache.getClient(arg0.getJobID()).suspendTask(arg0);
   }
+
+  @Override
+  public boolean resumeTask(TaskID arg0) throws IOException,
+      InterruptedException {
+    return clientCache.getClient(arg0.getJobID()).resumeTask(arg0);
+  }  
   
   @Override
   public AccessControlList getQueueAdmins(String arg0) throws IOException {

@@ -656,6 +656,18 @@ public class Job extends JobContextImpl implements JobContext {
       throws IOException, InterruptedException {
     ensureState(JobState.RUNNING);
     return cluster.getClient().suspendTask(taskId);
+  }
+  
+  /**
+   * Suspend indicated task attempt.
+   * 
+   * @param taskId the id of the task to be suspended.
+   * @throws IOException
+   */
+  public boolean resumeTask(TaskID taskId) 
+      throws IOException, InterruptedException {
+    ensureState(JobState.RUNNING);
+    return cluster.getClient().resumeTask(taskId);
   }  
   
   /**

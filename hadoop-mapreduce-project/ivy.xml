@@ -60,6 +60,8 @@
    <dependency org="org.apache.hadoop" name="hadoop-annotations" rev="${hadoop-common.version}" conf="compile->default"/>
    <dependency org="org.apache.hadoop" name="hadoop-common" 
                rev="${hadoop-common.version}" conf="compile->default">
+     <artifact name="hadoop-mapreduce-client-core" ext="jar" />
+     <artifact name="hadoop-mapreduce-client-common" ext="jar" />
      <artifact name="hadoop-common" ext="jar" />
      <artifact name="hadoop-common" type="tests" ext="jar" m:classifier="tests" />
    </dependency>

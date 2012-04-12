@@ -78,6 +78,7 @@ abstract public class Task implements Writable, Configurable {
   private static final Log LOG =
     LogFactory.getLog(Task.class);
 
+  public static String SUSPEND_MSG = "(bcho2)suspended:";
   public static String MERGED_OUTPUT_PREFIX = ".merged";
   public static final long DEFAULT_COMBINE_RECORDS_BEFORE_PROGRESS = 10000;
 
@@ -544,8 +545,8 @@ abstract public class Task implements Writable, Configurable {
   }
   
   public boolean suspend() {
-    System.err.println("(bcho2) -- suspend called!");
-    LOG.info("(bcho2) -- suspend called!");
+    System.err.println(SUSPEND_MSG+"secret");
+    LOG.info(SUSPEND_MSG+"secret");
     return true;
   }
   

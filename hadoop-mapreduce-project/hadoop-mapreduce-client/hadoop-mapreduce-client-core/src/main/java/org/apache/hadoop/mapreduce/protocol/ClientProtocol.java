@@ -34,6 +34,7 @@ import org.apache.hadoop.mapreduce.QueueAclsInfo;
 import org.apache.hadoop.mapreduce.QueueInfo;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TaskCompletionEvent;
+import org.apache.hadoop.mapreduce.TaskID;
 import org.apache.hadoop.mapreduce.TaskReport;
 import org.apache.hadoop.mapreduce.TaskTrackerInfo;
 import org.apache.hadoop.mapreduce.TaskType;
@@ -189,12 +190,17 @@ public interface ClientProtocol extends VersionedProtocol {
   throws IOException, InterruptedException;
 
   /**
-   * Kill indicated task attempt.
-   * @param taskId the id of the task to kill.
-   * @param shouldFail if true the task is failed and added to failed tasks list, otherwise
-   * it is just killed, w/o affecting job failure status.  
+   * Suspend indicated task attempt.
+   * @param taskId the id of the task attempt to suspend.
    */ 
   public boolean suspendTask(TaskAttemptID taskId) 
+  throws IOException, InterruptedException;
+
+  /**
+   * Resume indicated task.
+   * @param taskId the id of the task to resume.
+   */ 
+  public boolean resumeTask(TaskID taskId) 
   throws IOException, InterruptedException;
   
   /**

@@ -18,42 +18,26 @@
 
 package org.apache.hadoop.mapreduce.v2.app.job.event;
 
-/**
- * Event types handled by TaskAttempt.
- */
-public enum TaskAttemptEventType {
+import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 
-  //Producer:Task
-  TA_SCHEDULE,
-  TA_RESCHEDULE,
+public class TaskAttemptResumeEvent extends TaskAttemptEvent {
 
-  //Producer:Client, Task
-  TA_KILL,
-  TA_SUSPEND,
-  TA_RESUME_FOR_TESTING, // (bcho2) TODO: eventually remove this
-  TA_RESUME,
-  
-  //Producer:ContainerAllocator
-  TA_ASSIGNED,
-  TA_CONTAINER_COMPLETED,
+  private final ContainerId suspendedContainerId;
+  private final String suspendedHostname;
 
-  //Producer:ContainerLauncher
-  TA_CONTAINER_LAUNCHED,
-  TA_CONTAINER_LAUNCH_FAILED,
-  TA_CONTAINER_CLEANED,
+  public TaskAttemptResumeEvent(TaskAttemptId id,
+      ContainerId suspendedContainerId, String suspendedHostname) {
+    super(id, TaskAttemptEventType.TA_RESUME);
+    this.suspendedContainerId = suspendedContainerId;
+    this.suspendedHostname = suspendedHostname;
+  }
 
-  //Producer:TaskAttemptListener
-  TA_DIAGNOSTICS_UPDATE,
-  TA_COMMIT_PENDING, 
-  TA_DONE,
-  TA_FAILMSG,
-  TA_UPDATE,
-  TA_TIMED_OUT,
-  TA_SUSPEND_DONE,
+  public ContainerId getSuspendedContainerId() {
+    return suspendedContainerId;
+  }
 
-  //Producer:TaskCleaner
-  TA_CLEANUP_DONE,
-
-  //Producer:Job
-  TA_TOO_MANY_FETCH_FAILURE,
+  public String getSuspendedHostname() {
+    return suspendedHostname;
+  }
 }

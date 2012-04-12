@@ -3905,6 +3905,14 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
     return true;
   }
 
+  // bcho2
+  @Override
+  public synchronized boolean resumeTask(
+      org.apache.hadoop.mapreduce.TaskID taskid) throws IOException {
+    LOG.warn("(bcho2) resume task called at JobTracker");
+    return true;
+  }
+
   /**
    * @see org.apache.hadoop.mapreduce.protocol.ClientProtocol#killTask(org.apache.hadoop.mapreduce.TaskAttemptID,
    *      boolean)

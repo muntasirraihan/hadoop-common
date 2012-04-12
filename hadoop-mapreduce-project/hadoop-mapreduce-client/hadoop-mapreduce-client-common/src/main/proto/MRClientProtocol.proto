@@ -36,4 +36,5 @@ service MRClientProtocolService {
   rpc killTaskAttempt (KillTaskAttemptRequestProto) returns (KillTaskAttemptResponseProto);
   rpc failTaskAttempt (FailTaskAttemptRequestProto) returns (FailTaskAttemptResponseProto);
   rpc suspendTaskAttempt (SuspendTaskAttemptRequestProto) returns (SuspendTaskAttemptResponseProto);
+  rpc resumeTask (ResumeTaskRequestProto) returns (ResumeTaskResponseProto);
 }

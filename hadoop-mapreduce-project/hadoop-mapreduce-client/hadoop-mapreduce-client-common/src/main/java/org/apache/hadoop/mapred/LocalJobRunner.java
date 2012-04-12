@@ -610,6 +610,12 @@ public class LocalJobRunner implements ClientProtocol {
     throw new UnsupportedOperationException("Suspending tasks in " +
     "LocalJobRunner is not supported");
   }
+
+  /** Throws {@link UnsupportedOperationException} */
+  public boolean resumeTask(org.apache.hadoop.mapreduce.TaskID taskId) throws IOException {
+    throw new UnsupportedOperationException("Resuming tasks in " +
+    "LocalJobRunner is not supported");
+  }
   
   public org.apache.hadoop.mapreduce.TaskReport[] getTaskReports(
       org.apache.hadoop.mapreduce.JobID id, TaskType type) {

@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.JobStatus;
+import org.apache.hadoop.mapreduce.TaskID;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TaskType;
 import org.apache.hadoop.mapreduce.TypeConverter;
@@ -55,6 +56,7 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillJobRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
 import org.apache.hadoop.mapreduce.v2.api.records.Counters;
@@ -404,18 +406,30 @@ public class ClientServiceDelegate {
   
   public boolean suspendTask(TaskAttemptID taskAttemptID)
        throws YarnRemoteException {
-    // TODO: implement (bcho2)
-    LOG.info("(bcho2)");
+    LOG.info("(bcho2) entering suspendTask");
     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID
       = TypeConverter.toYarn(taskAttemptID);
     SuspendTaskAttemptRequest suspendRequest =
       recordFactory.newRecordInstance(SuspendTaskAttemptRequest.class);
     suspendRequest.setTaskAttemptId(attemptID);
     invoke("suspendTaskAttempt", SuspendTaskAttemptRequest.class, suspendRequest);
-    LOG.info("(bcho2)");
+    LOG.info("(bcho2) leaving suspendTask");
     return true;
   }  
 
+  public boolean resumeTask(TaskID taskID)
+      throws YarnRemoteException {
+    LOG.info("(bcho2) entering resumeTask");
+    org.apache.hadoop.mapreduce.v2.api.records.TaskId tID = TypeConverter
+        .toYarn(taskID);
+    ResumeTaskRequest resumeRequest = 
+      recordFactory.newRecordInstance(ResumeTaskRequest.class);
+    resumeRequest.setTaskId(tID);
+    invoke("resumeTask", ResumeTaskRequest.class, resumeRequest);
+    LOG.info("(bcho2) leaving resumeTask");
+    return true;
+  }  
+  
   public boolean killJob(JobID oldJobID)
        throws YarnRemoteException {
     org.apache.hadoop.mapreduce.v2.api.records.JobId jobId

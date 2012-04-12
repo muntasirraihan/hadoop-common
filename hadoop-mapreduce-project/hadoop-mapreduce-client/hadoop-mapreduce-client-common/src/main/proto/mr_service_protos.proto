@@ -106,3 +106,8 @@ message SuspendTaskAttemptRequestProto {
 message SuspendTaskAttemptResponseProto {
 }
 
+message ResumeTaskRequestProto {
+  optional TaskIdProto task_id = 1;
+}
+message ResumeTaskResponseProto {
+}

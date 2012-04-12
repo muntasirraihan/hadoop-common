@@ -333,6 +333,8 @@ public class SuspendTest extends Configured implements Tool {
         try {
           if (suspend.contains("suspend")) {
               job.suspendTask(taskAttemptId);
+              Thread.sleep(2000);
+              job.resumeTask(taskAttemptId.getTaskID());
           } else if (suspend.contains("kill")) {
             job.killTask(taskAttemptId);
           } else if (suspend.contains("fail")) {

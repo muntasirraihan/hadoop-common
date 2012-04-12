@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.JobId;
@@ -253,11 +255,18 @@ public class HistoryClientService extends AbstractService {
     
     @Override
     public SuspendTaskAttemptResponse suspendTaskAttempt(SuspendTaskAttemptRequest request) throws YarnRemoteException {
-      LOG.info("(bcho2)4");
+      LOG.info("(bcho2)4a");
       // throw RPCUtil.getRemoteException("(bcho2) Invalid operation on completed job");
       return null;
     }
 
+    @Override
+    public ResumeTaskResponse resumeTask(ResumeTaskRequest request) throws YarnRemoteException {
+      LOG.info("(bcho2)4b");
+      // throw RPCUtil.getRemoteException("(bcho2) Invalid operation on completed job");
+      return null;
+    }
+    
     @Override
     public GetDiagnosticsResponse getDiagnostics(GetDiagnosticsRequest request) throws YarnRemoteException {
       TaskAttemptId taskAttemptId = request.getTaskAttemptId();

@@ -80,7 +80,13 @@ class YarnChild {
     int jvmIdInt = Integer.parseInt(args[3]);
     JVMId jvmId = new JVMId(firstTaskid.getJobID(),
         firstTaskid.getTaskType() == TaskType.MAP, jvmIdInt);
-
+    // (bcho2)
+    String suspendedContainerStr =  null;
+    if (args.length > 4) {
+      suspendedContainerStr = args[4];
+      LOG.info("(bcho2) suspended container was passed to YarnChild! "+suspendedContainerStr);
+    }
+    
     // initialize metrics
     DefaultMetricsSystem.initialize(
         StringUtils.camelize(firstTaskid.getTaskType().name()) +"Task");

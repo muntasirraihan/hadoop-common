@@ -55,6 +55,7 @@ import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.service.CompositeService;
 
 /**
@@ -484,9 +485,22 @@ public class TaskAttemptListenerImpl extends CompositeService
     
     // (bcho2) TODO: for now, just send RESUME, to put back to RUNNING state
     if (shouldSuspend) {
+      // Send the containerID info with the suspend request
+      ContainerId suspendContainerId = 
+        task.getAttempt(attemptID).getAssignedContainerID();
+      if (suspendContainerId == null) {
+        LOG.info("(bcho2) containerId is null, that's strange.");
+      } else {
+        LOG.info("(bcho2) containerId received on suspend: "+suspendContainerId.toString());
+      }
+      
+//      context.getEventHandler().handle(
+//          new TaskAttemptEvent(attemptID, 
+//              TaskAttemptEventType.TA_RESUME_FOR_TESTING));
+
       context.getEventHandler().handle(
           new TaskAttemptEvent(attemptID, 
-              TaskAttemptEventType.TA_RESUME));
+              TaskAttemptEventType.TA_SUSPEND_DONE));
     }
     
     return shouldSuspend;

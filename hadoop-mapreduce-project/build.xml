@@ -1233,6 +1233,8 @@
   </target>   
 
   <target name="clean-cache" description="Clean. Delete ivy cache">
+    <delete dir="${user.home}/.ivy2/cache/org.apache.hadoop/hadoop-mapreduce-client-core"/>
+    <delete dir="${user.home}/.ivy2/cache/org.apache.hadoop/hadoop-mapreduce-client-common"/>
     <delete dir="${user.home}/.ivy2/cache/org.apache.hadoop/hadoop-common"/>
     <delete dir="${user.home}/.ivy2/cache/org.apache.hadoop/hadoop-common-test"/>
     <delete dir="${user.home}/.ivy2/cache/org.apache.hadoop/hadoop-hdfs"/>

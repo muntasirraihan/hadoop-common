@@ -175,7 +175,7 @@ public class MapReduceChildJVM {
 
   public static List<String> getVMCommand(
       InetSocketAddress taskAttemptListenerAddr, Task task, 
-      ID jvmID) {
+      ID jvmID, String suspendedContainerStr) {
 
     TaskAttemptID attemptID = task.getTaskID();
     JobConf conf = task.conf;
@@ -248,6 +248,8 @@ public class MapReduceChildJVM {
 
     // Finally add the jvmID
     vargs.add(String.valueOf(jvmID.getId()));
+    // (bcho2) add the suspendedContainerID
+    vargs.add(suspendedContainerStr);
     vargs.add("1>" + getTaskLogFile(TaskLog.LogName.STDOUT));
     vargs.add("2>" + getTaskLogFile(TaskLog.LogName.STDERR));
 

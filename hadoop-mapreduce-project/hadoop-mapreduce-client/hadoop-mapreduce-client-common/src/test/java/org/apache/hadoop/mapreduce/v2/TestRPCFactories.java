@@ -48,6 +48,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.net.NetUtils;
@@ -207,6 +209,14 @@ public class TestRPCFactories {
     public SuspendTaskAttemptResponse suspendTaskAttempt(
         SuspendTaskAttemptRequest request) throws YarnRemoteException {
       System.err.println("(bcho2)2");
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public ResumeTaskResponse resumeTask(ResumeTaskRequest request)
+        throws YarnRemoteException {
+      System.err.println("(bcho2)2b");
       // TODO Auto-generated method stub
       return null;
     }    

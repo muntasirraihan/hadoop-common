@@ -45,6 +45,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.CounterGroup;
@@ -109,6 +111,18 @@ public class NotRunningJob implements MRClientProtocol {
       recordFactory.newRecordInstance(SuspendTaskAttemptResponse.class);
     return resp;
   }
+
+  @Override
+  public ResumeTaskResponse resumeTask(
+      ResumeTaskRequest request) throws YarnRemoteException {
+    System.err.println("(bcho2): NotRunningJob");
+    /*if (true)
+      throw new YarnRemoteExceptionPBImpl("(bcho2)");*/
+    ResumeTaskResponse resp =
+      recordFactory.newRecordInstance(ResumeTaskResponse.class);
+    return resp;
+  }
+  
   @Override
   public GetCountersResponse getCounters(GetCountersRequest request)
       throws YarnRemoteException {

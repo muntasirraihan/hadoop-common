@@ -78,6 +78,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptContainerLaunched
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent.TaskAttemptStatus;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
@@ -112,6 +113,7 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.proto.YarnProtos.ContainerIdProto;
 import org.apache.hadoop.yarn.state.InvalidStateTransitonException;
 import org.apache.hadoop.yarn.state.SingleArcTransition;
 import org.apache.hadoop.yarn.state.StateMachine;
@@ -120,6 +122,7 @@ import org.apache.hadoop.yarn.util.Apps;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.RackResolver;
+import org.apache.hadoop.yarn.util.Records;
 
 
 /**
@@ -161,7 +164,6 @@ public abstract class TaskAttemptImpl implements
   private int shufflePort = -1;
   private String trackerName;
   private int httpPort;
-  private boolean shouldSuspend; // (bcho2) This should be changed within a state machine transition
 
   private static final CleanupContainerTransition CLEANUP_CONTAINER_TRANSITION =
     new CleanupContainerTransition();
@@ -182,6 +184,8 @@ public abstract class TaskAttemptImpl implements
          TaskAttemptEventType.TA_SCHEDULE, new RequestContainerTransition(false))
      .addTransition(TaskAttemptState.NEW, TaskAttemptState.UNASSIGNED,
          TaskAttemptEventType.TA_RESCHEDULE, new RequestContainerTransition(true))
+     .addTransition(TaskAttemptState.NEW, TaskAttemptState.UNASSIGNED,
+         TaskAttemptEventType.TA_RESUME, new RequestResumeContainerTransition())
      .addTransition(TaskAttemptState.NEW, TaskAttemptState.KILLED,
          TaskAttemptEventType.TA_KILL, new KilledTransition())
      .addTransition(TaskAttemptState.NEW, TaskAttemptState.FAILED,
@@ -257,9 +261,12 @@ public abstract class TaskAttemptImpl implements
          new SuspendPendingTransition())
      
      // Transitions from SUSPEND_PENDING state.    
+     .addTransition(TaskAttemptState.SUSPEND_PENDING, // TODO: this is not longer valid; remove
+         TaskAttemptState.RUNNING, TaskAttemptEventType.TA_RESUME_FOR_TESTING,
+         new ResumeTestTransition())
      .addTransition(TaskAttemptState.SUSPEND_PENDING,
-         TaskAttemptState.RUNNING, TaskAttemptEventType.TA_RESUME,
-         new ResumeTransition())
+         TaskAttemptState.SUSPENDED, TaskAttemptEventType.TA_SUSPEND_DONE,
+         new SuspendedTransition())
          
      // Transitions from COMMIT_PENDING state
      .addTransition(TaskAttemptState.COMMIT_PENDING,
@@ -446,6 +453,8 @@ public abstract class TaskAttemptImpl implements
   private WrappedJvmID jvmID;
   private ContainerToken containerToken;
   private Resource assignedCapability;
+  private ContainerId suspendedContainerID; // TODO: getter/setter
+  private String suspendedHostname; // TODO: getter/setter
   
   //this takes good amount of memory ~ 30KB. Instantiate it lazily
   //and make it null once task is launched.
@@ -648,8 +657,8 @@ public abstract class TaskAttemptImpl implements
 
     // Set up the launch command
     List<String> commands = MapReduceChildJVM.getVMCommand(
-        taskAttemptListener.getAddress(), remoteTask,
-        jvmID);
+        taskAttemptListener.getAddress(), remoteTask, jvmID,
+        (suspendedContainerID == null) ? "" : suspendedContainerID.toString()); // (bcho2)
     
     // Construct the actual Container
     ContainerLaunchContext container = BuilderUtils
@@ -659,7 +668,7 @@ public abstract class TaskAttemptImpl implements
 
     return container;
   }
-
+  
   @Override
   public ContainerId getAssignedContainerID() {
     readLock.lock();
@@ -1033,6 +1042,24 @@ public abstract class TaskAttemptImpl implements
       }
     }
   }
+  
+  private static class RequestResumeContainerTransition implements
+      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+    @SuppressWarnings("unchecked")
+    @Override
+    public void transition(TaskAttemptImpl taskAttempt, TaskAttemptEvent event) {
+      TaskAttemptResumeEvent rEvent = (TaskAttemptResumeEvent)event;
+      taskAttempt.suspendedHostname = rEvent.getSuspendedHostname();
+      taskAttempt.suspendedContainerID = rEvent.getSuspendedContainerId();
+      // Tell any speculator that we're requesting a container
+      taskAttempt.eventHandler.handle(new SpeculatorEvent(taskAttempt.getID()
+          .getTaskId(), +1));
+      // request for container
+      taskAttempt.eventHandler.handle(new ContainerRequestEvent(
+          taskAttempt.attemptId, taskAttempt.resourceCapability,
+          new String[]{taskAttempt.suspendedHostname}, new String[]{}));
+    }
+  }
 
   private static class ContainerAssignedTransition implements
       SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
@@ -1046,6 +1073,14 @@ public abstract class TaskAttemptImpl implements
       taskAttempt.containerNodeId = cEvent.getContainer().getNodeId();
       taskAttempt.containerMgrAddress = taskAttempt.containerNodeId
           .toString();
+      // (bcho2)
+      LOG.info("(bcho2) containerMgrAddress:"+taskAttempt.containerMgrAddress+
+          ", suspendedHostname:"+taskAttempt.suspendedHostname);
+      if (taskAttempt.suspendedHostname != null &&
+          !taskAttempt.suspendedHostname.equals(taskAttempt.containerMgrAddress)) {
+        // TODO: Kill this task attempt
+        LOG.error("(bcho2) Suspended Hostname and Container Hostname do not match!");
+      }
       taskAttempt.nodeHttpAddress = cEvent.getContainer().getNodeHttpAddress();
       taskAttempt.nodeRackName = RackResolver.resolve(
           taskAttempt.containerNodeId.getHost()).getNetworkLocation();
@@ -1214,12 +1249,43 @@ public abstract class TaskAttemptImpl implements
     }
   }
 
-  private static class ResumeTransition implements
-      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+  private static class ResumeTestTransition implements
+      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> { // TODO: this is no longer valid
     @Override
     public void transition(TaskAttemptImpl taskAttempt, 
         TaskAttemptEvent event) {
       LOG.info("(bcho2) back to running state transition!");
+    }
+  }
+
+  private static class SuspendedTransition implements
+      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+    @Override
+    public void transition(TaskAttemptImpl taskAttempt, 
+        TaskAttemptEvent event) {
+
+      //set the finish time
+      taskAttempt.setFinishTime();
+      // TODO: talk to history
+      /*
+      if (taskAttempt.getLaunchTime() != 0) {
+        taskAttempt.eventHandler
+            .handle(createJobCounterUpdateEventTAFailed(taskAttempt));
+        TaskAttemptUnsuccessfulCompletionEvent tauce =
+            createTaskAttemptUnsuccessfulCompletionEvent(taskAttempt,
+                TaskAttemptState.KILLED);
+        taskAttempt.eventHandler.handle(new JobHistoryEvent(
+            taskAttempt.attemptId.getTaskId().getJobId(), tauce));
+      }else {
+        LOG.debug("Not generating HistoryFinish event since start event not generated for taskAttempt: "
+            + taskAttempt.getID());
+      }
+      */
+//      taskAttempt.logAttemptFinishedEvent(TaskAttemptState.KILLED); Not logging Map/Reduce attempts in case of failure.
+      taskAttempt.eventHandler.handle(new TaskTAttemptEvent(
+          taskAttempt.attemptId,
+          TaskEventType.T_ATTEMPT_SUSPENDED));
+    
     }
   }
   
