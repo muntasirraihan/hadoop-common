@@ -175,7 +175,7 @@ public class MapReduceChildJVM {
 
   public static List<String> getVMCommand(
       InetSocketAddress taskAttemptListenerAddr, Task task, 
-      ID jvmID, String suspendedContainerStr) {
+      ID jvmID, String suspendedContainerStr, String suspendedAttemptStr) {
 
     TaskAttemptID attemptID = task.getTaskID();
     JobConf conf = task.conf;
@@ -249,7 +249,10 @@ public class MapReduceChildJVM {
     // Finally add the jvmID
     vargs.add(String.valueOf(jvmID.getId()));
     // (bcho2) add the suspendedContainerID
-    vargs.add(suspendedContainerStr);
+    vargs.add(suspendedAttemptStr);
+    // TODO: used to be suspendedAttemptStr; now doesn't seem needed?
+    vargs.add(ApplicationConstants.LOG_DIR_EXPANSION_VAR +
+        Path.SEPARATOR + ".." + Path.SEPARATOR + suspendedContainerStr);
     vargs.add("1>" + getTaskLogFile(TaskLog.LogName.STDOUT));
     vargs.add("2>" + getTaskLogFile(TaskLog.LogName.STDERR));
 

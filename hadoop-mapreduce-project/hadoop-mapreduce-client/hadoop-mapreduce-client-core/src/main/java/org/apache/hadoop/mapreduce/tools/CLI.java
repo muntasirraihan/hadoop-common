@@ -38,6 +38,7 @@ import org.apache.hadoop.mapreduce.JobPriority;
 import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TaskCompletionEvent;
+import org.apache.hadoop.mapreduce.TaskID;
 import org.apache.hadoop.mapreduce.TaskReport;
 import org.apache.hadoop.mapreduce.TaskTrackerInfo;
 import org.apache.hadoop.mapreduce.TaskType;
@@ -83,6 +84,8 @@ public class CLI extends Configured implements Tool {
     String taskState = null;
     int fromEvent = 0;
     int nEvents = 0;
+    float progress = 0.0f;
+    long interval = 10000;
     boolean getStatus = false;
     boolean getCounter = false;
     boolean killJob = false;
@@ -95,7 +98,10 @@ public class CLI extends Configured implements Tool {
     boolean listBlacklistedTrackers = false;
     boolean displayTasks = false;
     boolean killTask = false;
+    boolean suspendTask = false;
+    boolean waitAndSuspendTask = false;
     boolean failTask = false;
+    boolean resumeTask = false;
     boolean setJobPriority = false;
     boolean logs = false;
 
@@ -180,12 +186,35 @@ public class CLI extends Configured implements Tool {
       }
       killTask = true;
       taskid = argv[1];
+    } else if("-suspend-task".equals(cmd)) {
+      if (argv.length != 2) {
+        displayUsage(cmd);
+        return exitCode;
+      }
+      suspendTask = true;
+      taskid = argv[1];
+    } else if("-wait-and-suspend-task".equals(cmd)) {
+      if (argv.length != 4) {
+        displayUsage(cmd);
+        return exitCode;
+      }
+      waitAndSuspendTask = true;
+      taskid = argv[1];
+      interval = Long.parseLong(argv[2]);
+      progress = Float.parseFloat(argv[3]);
     } else if("-fail-task".equals(cmd)) {
       if (argv.length != 2) {
         displayUsage(cmd);
         return exitCode;
       }
       failTask = true;
+      taskid = argv[1];
+    } else if("-resume-task".equals(cmd)) {
+      if (argv.length != 2) {
+        displayUsage(cmd);
+        return exitCode;
+      }
+      resumeTask = true;
       taskid = argv[1];
     } else if ("-list-active-trackers".equals(cmd)) {
       if (argv.length != 1) {
@@ -317,6 +346,42 @@ public class CLI extends Configured implements Tool {
           System.out.println("Could not kill task " + taskid);
           exitCode = -1;
         }
+      } else if(suspendTask) {
+        TaskAttemptID taskID = TaskAttemptID.forName(taskid);
+        Job job = cluster.getJob(taskID.getJobID());
+        if (job == null) {
+          System.out.println("Could not find job " + jobid);
+        } else if (job.suspendTask(taskID)) {
+          System.out.println("Called suspend task " + taskid);
+          exitCode = 0;
+        } else {
+          System.out.println("Could not suspend task " + taskid);
+          exitCode = -1;
+        }
+      } else if(waitAndSuspendTask) {
+        TaskAttemptID taskID = TaskAttemptID.forName(taskid);
+        Job job = cluster.getJob(taskID.getJobID());
+        if (job == null) {
+          System.out.println("Could not find job " + jobid);
+        } else {
+          float currentProgress = 0.0f;
+          while (!job.isComplete()) {
+            if ((currentProgress = job.getStatus().getReduceProgress()) > progress) {
+              System.out.println("(bcho2) Progress "+currentProgress+"; breaking");
+              break;
+            } else {
+              System.out.println("(bcho2) Progress "+currentProgress+" sleep "+interval);
+              Thread.sleep(interval);
+            }
+          }
+          if (job.suspendTask(taskID)) {
+            System.out.println("Called suspend task " + taskid);
+            exitCode = 0;
+          } else {
+            System.out.println("Could not suspend task " + taskid);
+            exitCode = -1;
+          }
+        }        
       } else if(failTask) {
         TaskAttemptID taskID = TaskAttemptID.forName(taskid);
         Job job = cluster.getJob(taskID.getJobID());
@@ -327,6 +392,18 @@ public class CLI extends Configured implements Tool {
           exitCode = 0;
         } else {
           System.out.println("Could not fail task " + taskid);
+          exitCode = -1;
+        }
+      } else if(resumeTask) {
+        TaskID taskID = TaskID.forName(taskid);
+        Job job = cluster.getJob(taskID.getJobID());
+        if (job == null) {
+            System.out.println("Could not find job " + jobid);
+        } else if(job.resumeTask(taskID)) {
+          System.out.println("Called resume task " + taskID);
+          exitCode = 0;
+        } else {
+          System.out.println("Could not resume task " + taskid);
           exitCode = -1;
         }
       } else if (logs) {
@@ -397,8 +474,13 @@ public class CLI extends Configured implements Tool {
       System.err.println(prefix + "[" + cmd + " <jobHistoryFile>]");
     } else if ("-list".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + " [all]]");
-    } else if ("-kill-task".equals(cmd) || "-fail-task".equals(cmd)) {
+    } else if ("-kill-task".equals(cmd) || "-fail-task".equals(cmd) ||
+        "-suspend-task".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + " <task-attempt-id>]");
+    } else if ("-resume-task".equals(cmd)) {
+      System.err.println(prefix + "[" + cmd + " <task-id>]");
+    } else if ("-wait-and-suspend-task".equals(cmd)) {
+      System.err.println(prefix + "[" + cmd + " <task-attempt-id> <poll-interval> <progress-threshold>");
     } else if ("-set-priority".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + " <job-id> <priority>]. " +
           "Valid values for priorities are: " 
@@ -435,6 +517,8 @@ public class CLI extends Configured implements Tool {
         "Valid values for <task-state> are " + taskStates);
       System.err.printf("\t[-kill-task <task-attempt-id>]\n");
       System.err.printf("\t[-fail-task <task-attempt-id>]\n");
+      System.err.printf("\t[-suspend-task <task-attempt-id>]\n");
+      System.err.printf("\t[-resume-task <task-id>]\n");
       System.err.printf("\t[-logs <job-id> <task-attempt-id>]\n\n");
       ToolRunner.printGenericCommandUsage(System.out);
     }

@@ -53,6 +53,7 @@ public class NullOutputFormat<K, V> extends OutputFormat<K, V> {
       public void abortTask(TaskAttemptContext taskContext) { }
       public void cleanupJob(JobContext jobContext) { }
       public void commitTask(TaskAttemptContext taskContext) { }
+      public void commitTask(TaskAttemptContext taskContext, String suspendedAttemptId) { }
       public boolean needsTaskCommit(TaskAttemptContext taskContext) {
         return false;
       }

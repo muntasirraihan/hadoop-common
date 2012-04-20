@@ -161,6 +161,10 @@ abstract public class Task implements Writable, Configurable {
   protected SecretKey tokenSecret;
   protected GcTimeUpdater gcUpdater;
 
+  // (bcho2)
+  protected String suspendedContainerLogDirStr;
+  protected String suspendedAttemptStr;
+  
   ////////////////////////////////////////////
   // Constructors
   ////////////////////////////////////////////
@@ -544,7 +548,7 @@ abstract public class Task implements Writable, Configurable {
     }
   }
   
-  public boolean suspend() {
+  public boolean suspend() { // (bcho2) TODO: should be moved to ReduceTask? Or just override at ReduceTask...
     System.err.println(SUSPEND_MSG+"secret");
     LOG.info(SUSPEND_MSG+"secret");
     return true;
@@ -919,6 +923,7 @@ abstract public class Task implements Writable, Configurable {
           }
         }
       }
+      
       //wait for commit approval and commit
       commit(umbilical, reporter, committer);
     }
@@ -1058,7 +1063,12 @@ abstract public class Task implements Writable, Configurable {
     // task can Commit now  
     try {
       LOG.info("Task " + taskId + " is allowed to commit now");
-      committer.commitTask(taskContext);
+      if (suspendedAttemptStr != null) {
+        // (bcho2) if a resumed task, then make sure to concat before commit
+        committer.commitTask(taskContext, suspendedAttemptStr);
+      } else {
+        committer.commitTask(taskContext);
+      }
       return;
     } catch (IOException iee) {
       LOG.warn("Failure committing: " + 

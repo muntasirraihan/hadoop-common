@@ -527,16 +527,17 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
   
-  private void addAndResumeAttempt(String hostname, ContainerId containerId) {
+  private void addAndResumeAttempt(String hostname, TaskAttemptId attemptId, ContainerId containerId) {
     TaskAttempt attempt = createAttempt(); // TODO: create new attempt, with containerId and hostname
-    LOG.info("Created resume attempt "+attempt.getID()+
-        ", resuming container "+containerId+
+    LOG.info("(bcho2) Created resume attempt "+attempt.getID()+
+        ", suspended container "+containerId+
+        ", suspended TAID "+attemptId+
         ", at host "+hostname);
     addAttempt(attempt);
     
     //schedule the nextAttemptNumber
     eventHandler.handle(new TaskAttemptResumeEvent(attempt.getID(),
-        containerId, hostname));
+        hostname, attemptId, containerId));
     // TODO: How does AppMaster recover on the same node? Will there be an analogous way to do this?
   }
 
@@ -952,9 +953,11 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         LOG.info("(bcho2) Scheduling a resume attempt for task " + task.taskId);
         String hostname =
           suspendedTaskAttempt.getAssignedContainerMgrAddress();
+        TaskAttemptId suspendedAttemptId = 
+          suspendedTaskAttempt.getID();
         ContainerId suspendedContainerId = 
           suspendedTaskAttempt.getAssignedContainerID();
-        task.addAndResumeAttempt(hostname, suspendedContainerId);
+        task.addAndResumeAttempt(hostname, suspendedAttemptId, suspendedContainerId);
       } else {
         LOG.info("(bcho2) There was no suspendedTaskAttempt, so ignoring resume");
       }

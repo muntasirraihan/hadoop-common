@@ -659,9 +659,9 @@ public class Job extends JobContextImpl implements JobContext {
   }
   
   /**
-   * Suspend indicated task attempt.
+   * Resume indicated task attempt.
    * 
-   * @param taskId the id of the task to be suspended.
+   * @param taskId the id of the task to be resumed.
    * @throws IOException
    */
   public boolean resumeTask(TaskID taskId) 

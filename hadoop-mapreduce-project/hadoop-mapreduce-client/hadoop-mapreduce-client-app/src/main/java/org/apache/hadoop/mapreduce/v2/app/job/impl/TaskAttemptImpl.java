@@ -453,8 +453,9 @@ public abstract class TaskAttemptImpl implements
   private WrappedJvmID jvmID;
   private ContainerToken containerToken;
   private Resource assignedCapability;
-  private ContainerId suspendedContainerID; // TODO: getter/setter
-  private String suspendedHostname; // TODO: getter/setter
+  private ContainerId suspendedContainerID;
+  private TaskAttemptId suspendedAttemptId;
+  private String suspendedHostname;
   
   //this takes good amount of memory ~ 30KB. Instantiate it lazily
   //and make it null once task is launched.
@@ -658,7 +659,8 @@ public abstract class TaskAttemptImpl implements
     // Set up the launch command
     List<String> commands = MapReduceChildJVM.getVMCommand(
         taskAttemptListener.getAddress(), remoteTask, jvmID,
-        (suspendedContainerID == null) ? "" : suspendedContainerID.toString()); // (bcho2)
+        (suspendedContainerID == null) ? "" : suspendedContainerID.toString(),
+        (suspendedAttemptId == null) ? "" : suspendedAttemptId.toString()); // (bcho2)
     
     // Construct the actual Container
     ContainerLaunchContext container = BuilderUtils
@@ -1050,6 +1052,7 @@ public abstract class TaskAttemptImpl implements
     public void transition(TaskAttemptImpl taskAttempt, TaskAttemptEvent event) {
       TaskAttemptResumeEvent rEvent = (TaskAttemptResumeEvent)event;
       taskAttempt.suspendedHostname = rEvent.getSuspendedHostname();
+      taskAttempt.suspendedAttemptId = rEvent.getSuspendedAttemptId();
       taskAttempt.suspendedContainerID = rEvent.getSuspendedContainerId();
       // Tell any speculator that we're requesting a container
       taskAttempt.eventHandler.handle(new SpeculatorEvent(taskAttempt.getID()

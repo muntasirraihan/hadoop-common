@@ -134,6 +134,9 @@ public abstract class OutputCommitter {
    */
   public abstract void commitTask(TaskAttemptContext taskContext)
   throws IOException;
+
+  public abstract void commitTask(TaskAttemptContext taskContext, String suspendedAttemptId)
+  throws IOException;
   
   /**
    * Discard the task output

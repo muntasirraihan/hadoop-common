@@ -20,6 +20,7 @@ package org.apache.hadoop.mapreduce.lib.output;
 
 import java.io.IOException;
 import java.net.URI;
+import java.text.NumberFormat;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -147,7 +148,7 @@ public class FileOutputCommitter extends OutputCommitter {
    */
   private void moveJobOutputs(FileSystem fs, final Path origJobOutputPath, 
       Path finalOutputDir, Path jobOutput) throws IOException {
-    LOG.debug("Told to move job output from " + jobOutput
+    LOG.info("(bcho2) Told to move job output from " + jobOutput
         + " to " + finalOutputDir + 
         " and orig job output path is " + origJobOutputPath);    
     if (fs.isFile(jobOutput)) {
@@ -161,15 +162,15 @@ public class FileOutputCommitter extends OutputCommitter {
           throw new IOException("Failed to save output of job");
         }
       }
-      LOG.debug("Moved job output file from " + jobOutput + " to " + 
+      LOG.info("(bcho2) Moved job output file from " + jobOutput + " to " + 
           finalOutputPath);
     } else if (fs.getFileStatus(jobOutput).isDirectory()) {
-      LOG.debug("Job output file " + jobOutput + " is a dir");
+      LOG.info("(bcho2) Job output file " + jobOutput + " is a dir");
       FileStatus[] paths = fs.listStatus(jobOutput);
       Path finalOutputPath = 
           getFinalPath(finalOutputDir, jobOutput, origJobOutputPath);
       fs.mkdirs(finalOutputPath);
-      LOG.debug("Creating dirs along job output path " + finalOutputPath);
+      LOG.info("(bcho2) Creating dirs along job output path " + finalOutputPath);
       if (paths != null) {
         for (FileStatus path : paths) {
           moveJobOutputs(fs, origJobOutputPath, finalOutputDir, path.getPath());
@@ -213,6 +214,7 @@ public class FileOutputCommitter extends OutputCommitter {
     // task is writing.
   }
 
+
   /**
    * Move the files from the work directory to the job output directory
    * @param context the task context
@@ -226,7 +228,7 @@ public class FileOutputCommitter extends OutputCommitter {
         // Move the task outputs to the current job attempt output dir
     	  Path jobOutputPath = 
     	      new Path(outputPath, getJobAttemptBaseDirName(context));
-        moveTaskOutputs(context, outputFileSystem, jobOutputPath, workPath);
+        moveTaskOutputs(context, outputFileSystem, jobOutputPath, workPath, workPath);
         // Delete the temporary task-specific output directory
         if (!outputFileSystem.delete(workPath, true)) {
           LOG.warn("Failed to delete the temporary output" + 
@@ -249,15 +251,16 @@ public class FileOutputCommitter extends OutputCommitter {
   private void moveTaskOutputs(TaskAttemptContext context,
                                FileSystem fs,
                                Path jobOutputDir,
+                               Path workingPath,
                                Path taskOutput) 
   throws IOException {
     TaskAttemptID attemptId = context.getTaskAttemptID();
     context.progress();
-    LOG.debug("Told to move taskoutput from " + taskOutput
+    LOG.info("(bcho2) Told to move taskoutput from " + taskOutput
         + " to " + jobOutputDir);    
     if (fs.isFile(taskOutput)) {
       Path finalOutputPath = getFinalPath(jobOutputDir, taskOutput, 
-                                          workPath);
+                                          workingPath);
       if (!fs.rename(taskOutput, finalOutputPath)) {
         if (!fs.delete(finalOutputPath, true)) {
           throw new IOException("Failed to delete earlier output of task: " + 
@@ -268,18 +271,82 @@ public class FileOutputCommitter extends OutputCommitter {
         		  attemptId);
         }
       }
-      LOG.debug("Moved " + taskOutput + " to " + finalOutputPath);
+      LOG.info("(bcho2) Moved " + taskOutput + " to " + finalOutputPath);
     } else if(fs.getFileStatus(taskOutput).isDirectory()) {
-      LOG.debug("Taskoutput " + taskOutput + " is a dir");
+      LOG.info("(bcho2) Taskoutput " + taskOutput + " is a dir");
       FileStatus[] paths = fs.listStatus(taskOutput);
-      Path finalOutputPath = getFinalPath(jobOutputDir, taskOutput, workPath);
+      Path finalOutputPath = getFinalPath(jobOutputDir, taskOutput, workingPath);
       fs.mkdirs(finalOutputPath);
-      LOG.debug("Creating dirs along path " + finalOutputPath);
+      LOG.info("(bcho2) Creating dirs along path " + finalOutputPath);
       if (paths != null) {
         for (FileStatus path : paths) {
-          moveTaskOutputs(context, fs, jobOutputDir, path.getPath());
+          moveTaskOutputs(context, fs, jobOutputDir, workingPath, path.getPath());
         }
       }
+    }
+  }
+
+  public void commitTask(TaskAttemptContext context, String suspendedAttemptId)
+  throws IOException {
+    if (workPath != null) {
+      Path jobOutputPath = 
+        new Path(outputPath, getJobAttemptBaseDirName(context));
+      Path suspendedPath = new Path(workPath.getParent(), "_"+suspendedAttemptId);
+      Path[] paths = new Path[]{suspendedPath, workPath};
+      
+      for (int i = 0; i < paths.length; i++) {
+        if (outputFileSystem.exists(paths[i])) {
+          String suffix = "-"+idFormat.format(i);
+          LOG.info("(bcho2) renaming files in path "+paths[i]+" with "+suffix);
+          addSuffixOutputs(outputFileSystem, paths[i], suffix);
+          // TOOD: (bcho2) using moveTaskOutputs, taskAttemptId in LOGs will be misleading
+          moveTaskOutputs(context, outputFileSystem, jobOutputPath, paths[i], paths[i]);
+          // Delete the temporary task-specific output directory
+          if (!outputFileSystem.delete(paths[i], true)) {
+            LOG.warn("Failed to delete the temporary output "+paths[i]);
+          }
+          LOG.info("Saved output of "+paths[i]+" to "+outputPath);          
+        } else {
+          LOG.warn("(bcho2) path "+paths[i]+" does not exist!");          
+        }
+      }
+    }
+  }
+
+  // TODO: (bcho2) create a commitTask, that takes in the list of suspended
+  // attempt IDs. Then, when moving task outputs, 
+  // move them in the correct order,
+  // while appending a suffix
+  // to the file name, indicating the order in which they are written.
+  // e.g.
+  //    original (no suspend/resume): part-r-00000
+  //    new (suspended task #1): part-r-00000-00
+  //    new (suspended task #2): part-r-00000-01
+  //    new (resumed task i.e. the final committer): part-r-00000-02
+  // (bcho2)
+  protected static final NumberFormat idFormat = NumberFormat.getInstance();
+  static {
+    idFormat.setGroupingUsed(false);
+    idFormat.setMinimumIntegerDigits(2);
+  }
+
+  private void addSuffixOutputs(FileSystem fs, Path taskOutput, String suffix)
+  throws IOException {
+    if (fs.isFile(taskOutput)) {
+      if (!fs.rename(taskOutput, taskOutput.suffix(suffix))) {
+        throw new IOException("(bcho2) Failed to add suffix "+suffix+
+            " to "+taskOutput);
+      }
+      LOG.info("(bcho2) Added suffix "+suffix+
+            " to "+taskOutput);
+    } else if(fs.getFileStatus(taskOutput).isDirectory()) {
+      LOG.info("(bcho2) Taskoutput " + taskOutput + " is a dir");
+      FileStatus[] paths = fs.listStatus(taskOutput);
+      if (paths != null) {
+        for (FileStatus path : paths) {
+          addSuffixOutputs(fs, path.getPath(), suffix);
+        }
+      }    
     }
   }
 

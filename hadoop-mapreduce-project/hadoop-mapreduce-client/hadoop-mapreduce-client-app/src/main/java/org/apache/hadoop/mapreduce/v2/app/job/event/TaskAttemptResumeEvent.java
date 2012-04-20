@@ -23,18 +23,25 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 
 public class TaskAttemptResumeEvent extends TaskAttemptEvent {
 
-  private final ContainerId suspendedContainerId;
   private final String suspendedHostname;
+  private final TaskAttemptId suspendedAttemptId;
+  private final ContainerId suspendedContainerId;
 
   public TaskAttemptResumeEvent(TaskAttemptId id,
-      ContainerId suspendedContainerId, String suspendedHostname) {
+      String suspendedHostname, TaskAttemptId suspendedTAId,
+      ContainerId suspendedContainerId) {
     super(id, TaskAttemptEventType.TA_RESUME);
-    this.suspendedContainerId = suspendedContainerId;
     this.suspendedHostname = suspendedHostname;
+    this.suspendedAttemptId = suspendedTAId;
+    this.suspendedContainerId = suspendedContainerId;
   }
 
   public ContainerId getSuspendedContainerId() {
     return suspendedContainerId;
+  }
+  
+  public TaskAttemptId getSuspendedAttemptId() {
+    return suspendedAttemptId;
   }
 
   public String getSuspendedHostname() {
