@@ -41,6 +41,7 @@ import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.ReduceContext;
 import org.apache.hadoop.mapreduce.StatusReporter;
+import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.util.Progressable;
 
@@ -81,6 +82,9 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
   private int currentKeyLength = -1;
   private int currentValueLength = -1;
   
+  // (bcho2)
+  private final Suspender suspender;
+  
   public ReduceContextImpl(Configuration conf, TaskAttemptID taskid,
                            RawKeyValueIterator input, 
                            Counter inputKeyCounter,
@@ -90,7 +94,8 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
                            StatusReporter reporter,
                            RawComparator<KEYIN> comparator,
                            Class<KEYIN> keyClass,
-                           Class<VALUEIN> valueClass
+                           Class<VALUEIN> valueClass,
+                           Suspender suspender
                           ) throws InterruptedException, IOException{
     super(conf, taskid, output, committer, reporter);
     this.input = input;
@@ -107,6 +112,7 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
     this.valueClass = valueClass;
     this.conf = conf;
     this.taskid = taskid;
+    this.suspender = suspender;
   }
 
   /** Start processing next unique key. */
@@ -116,6 +122,11 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
     }
     if (hasMore) {
       if (inputKeyCounter != null) {
+        // (bcho2)
+        if (suspender.isDoSuspend()) {
+          suspender.suspend(this, this.output, inputKeyCounter.getValue()); // TODO: is this right?
+          return false;
+        }
         inputKeyCounter.increment(1);
       }
       return nextKeyValue();
@@ -164,6 +175,7 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
       nextKeyIsSame = false;
     }
     inputValueCounter.increment(1);
+        
     return true;
   }
 

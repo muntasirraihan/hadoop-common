@@ -483,7 +483,6 @@ public class TaskAttemptListenerImpl extends CompositeService
     
     boolean shouldSuspend = task.shouldSuspend(attemptID);
     
-    // (bcho2) TODO: for now, just send RESUME, to put back to RUNNING state
     if (shouldSuspend) {
       // Send the containerID info with the suspend request
       ContainerId suspendContainerId = 
@@ -497,12 +496,21 @@ public class TaskAttemptListenerImpl extends CompositeService
 //      context.getEventHandler().handle(
 //          new TaskAttemptEvent(attemptID, 
 //              TaskAttemptEventType.TA_RESUME_FOR_TESTING));
-
-      context.getEventHandler().handle(
-          new TaskAttemptEvent(attemptID, 
-              TaskAttemptEventType.TA_SUSPEND_DONE));
     }
     
     return shouldSuspend;
   }
+  
+  public boolean doneSuspend(TaskAttemptID taskAttemptID) throws IOException {
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    context.getEventHandler().handle(
+        new TaskAttemptEvent(attemptID, 
+            TaskAttemptEventType.TA_SUSPEND_DONE));    
+    
+    return true;
+  }
+  
+  
 }

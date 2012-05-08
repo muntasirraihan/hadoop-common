@@ -1057,10 +1057,17 @@ public abstract class TaskAttemptImpl implements
       // Tell any speculator that we're requesting a container
       taskAttempt.eventHandler.handle(new SpeculatorEvent(taskAttempt.getID()
           .getTaskId(), +1));
+          
+      String hostnameOnly = taskAttempt.suspendedHostname; // remove port for ask TODO necessary?
+      String[] hostnameSplit = taskAttempt.suspendedHostname.split(":"); 
+      if (hostnameSplit.length > 1) {
+        hostnameOnly = hostnameSplit[0];
+      }
       // request for container
       taskAttempt.eventHandler.handle(new ContainerRequestEvent(
           taskAttempt.attemptId, taskAttempt.resourceCapability,
-          new String[]{taskAttempt.suspendedHostname}, new String[]{}));
+          new String[]{hostnameOnly}, new String[]{RackResolver.resolve(hostnameOnly).getNetworkLocation()},
+          true));
     }
   }
 

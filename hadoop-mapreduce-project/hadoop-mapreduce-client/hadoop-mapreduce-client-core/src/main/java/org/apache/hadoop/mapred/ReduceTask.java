@@ -57,6 +57,8 @@ import org.apache.hadoop.mapred.Merger.MergeQueue;
 import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.apache.hadoop.mapreduce.StatefulSuspendableReducer;
+import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormatCounter;
@@ -116,7 +118,9 @@ public class ReduceTask extends Task {
   org.apache.hadoop.mapreduce.RecordWriter trackedRW = null;
   org.apache.hadoop.mapreduce.Reducer.Context reducerContext = null;
   private final List<String> resumePaths = new ArrayList<String>();
+  Path resumeLogPath = null;
   long resumeKeyNumber = 0;
+  boolean resumeIsStateful = false;
   
   long stallKeyNumber = 0;
   int stallTime = 0;
@@ -399,8 +403,6 @@ public class ReduceTask extends Task {
     }
 
     
-    // (bcho2) TODO: On resume, create a MergeQueue from the local filesystem,
-    //     similar to the else statement (see rfs)
     if (!isLocal && resumePaths.size() == 0) {
       Class combinerClass = conf.getCombinerClass();
       CombineOutputCollector combineCollector = 
@@ -457,6 +459,8 @@ public class ReduceTask extends Task {
     stallTime = job.getInt("mapreduce.bcho2.stall.time", 0);
     LOG.info("(bcho2) stallTime "+stallTime+" stallKeyNumber "+stallKeyNumber);
     
+    suspender = new Suspender(getTaskID(), umbilical, stallTime);
+    
     // (bcho2) "reverse engineering"
     MergeQueue mergeQueue = (MergeQueue)rIter;
     if (mergeQueue.segments == null) {
@@ -488,32 +492,10 @@ public class ReduceTask extends Task {
     done(umbilical, reporter);
   }
 
-  private void stall() {
-    if (stallTime > 0 && getTaskID().getId() == 0) {
-      LOG.info("(bcho2) stalling");
-      for (int i = 0; i < 10; i++) {
-        try {
-          Thread.sleep(stallTime/10);
-        } catch (InterruptedException e) {
-          LOG.info("(bcho2) stalling interrupted, i: "+i);
-        }
-      }
-    }
-  }
-  
-  public boolean suspend() {
-    doSuspend = true;
-    if (rIter != null) {
-      LOG.info("(bcho2) this is where rIter info should be printed"); // TODO
-    }
-    
-    return true;
-  }
-
   private void resumeParse() throws AccessControlException, FileNotFoundException, IOException {
-    Path logPath = new Path(suspendedContainerLogDirStr, TaskLog.LogName.SYSLOG.toString());
+    resumeLogPath = new Path(suspendedContainerLogDirStr, TaskLog.LogName.SYSLOG.toString());
 
-    BufferedReader reader = new BufferedReader(new FileReader(logPath.toString()));
+    BufferedReader reader = new BufferedReader(new FileReader(resumeLogPath.toString()));
     
     int prevCounter = -1;
     String line = null;
@@ -531,6 +513,8 @@ public class ReduceTask extends Task {
         }
       } else if (split.length > 7 && "(bcho2)".equals(split[5]) && "RESUMEKEY".equals(split[6])) {
         resumeKeyNumber = Long.parseLong(split[7]);
+      } else if (split.length > 6 && "(bcho2)".equals(split[5]) && "STATEFUL".equals(split[6])) {
+        resumeIsStateful = true;
       }
     }
     if (resumePaths.size() == 0) {
@@ -540,6 +524,7 @@ public class ReduceTask extends Task {
         LOG.info("(bcho2) resume path: "+p); 
       }
     }
+    reader.close();
   }
 
   @SuppressWarnings("unchecked")
@@ -724,10 +709,8 @@ public class ReduceTask extends Task {
                               ClassNotFoundException {
     // wrap value iterator to report progress.
     final RawKeyValueIterator rawIter = rIter;
-    this.rIter = new RawKeyValueIterator() { // (bcho2) this, TODO: define as a class, implementing "suspendable"
-      // (bcho2)
-      int counter = 0;
-      
+    this.rIter = new RawKeyValueIterator() {
+     
       public void close() throws IOException {
         rawIter.close();
       }
@@ -741,34 +724,8 @@ public class ReduceTask extends Task {
         return rawIter.getValue();
       }
       public boolean next() throws IOException {
-        // (bcho2) TODO: add a check to whether the task is "suspended" here,
-        // if so: log current spot; stop execution; alert that this suspend action has taken place
-        // LOG.info("(bcho2) counter "+counter+" getCounter "+reduceInputKeyCounter.getCounter());
-        // TODO: not sure if getCounter() is actually correct -- just ignoring for now.
-        if (stallTime > 0 && counter == stallKeyNumber) {
-          // LOG.info("(bcho2) RESUMEKEY "+counter);
-          // stall();
-        }
-        if (doSuspend) {
-          LOG.info("(bcho2) doSuspend called at item number counter "+counter+" getCounter "+reduceInputKeyCounter.getCounter());
-          LOG.info("(bcho2) RESUMEKEY "+reduceInputKeyCounter.getCounter());
-          if (trackedRW != null && reducerContext != null) {
-            LOG.info("(bcho2) closing, trackedRW "+trackedRW+" reducerContext "+reducerContext);
-            try {
-              trackedRW.close(reducerContext);
-            } catch (InterruptedException e) {
-              LOG.warn("(bcho2) could not close", e);
-            }
-          } else {
-            LOG.info("(bcho2) could not close, trackedRW "+trackedRW+" reducerContext "+reducerContext);
-          }
-          stall();
-          System.exit(1);
-        }
-        counter++;
-        
         boolean ret = rawIter.next();
-        reporter.setProgress(rawIter.getProgress().getProgress());
+        reporter.setProgress(rawIter.getProgress().getProgress()); 
         return ret;
       }
     };
@@ -790,8 +747,22 @@ public class ReduceTask extends Task {
                                                trackedRW,
                                                committer,
                                                reporter, comparator, keyClass,
-                                               valueClass);
-    // (bcho2)
+                                               valueClass,
+                                               suspender);
+
+    if (reducer instanceof StatefulSuspendableReducer) { // TODO (bcho2) test this
+      LOG.info("(bcho2) StatefulSuspendableReducer");
+      StatefulSuspendableReducer<INKEY,INVALUE,OUTKEY,OUTVALUE> statefulReducer =
+        (StatefulSuspendableReducer<INKEY,INVALUE,OUTKEY,OUTVALUE>)reducer;
+      statefulReducer.setSuspender(suspender);
+      if (resumeIsStateful) {
+        statefulReducer.setLogPath(resumeLogPath);
+      }
+    } else {
+      LOG.info("(bcho2) NOT instanceof StatefulSuspendableReducer");
+    }
+    
+    // (bcho2) Resume
     boolean isNextKey = true;
     for (int i = 0; i < resumeKeyNumber; i++) {
       isNextKey = reducerContext.nextKey();

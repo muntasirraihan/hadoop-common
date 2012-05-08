@@ -49,6 +49,8 @@ public class WordCount {
     }
   }
   
+  static int count = 0;
+  
   public static class IntSumReducer 
        extends Reducer<Text,IntWritable,Text,IntWritable> {
     private IntWritable result = new IntWritable();
@@ -62,6 +64,11 @@ public class WordCount {
       }
       result.set(sum);
       context.write(key, result);
+      count++;
+      if (count >= 1000) {
+        count = 0;
+        Thread.sleep(1); // (bcho2) stupid hack
+      }
     }
   }
 
@@ -75,7 +82,7 @@ public class WordCount {
     Job job = new Job(conf, "word count");
     job.setJarByClass(WordCount.class);
     job.setMapperClass(TokenizerMapper.class);
-    job.setCombinerClass(IntSumReducer.class);
+    // job.setCombinerClass(IntSumReducer.class);
     job.setReducerClass(IntSumReducer.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(IntWritable.class);

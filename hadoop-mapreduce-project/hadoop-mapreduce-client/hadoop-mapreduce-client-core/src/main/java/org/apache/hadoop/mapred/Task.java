@@ -55,6 +55,7 @@ import org.apache.hadoop.mapred.IFile.Writer;
 import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.FileSystemCounter;
 import org.apache.hadoop.mapreduce.OutputCommitter;
+import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.MRConfig;
@@ -164,6 +165,7 @@ abstract public class Task implements Writable, Configurable {
   // (bcho2)
   protected String suspendedContainerLogDirStr;
   protected String suspendedAttemptStr;
+  protected Suspender suspender;
   
   ////////////////////////////////////////////
   // Constructors
@@ -548,12 +550,6 @@ abstract public class Task implements Writable, Configurable {
     }
   }
   
-  public boolean suspend() { // (bcho2) TODO: should be moved to ReduceTask? Or just override at ReduceTask...
-    System.err.println(SUSPEND_MSG+"secret");
-    LOG.info(SUSPEND_MSG+"secret");
-    return true;
-  }
-  
   @InterfaceAudience.Private
   @InterfaceStability.Unstable
   protected class TaskReporter 
@@ -695,7 +691,7 @@ abstract public class Task implements Writable, Configurable {
           }
 
           if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
-            suspend();
+            suspender.setDoSuspend(true);
           }
           
           sendProgress = resetProgressFlag(); 
@@ -1372,7 +1368,8 @@ abstract public class Task implements Writable, Configurable {
                       org.apache.hadoop.mapreduce.OutputCommitter committer,
                       org.apache.hadoop.mapreduce.StatusReporter reporter,
                       RawComparator<INKEY> comparator,
-                      Class<INKEY> keyClass, Class<INVALUE> valueClass
+                      Class<INKEY> keyClass, Class<INVALUE> valueClass,
+                      Suspender suspender
   ) throws IOException, InterruptedException {
     org.apache.hadoop.mapreduce.ReduceContext<INKEY, INVALUE, OUTKEY, OUTVALUE> 
     reduceContext = 
@@ -1385,7 +1382,8 @@ abstract public class Task implements Writable, Configurable {
                                                               reporter, 
                                                               comparator, 
                                                               keyClass, 
-                                                              valueClass);
+                                                              valueClass,
+                                                              suspender);
 
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>.Context 
         reducerContext = 
@@ -1554,7 +1552,8 @@ abstract public class Task implements Writable, Configurable {
                                                 new OutputConverter(collector),
                                                 committer,
                                                 reporter, comparator, keyClass,
-                                                valueClass);
+                                                valueClass,
+                                                null);
       reducer.run(reducerContext);
     } 
   }
