@@ -77,6 +77,8 @@ public class SchedulerApp {
       .newRecordInstance(Resource.class);
   private Resource resourceLimit = recordFactory
       .newRecordInstance(Resource.class);
+  private Resource releaseResources = recordFactory
+      .newRecordInstance(Resource.class);
 
   private Map<ContainerId, RMContainer> liveContainers
   = new HashMap<ContainerId, RMContainer>();
@@ -458,6 +460,17 @@ public class SchedulerApp {
     }
     
     return resourceLimit;
+  }
+  
+  public synchronized void addReleaseMemory(int memory) {
+    releaseResources.setMemory(releaseResources.getMemory() + memory);
+  }
+  
+  public synchronized Resource pullReleaseResources() {
+    Resource resource = this.releaseResources;
+    this.releaseResources = recordFactory
+      .newRecordInstance(Resource.class); // reset
+    return resource;
   }
 
   public Queue getQueue() {

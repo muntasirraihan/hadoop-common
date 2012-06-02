@@ -54,6 +54,9 @@ public class SchedulerUtils {
   public static final String UNRESERVED_CONTAINER =
       "Container reservation no longer required.";
   
+  public static final String PREEMPT_KILLED_CONTAINER =
+      "Container was preempted by killing.";
+  
   /**
    * Utility to create a {@link ContainerStatus} during exceptional
    * circumstances.

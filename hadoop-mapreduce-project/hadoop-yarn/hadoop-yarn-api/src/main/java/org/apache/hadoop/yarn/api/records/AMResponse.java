@@ -110,6 +110,17 @@ public interface AMResponse {
   @Private
   @Unstable
   public void setAvailableResources(Resource limit);
+
+  /**
+   * @return Resources that AM is asked to give back
+   */  
+  @Public
+  @Stable
+  public Resource getReleaseResources();
+
+  @Private
+  @Unstable
+  public void setReleaseResources(Resource release);
   
   /**
    * Get the list of <em>completed containers' statuses</em>.

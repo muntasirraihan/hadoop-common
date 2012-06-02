@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -565,7 +566,11 @@ public class LeafQueue implements CSQueue {
     // Check if parent-queue allows access
     return parent.hasAccess(acl, user);
   }
-
+  
+  public Set<SchedulerApp> getActiveApplications() {
+    return Collections.unmodifiableSet(activeApplications);
+  }
+  
   @Override
   public void submitApplication(SchedulerApp application, String userName,
       String queue)  throws AccessControlException {
@@ -801,6 +806,10 @@ public class LeafQueue implements CSQueue {
 
           // Did we schedule or reserve a container?
           Resource assigned = assignment.getResource();
+
+          // (bcho2)
+          scheduler.getPreemptor().updatePreemptor(this, assigned);
+          
           if (Resources.greaterThan(assigned, Resources.none())) {
 
             // Book-keeping 
@@ -1027,6 +1036,28 @@ public class LeafQueue implements CSQueue {
       }
     }
     return (((starvation + requiredContainers) - reservedContainers) > 0);
+  }
+  
+  public List<Resource> needResources() {
+    List<Resource> needList = new LinkedList<Resource>();
+    for (SchedulerApp application : activeApplications) {
+      synchronized (application) {
+        for (Priority priority : application.getPriorities()) {
+          // Required resource
+          Resource required = 
+              application.getResourceRequest(priority, RMNode.ANY).getCapability();
+          // Do we need containers at this 'priority'?
+          if (needContainers(application, priority, required)) {
+            LOG.info("(bcho2) need containers at " +
+              " app "+application.getApplicationId().toString()+
+              " prio "+priority.getPriority()+
+              " resource "+required.getMemory());
+            needList.add(required);
+          }
+        }
+      }
+    }
+    return needList;
   }
 
   private CSAssignment assignContainersOnNode(Resource clusterResource, 

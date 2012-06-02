@@ -567,6 +567,26 @@ public class RMContainerAllocator extends RMContainerRequestor
       throw new YarnException("Resource Manager doesn't recognize AttemptId: " +
                                this.getContext().getApplicationID());
     }
+    
+    int releaseMemory =
+      response.getReleaseResources() != null ? response.getReleaseResources().getMemory() : 0;
+    if (releaseMemory > 0) {
+      // TODO: send some kind of event to the correct (a new one?) handler
+      LOG.info("(bcho2) mock:"
+          +" release memory "+releaseMemory);
+      // TODO (bcho2) Eventually, call TaskAttempt handlers,
+      // but likely, using a class that has its own handle(),
+      // that will find out what taskAttempts it wants to suspend
+      // SEE: MRAppMaster.dispatcher.register(...)
+      /*
+      getContext().getEventHandler().handle(                                                                                                                  
+          new TaskAttemptDiagnosticsUpdateEvent(taskAttemptId, message));                                                                                   
+      getContext().getEventHandler().handle(                                                                                                                  
+          new TaskAttemptEvent(taskAttemptId,     
+              TaskAttemptEventType.TA_SUSPEND));
+      */
+    }
+    
     int newHeadRoom = getAvailableResources() != null ? getAvailableResources().getMemory() : 0;
     List<Container> newContainers = response.getAllocatedContainers();
     List<ContainerStatus> finishedContainers = response.getCompletedContainersStatuses();

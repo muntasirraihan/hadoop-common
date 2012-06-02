@@ -18,8 +18,13 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
 
+import org.apache.hadoop.yarn.api.records.ContainerStatus;
+import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerNode;
 import org.apache.hadoop.yarn.server.security.ContainerTokenSecretManager;
 
 /**
@@ -39,4 +44,9 @@ public interface CapacitySchedulerContext {
   RMContext getRMContext();
   
   Resource getClusterResources();
+  
+  CSPreemptor getPreemptor();
+  
+  void completedContainer(RMContainer rmContainer,
+      ContainerStatus containerStatus, RMContainerEventType event);
 }

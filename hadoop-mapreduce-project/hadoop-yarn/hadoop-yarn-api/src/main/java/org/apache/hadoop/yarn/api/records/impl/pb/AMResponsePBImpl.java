@@ -42,6 +42,7 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
   boolean viaProto = false;
   
   Resource limit;
+  Resource release;
 
   private List<Container> allocatedContainers = null;
   private List<ContainerStatus> completedContainersStatuses = null;
@@ -142,6 +143,28 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     this.limit = limit;
   }
 
+  @Override
+  public synchronized Resource getReleaseResources() {
+    if (this.release != null) {
+      return this.release;
+    }
+
+    AMResponseProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasLimit()) {
+      return null;
+    }
+    this.release = convertFromProtoFormat(p.getLimit());
+    return this.release;
+  }
+
+  @Override
+  public synchronized void setReleaseResources(Resource release) {
+    maybeInitBuilder();
+    if (release == null)
+      builder.clearLimit();
+    this.release = release;
+  }
+  
   @Override
   public synchronized List<Container> getAllocatedContainers() {
     initLocalNewContainerList();
