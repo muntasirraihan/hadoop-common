@@ -140,4 +140,9 @@ public class CompletedTask implements Task {
     return state;
   }
 
+  @Override
+  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+    return false;
+  }
+
 }

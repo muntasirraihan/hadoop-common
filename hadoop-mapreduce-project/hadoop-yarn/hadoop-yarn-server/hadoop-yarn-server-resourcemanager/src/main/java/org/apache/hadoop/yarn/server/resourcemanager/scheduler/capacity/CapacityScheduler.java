@@ -497,11 +497,11 @@ implements ResourceScheduler, CapacitySchedulerContext {
         application.showRequests();
       }
 
-      //if(LOG.isDebugEnabled()) {
-        LOG.info("(bcho2) allocate:" +
+      if(LOG.isDebugEnabled()) {
+        LOG.debug("allocate:" +
           " applicationAttemptId=" + applicationAttemptId + 
           " #ask=" + ask.size());
-      //}
+      }
 
       Resource releaseResource = application.pullReleaseResources();
       int releaseMemory = releaseResource.getMemory();

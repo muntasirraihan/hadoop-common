@@ -804,6 +804,11 @@ public class LeafQueue implements CSQueue {
             assignContainersOnNode(clusterResource, node, application, priority, 
                 null);
 
+          // (bcho2)
+          if (assignment == null) {
+            continue;
+          }
+          
           // Did we schedule or reserve a container?
           Resource assigned = assignment.getResource();
 
@@ -1074,6 +1079,12 @@ public class LeafQueue implements CSQueue {
       return new CSAssignment(assigned, NodeType.NODE_LOCAL);
     }
 
+    // (bcho2) -- HACK
+    if (priority.getPriority() == 3) {
+      LOG.info("(bcho2) ignoring rack and off-switch, because resume task");
+      return null;
+    }
+    
     // Rack-local
     assigned = 
         assignRackLocalContainers(clusterResource, node, application, priority, 

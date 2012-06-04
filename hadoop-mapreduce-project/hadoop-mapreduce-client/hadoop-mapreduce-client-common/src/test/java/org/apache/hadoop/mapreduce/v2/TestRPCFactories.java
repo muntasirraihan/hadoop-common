@@ -50,6 +50,10 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
@@ -186,6 +190,18 @@ public class TestRPCFactories {
     @Override
     public FailTaskAttemptResponse failTaskAttempt(
         FailTaskAttemptRequest request) throws YarnRemoteException {
+      return null;
+    }
+    
+    @Override
+    public SuspendTaskAttemptResponse suspendTaskAttempt(
+        SuspendTaskAttemptRequest request) throws YarnRemoteException {
+      return null;
+    }
+
+    @Override
+    public ResumeTaskResponse resumeTask(ResumeTaskRequest request)
+        throws YarnRemoteException {
       return null;
     }
 

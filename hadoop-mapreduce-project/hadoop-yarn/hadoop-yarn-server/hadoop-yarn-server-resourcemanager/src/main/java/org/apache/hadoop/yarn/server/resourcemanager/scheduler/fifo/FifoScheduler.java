@@ -347,7 +347,7 @@ public class FifoScheduler implements ResourceScheduler {
    */
   private void assignContainers(SchedulerNode node) {
     LOG.debug("assignContainers:" +
-        " node=" + node.getRMNode().getNodeAddress() + 
+        " node=" + node.getRMNode().getHostName() +
         " #applications=" + applications.size());
 
     // Try to assign containers to applications in fifo order
@@ -407,7 +407,7 @@ public class FifoScheduler implements ResourceScheduler {
 
     if (type == NodeType.NODE_LOCAL) {
       ResourceRequest nodeLocalRequest = 
-        application.getResourceRequest(priority, node.getRMNode().getNodeAddress());
+        application.getResourceRequest(priority, node.getRMNode().getHostName());
       if (nodeLocalRequest != null) {
         maxContainers = Math.min(maxContainers, nodeLocalRequest.getNumContainers());
       }
@@ -424,21 +424,27 @@ public class FifoScheduler implements ResourceScheduler {
     int nodeLocalContainers = 
       assignNodeLocalContainers(node, application, priority); 
 
-    // Rack-local
-    int rackLocalContainers = 
-      assignRackLocalContainers(node, application, priority);
-
-    // Off-switch
-    int offSwitchContainers =
-      assignOffSwitchContainers(node, application, priority);
-
-
-    LOG.debug("assignContainersOnNode:" +
-        " node=" + node.getRMNode().getNodeAddress() + 
+    int rackLocalContainers = 0;
+    int offSwitchContainers = 0;
+    if (priority.getPriority() == 3) { // TODO (bcho2) HACK -- shouldn't have knowledge of this here
+      LOG.info("(bcho2) ignoring rack and off-switch, because priority "+priority);
+    } else {
+      // Rack-local
+      rackLocalContainers = 
+        assignRackLocalContainers(node, application, priority);
+      // Off-switch
+      offSwitchContainers =
+        assignOffSwitchContainers(node, application, priority);
+    }
+    LOG.info("(bcho2) assignContainersOnNode:" +
+        " node=" + node.getRMNode().getHostName() +
         " application=" + application.getApplicationId().getId() +
         " priority=" + priority.getPriority() + 
         " #assigned=" + 
-        (nodeLocalContainers + rackLocalContainers + offSwitchContainers));
+        (nodeLocalContainers + rackLocalContainers + offSwitchContainers) +
+        " #assigned_local=" + nodeLocalContainers +
+        " #assigned_rack=" + rackLocalContainers +
+        " #assigned_off=" + offSwitchContainers);
 
 
     return (nodeLocalContainers + rackLocalContainers + offSwitchContainers);
@@ -448,14 +454,17 @@ public class FifoScheduler implements ResourceScheduler {
       SchedulerApp application, Priority priority) {
     int assignedContainers = 0;
     ResourceRequest request = 
-      application.getResourceRequest(priority, node.getRMNode().getNodeAddress());
+      application.getResourceRequest(priority, node.getRMNode().getHostName());
+    // (bcho2) using .getNodeAddress() is a bug -- see MAPREDUCE-3460; fixed other occurences as well
+    LOG.info("(bcho2) request "+request);
     if (request != null) {
       // Don't allocate on this node if we don't need containers on this rack
       ResourceRequest rackRequest =
           application.getResourceRequest(priority, 
               node.getRMNode().getRackName());
       if (rackRequest == null || rackRequest.getNumContainers() <= 0) {
-        return 0;
+        LOG.info("(bcho2) Don't allocate on this node if we don't need containers on this rack -- but ignoring");
+        // return 0;
       }
       
       int assignableContainers = 
@@ -512,7 +521,7 @@ public class FifoScheduler implements ResourceScheduler {
       Priority priority, int assignableContainers, 
       ResourceRequest request, NodeType type) {
     LOG.debug("assignContainers:" +
-        " node=" + node.getRMNode().getNodeAddress() + 
+        " node=" + node.getRMNode().getHostName() +
         " application=" + application.getApplicationId().getId() + 
         " priority=" + priority.getPriority() + 
         " assignableContainers=" + assignableContainers +

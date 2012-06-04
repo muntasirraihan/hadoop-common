@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapreduce.lib.output;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -398,6 +399,7 @@ public class FileOutputCommitter extends OutputCommitter {
     // task is writing.
   }
 
+
   /**
    * Move the files from the work directory to the job output directory
    * @param context the task context
@@ -408,6 +410,89 @@ public class FileOutputCommitter extends OutputCommitter {
     commitTask(context, null);
   }
 
+  // (bcho2) when committing task outputs,
+  // move them in the correct order,
+  // while appending a suffix
+  // to the file name, indicating the order in which they are written.
+  // e.g.
+  //    original (no suspend/resume): part-r-00000
+  //    new (suspended task #1): part-r-00000-00
+  //    new (suspended task #2): part-r-00000-01
+  //    new (resumed task i.e. the final committer): part-r-00000-02
+
+  
+  protected static final NumberFormat idFormat = NumberFormat.getInstance();
+  static {
+    idFormat.setGroupingUsed(false);
+    idFormat.setMinimumIntegerDigits(2);
+  }
+  
+  // (bcho2) It looks like the new commitTask simply moves whole directories.
+  // While this seems to make more sense, it means that we must rename the files
+  // beforehand, then call commitTask
+  @Override
+  public void commitTaskWithSuffix(TaskAttemptContext context, String suspendedAttemptId)
+  throws IOException {
+    Path taskAttemptPath = getTaskAttemptPath(context);
+    Path suspendedPath = new Path(taskAttemptPath.getParent(), suspendedAttemptId);
+    LOG.info("(bcho2) suspended path "+suspendedPath);
+    Path[] paths = new Path[]{suspendedPath, taskAttemptPath};
+    
+    for (int i = paths.length-1; i >= 0; i--) {
+      FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
+      if (fs.exists(paths[i])) {
+        String suffix = "-"+idFormat.format(i);
+        LOG.info("(bcho2) renaming files in path "+paths[i]+" with "+suffix);
+        renameFilesWithSuffix(fs, paths[i], suffix);
+        if (paths[i] != taskAttemptPath) {
+          moveDirContents(fs, paths[i], taskAttemptPath);
+        }
+      }
+    }
+    commitTask(context, null);
+  }
+  
+  private void renameFilesWithSuffix(FileSystem fs, Path taskOutput, String suffix)
+  throws IOException {
+    if (fs.isFile(taskOutput)) {
+      if (!fs.rename(taskOutput, taskOutput.suffix(suffix))) {
+        throw new IOException("(bcho2) Failed to add suffix "+suffix+
+            " to "+taskOutput);
+      }
+      LOG.info("(bcho2) Added suffix "+suffix+
+            " to "+taskOutput);
+    } else if(fs.getFileStatus(taskOutput).isDirectory()) {
+      LOG.info("(bcho2) Taskoutput " + taskOutput + " is a dir");
+      FileStatus[] paths = fs.listStatus(taskOutput);
+      if (paths != null) {
+        for (FileStatus path : paths) {
+          renameFilesWithSuffix(fs, path.getPath(), suffix);
+        }
+      }    
+    }
+  }
+  
+  private void moveDirContents(FileSystem fs, Path from, Path to)
+  throws IOException {
+    if (fs.isDirectory(from)) {
+      FileStatus[] paths = fs.listStatus(from);
+      if (paths != null) {
+        for (FileStatus path : paths) {
+          Path fromFile = path.getPath();
+          if (fs.isFile(fromFile)) {
+            Path toFile = new Path(to, fromFile.getName());
+            LOG.info("(bcho2) renaming "+fromFile+" to "+toFile);
+            fs.rename(fromFile, toFile);  
+          } else {
+            LOG.info("(bcho2) found "+fromFile+" but ignoring because not doing recursive move");
+          }
+        }
+      }         
+    } else {
+      LOG.info("(bcho2) from "+from+" should be a directory!");
+    }
+  }
+  
   @Private
   public void commitTask(TaskAttemptContext context, Path taskAttemptPath) 
   throws IOException {

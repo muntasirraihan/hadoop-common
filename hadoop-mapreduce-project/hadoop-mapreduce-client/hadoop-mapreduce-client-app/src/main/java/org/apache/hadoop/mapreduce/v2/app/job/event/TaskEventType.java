@@ -25,6 +25,7 @@ public enum TaskEventType {
 
   //Producer:Client, Job
   T_KILL,
+  T_RESUME,
 
   //Producer:Job
   T_SCHEDULE,
@@ -37,5 +38,6 @@ public enum TaskEventType {
   T_ATTEMPT_COMMIT_PENDING,
   T_ATTEMPT_FAILED,
   T_ATTEMPT_SUCCEEDED,
-  T_ATTEMPT_KILLED
+  T_ATTEMPT_KILLED,
+  T_ATTEMPT_SUSPENDED,
 }

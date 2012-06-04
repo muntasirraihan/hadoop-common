@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -55,7 +56,7 @@ public class Merger {
   // Local directories
   private static LocalDirAllocator lDirAlloc = 
     new LocalDirAllocator(MRConfig.LOCAL_DIR);
-
+  
   public static <K extends Object, V extends Object>
   RawKeyValueIterator merge(Configuration conf, FileSystem fs,
                             Class<K> keyClass, Class<V> valueClass, 
@@ -271,6 +272,11 @@ public class Merger {
       
       this.mapOutputsCounter = mapOutputsCounter;
     }
+    
+    public String toString() { // (bcho2)
+      return (((fs == null) ? "" : fs.toString()))
+        +" "+((file == null) ? "" : file.toString());
+    }
 
     void init(Counters.Counter readsCounter) throws IOException {
       if (reader == null) {
@@ -362,8 +368,11 @@ public class Merger {
     includeFinalMerge = true;
   }
   
-  private static class MergeQueue<K extends Object, V extends Object> 
+  // (bcho2) reverse-engineering
+  public static class MergeQueue<K extends Object, V extends Object> 
   extends PriorityQueue<Segment<K, V>> implements RawKeyValueIterator {
+    static AtomicInteger mergeCounter = new AtomicInteger(0);
+    
     Configuration conf;
     FileSystem fs;
     CompressionCodec codec;
@@ -416,7 +425,7 @@ public class Merger {
       this.reporter = reporter;
       
       for (Path file : inputs) {
-        LOG.debug("MergeQ: adding: " + file);
+        LOG.info("MergeQ: adding: " + file); // (bcho2) reverse engineering
         segments.add(new Segment<K, V>(conf, fs, file, codec, !deleteInputs, 
                                        (file.toString().endsWith(
                                            Task.MERGED_OUTPUT_PREFIX) ? 
@@ -617,7 +626,9 @@ public class Merger {
         //feed the streams to the priority queue
         initialize(segmentsToMerge.size());
         clear();
+        int numMerges = mergeCounter.incrementAndGet();
         for (Segment<K, V> segment : segmentsToMerge) {
+          LOG.info("(bcho2) SEGMENT "+mergeCounter+" "+segment.toString());
           put(segment);
         }
         

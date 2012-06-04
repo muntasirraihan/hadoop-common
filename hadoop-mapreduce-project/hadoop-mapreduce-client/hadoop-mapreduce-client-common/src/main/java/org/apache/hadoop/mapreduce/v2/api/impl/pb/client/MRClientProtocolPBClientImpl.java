@@ -49,6 +49,10 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.FailTaskAttemptRequestPBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.FailTaskAttemptResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.GetCountersRequestPBImpl;
@@ -73,6 +77,10 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemp
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemptResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskRequestPBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskResponsePBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskRequestPBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskResponsePBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.SuspendTaskAttemptRequestPBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.SuspendTaskAttemptResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.FailTaskAttemptRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.GetCountersRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.GetDelegationTokenRequestProto;
@@ -85,6 +93,8 @@ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.GetTaskReportsReques
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillJobRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskAttemptRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskRequestProto;
+import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.ResumeTaskRequestProto;
+import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.SuspendTaskAttemptRequestProto;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.ipc.ProtoOverHadoopRpcEngine;
 import org.apache.hadoop.yarn.proto.MRClientProtocol.MRClientProtocolService;
@@ -278,6 +288,7 @@ public class MRClientProtocolPBClientImpl implements MRClientProtocol {
   @Override
   public KillTaskAttemptResponse killTaskAttempt(KillTaskAttemptRequest request)
       throws YarnRemoteException {
+    System.err.println("(bcho2) request: "+request);
     KillTaskAttemptRequestProto requestProto = ((KillTaskAttemptRequestPBImpl)request).getProto();
     try {
       return new KillTaskAttemptResponsePBImpl(proxy.killTaskAttempt(null, requestProto));
@@ -308,5 +319,40 @@ public class MRClientProtocolPBClientImpl implements MRClientProtocol {
       }
     }
   }
+
+  @Override
+  public SuspendTaskAttemptResponse suspendTaskAttempt(SuspendTaskAttemptRequest request)
+      throws YarnRemoteException {
+    System.err.println("(bcho2) request: "+request);
+    SuspendTaskAttemptRequestProto requestProto = ((SuspendTaskAttemptRequestPBImpl)request).getProto();
+    try {
+      return new SuspendTaskAttemptResponsePBImpl(proxy.suspendTaskAttempt(null, requestProto));
+    } catch (ServiceException e) {
+      if (e.getCause() instanceof YarnRemoteException) {
+        throw (YarnRemoteException)e.getCause();
+      } else if (e.getCause() instanceof UndeclaredThrowableException) {
+        throw (UndeclaredThrowableException)e.getCause();
+      } else {
+        throw new UndeclaredThrowableException(e);
+      }
+    }
+  }
   
+  @Override
+  public ResumeTaskResponse resumeTask(ResumeTaskRequest request)
+      throws YarnRemoteException {
+    System.err.println("(bcho2) request: "+request);
+    ResumeTaskRequestProto requestProto = ((ResumeTaskRequestPBImpl)request).getProto();
+    try {
+      return new ResumeTaskResponsePBImpl(proxy.resumeTask(null, requestProto));
+    } catch (ServiceException e) {
+      if (e.getCause() instanceof YarnRemoteException) {
+        throw (YarnRemoteException)e.getCause();
+      } else if (e.getCause() instanceof UndeclaredThrowableException) {
+        throw (UndeclaredThrowableException)e.getCause();
+      } else {
+        throw new UndeclaredThrowableException(e);
+      }
+    }
+  }  
 }

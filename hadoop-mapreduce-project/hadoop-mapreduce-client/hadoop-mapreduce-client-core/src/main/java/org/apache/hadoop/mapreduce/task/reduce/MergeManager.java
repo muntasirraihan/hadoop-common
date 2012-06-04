@@ -353,6 +353,17 @@ public class MergeManager<K, V> {
       new ArrayList<MapOutput<K, V>>(inMemoryMergedMapOutputs);
     memory.addAll(inMemoryMapOutputs);
     List<Path> disk = new ArrayList<Path>(onDiskMapOutputs);
+    
+    // (bcho2) reverse engineering
+    LOG.info("(bcho2) memory: "+memory.size());
+    for (MapOutput<K, V> m : memory) {
+      LOG.info("(bcho2) memory:   "+m);
+    }
+    LOG.info("(bcho2) disk: "+disk.size());
+    for (Path p : disk) {
+      LOG.info("(bcho2) disk:   "+p);
+    }
+    
     return finalMerge(jobConf, rfs, memory, disk);
   }
    

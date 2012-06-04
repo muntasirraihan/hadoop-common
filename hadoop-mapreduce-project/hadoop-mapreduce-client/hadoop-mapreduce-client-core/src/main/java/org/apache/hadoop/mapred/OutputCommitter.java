@@ -260,6 +260,13 @@ public abstract class OutputCommitter
     commitTask((TaskAttemptContext) taskContext);
   }
   
+  @Override
+  public final
+  void commitTaskWithSuffix(org.apache.hadoop.mapreduce.TaskAttemptContext taskContext,
+      String suspendedAttemptId) throws IOException {
+    throw new IOException("(bcho2) not supported");
+  }
+  
   /**
    * This method implements the new interface by calling the old method. Note
    * that the input types are different between the new and old apis and this

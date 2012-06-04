@@ -16,13 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.mapreduce.v2.api.records;
+package org.apache.hadoop.mapreduce.v2.api.protocolrecords;
 
-public enum TaskAttemptCompletionEventStatus {
-  FAILED,
-  KILLED,
-  SUCCEEDED,
-  OBSOLETE,
-  TIPFAILED,
-  SUSPENDED
+public interface SuspendTaskAttemptResponse {
+
 }

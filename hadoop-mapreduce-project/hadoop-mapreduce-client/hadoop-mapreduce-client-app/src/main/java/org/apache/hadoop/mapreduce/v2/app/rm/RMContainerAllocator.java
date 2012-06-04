@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapreduce.v2.app.rm;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -76,6 +77,7 @@ public class RMContainerAllocator extends RMContainerRequestor
   
   private static final Priority PRIORITY_FAST_FAIL_MAP;
   private static final Priority PRIORITY_REDUCE;
+  private static final Priority PRIORITY_REDUCE_RESUME;
   private static final Priority PRIORITY_MAP;
 
   private Thread eventHandlingThread;
@@ -86,6 +88,8 @@ public class RMContainerAllocator extends RMContainerRequestor
     PRIORITY_FAST_FAIL_MAP.setPriority(5);
     PRIORITY_REDUCE = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
     PRIORITY_REDUCE.setPriority(10);
+    PRIORITY_REDUCE_RESUME = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
+    PRIORITY_REDUCE_RESUME.setPriority(3);
     PRIORITY_MAP = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
     PRIORITY_MAP.setPriority(20);
   }
@@ -309,11 +313,15 @@ public class RMContainerAllocator extends RMContainerRequestor
         }
         //set the rounded off memory
         reqEvent.getCapability().setMemory(reduceResourceReqt);
-        if (reqEvent.getEarlierAttemptFailed()) {
+        Priority priority = PRIORITY_REDUCE; // (bcho2)
+        if (reqEvent.isResumeAttempt()) {
+          priority = PRIORITY_REDUCE_RESUME;
+        }
+        if (reqEvent.getEarlierAttemptFailed() || priority == PRIORITY_REDUCE_RESUME) {
           //add to the front of queue for fail fast
-          pendingReduces.addFirst(new ContainerRequest(reqEvent, PRIORITY_REDUCE));
+          pendingReduces.addFirst(new ContainerRequest(reqEvent, priority));
         } else {
-          pendingReduces.add(new ContainerRequest(reqEvent, PRIORITY_REDUCE));
+          pendingReduces.add(new ContainerRequest(reqEvent, priority));
           //reduces are added to pending and are slowly ramped up
         }
       }
@@ -712,7 +720,7 @@ public class RMContainerAllocator extends RMContainerRequestor
     }
     
     
-    void addReduce(ContainerRequest req) {
+    void addReduce(ContainerRequest req) { // (bcho2) TODO have to change this to get local suspended reduce
       reduces.put(req.attemptID, req);
       addContainerReq(req);
     }
@@ -769,6 +777,33 @@ public class RMContainerAllocator extends RMContainerRequestor
           // blacklisted host
           String allocatedHost = allocated.getNodeId().getHost();
           blackListed = isNodeBlacklisted(allocatedHost);
+          
+          // TODO (bcho2) overloading blackListed, for now -- will it work? not sure
+          // TODO (bcho2) Think about the case with multiple reduces
+          //        -- need to check in a new function, e.g. assignToReduceResume
+          // TODO (bcho2) is there a case when this passes, yet priority_reduce should not be allocated?
+          LOG.info("(bcho2) Got allocated with priority "+priority);
+          if (!blackListed && PRIORITY_REDUCE_RESUME.equals(priority)) {
+            blackListed = true;
+            LOG.info("(bcho2) Got allocated with reduce_resume priority, host "+allocatedHost);
+            if (reduces.size() > 0) {
+              for (Entry<TaskAttemptId, ContainerRequest> entry : reduces.entrySet()) {
+                if (entry.getValue().hosts.length > 0) {
+                  if (entry.getValue().hosts[0].equals(allocatedHost)) {
+                    LOG.info("(bcho2) selected container host "+allocatedHost);
+                    blackListed = false;
+                    break;
+                  } else {
+                    LOG.info("(bcho2) passing over container host "+allocatedHost+" where we want "+entry.getValue().hosts[0]);
+                    // TODO (bcho2) going into this code causes infinite loop: send null request instead of what we need
+                  }
+                } else {
+                  LOG.error("(bcho2) HOSTS.LENGTH == 0; should not be the case");
+                }
+              }
+            }
+          }
+          
           if (blackListed) {
             // we need to request for a new container 
             // and release the current one
@@ -785,6 +820,8 @@ public class RMContainerAllocator extends RMContainerRequestor
                   + toBeReplacedReq.attemptID);
               ContainerRequest newReq = 
                   getFilteredContainerRequest(toBeReplacedReq);
+              LOG.info("(bcho2) newReq.hosts="+Arrays.asList(newReq.hosts)+
+                  " newReq.racks="+Arrays.asList(newReq.racks));
               decContainerReq(toBeReplacedReq);
               if (toBeReplacedReq.attemptID.getTaskId().getTaskType() ==
                   TaskType.MAP) {
@@ -843,7 +880,8 @@ public class RMContainerAllocator extends RMContainerRequestor
       if (PRIORITY_FAST_FAIL_MAP.equals(priority)) {
         LOG.info("Assigning container " + allocated + " to fast fail map");
         assigned = assignToFailedMap(allocated);
-      } else if (PRIORITY_REDUCE.equals(priority)) {
+      } else if (PRIORITY_REDUCE_RESUME.equals(priority) ||
+          PRIORITY_REDUCE.equals(priority)) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Assigning container " + allocated + " to reduce");
         }
@@ -890,7 +928,8 @@ public class RMContainerAllocator extends RMContainerRequestor
           toBeReplaced = maps.remove(tId);          
         }        
       }
-      else if (PRIORITY_REDUCE.equals(priority)) {
+      else if (PRIORITY_REDUCE_RESUME.equals(priority)
+          || PRIORITY_REDUCE.equals(priority)) {
         TaskAttemptId tId = reduces.keySet().iterator().next();
         toBeReplaced = reduces.remove(tId);    
       }
@@ -922,13 +961,46 @@ public class RMContainerAllocator extends RMContainerRequestor
       ContainerRequest assigned = null;
       //try to assign to reduces if present
       if (assigned == null && reduces.size() > 0) {
-        TaskAttemptId tId = reduces.keySet().iterator().next();
+        Entry<TaskAttemptId, ContainerRequest> entry = reduces.entrySet().iterator().next();
+        TaskAttemptId tId = entry.getKey();
+        ContainerRequest cRequest = entry.getValue();
         assigned = reduces.remove(tId);
-        LOG.info("Assigned to reduce");
+        LOG.info("(bcho2) Allocated host "+allocated.getNodeId().getHost()+" assigned to reduce "+tId+" for request with hosts "+cRequest.hosts);
+        if (cRequest.hosts != null) {
+          LOG.info("(bcho2) hosts.length: "+cRequest.hosts.length);
+          for (String host : cRequest.hosts) {
+            LOG.info("(bcho2) host: "+host);
+          }
+        }
       }
       return assigned;
     }
-    
+    /*
+    private ContainerRequest assignToReduce(Container allocated) { // (bcho2) TODO change to implement reduce hostname requests
+      ContainerRequest assigned = null;
+      //try to assign to reduces if present
+      if (assigned == null && reduces.size() > 0) {
+        
+        TaskAttemptId tId = null;
+        for (Entry<TaskAttemptId, ContainerRequest> entry : reduces.entrySet()) {
+          if (entry.getValue().hosts.length > 1 &&
+              entry.getValue().hosts[0].equals(allocated.getNodeId().getHost())) {
+            LOG.info("(bcho2) selected container host "+allocated.getNodeId().getHost());
+            tId = entry.getKey();
+          } else {
+            LOG.info("(bcho2) passing over container host "+allocated.getNodeId().getHost()+" where we want "+entry.getValue().hosts[0]);
+          }
+        }
+        if (tId == null) {
+          LOG.info("(bcho2) assignToReduce did not assign anything.");
+        } else {
+          assigned = reduces.remove(tId);
+          LOG.info("Assigned to reduce");
+        }
+      }
+      return assigned;
+    }
+    */
     @SuppressWarnings("unchecked")
     private ContainerRequest assignToMap(Container allocated) {
     //try to assign to maps if present 
