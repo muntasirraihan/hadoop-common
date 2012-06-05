@@ -81,6 +81,9 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     if (this.limit != null) {
       builder.setLimit(convertToProtoFormat(this.limit));
     }
+    if (this.release != null) {
+      builder.setRelease(convertToProtoFormat(this.release));
+    }
   }
   
   private synchronized void mergeLocalToProto() {
@@ -150,10 +153,10 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     }
 
     AMResponseProtoOrBuilder p = viaProto ? proto : builder;
-    if (!p.hasLimit()) {
+    if (!p.hasRelease()) {
       return null;
     }
-    this.release = convertFromProtoFormat(p.getLimit());
+    this.release = convertFromProtoFormat(p.getRelease());
     return this.release;
   }
 
@@ -161,7 +164,7 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
   public synchronized void setReleaseResources(Resource release) {
     maybeInitBuilder();
     if (release == null)
-      builder.clearLimit();
+      builder.clearRelease();
     this.release = release;
   }
   
