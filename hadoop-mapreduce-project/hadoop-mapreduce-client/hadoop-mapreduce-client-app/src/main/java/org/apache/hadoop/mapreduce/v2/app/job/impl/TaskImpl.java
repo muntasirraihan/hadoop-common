@@ -70,6 +70,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
+import org.apache.hadoop.mapreduce.v2.app.release.ReleaseEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerFailedEvent;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
 import org.apache.hadoop.security.token.Token;
@@ -840,6 +841,8 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
           ((TaskTAttemptEvent) event).getTaskAttemptID(), 
           TaskAttemptCompletionEventStatus.SUSPENDED);
       --task.numberUncompletedAttempts;
+      task.eventHandler.handle(
+          new ReleaseEvent(task.taskId));
     }
   }
 

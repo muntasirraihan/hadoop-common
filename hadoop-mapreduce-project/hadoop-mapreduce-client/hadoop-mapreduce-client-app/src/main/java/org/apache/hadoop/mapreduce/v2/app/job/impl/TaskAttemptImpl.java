@@ -138,8 +138,6 @@ public abstract class TaskAttemptImpl implements
   static final Counters EMPTY_COUNTERS = new Counters();
   private static final Log LOG = LogFactory.getLog(TaskAttemptImpl.class);
   private static final long MEMORY_SPLITS_RESOLUTION = 1024; //TODO Make configurable?
-  private static final int MAP_MEMORY_MB_DEFAULT = 1024;
-  private static final int REDUCE_MEMORY_MB_DEFAULT = 1024;
   private final static RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
 
   protected final JobConf conf;
@@ -265,13 +263,41 @@ public abstract class TaskAttemptImpl implements
          TaskAttemptState.SUSPEND_PENDING, TaskAttemptEventType.TA_SUSPEND,
          new SuspendPendingTransition())
      
-     // Transitions from SUSPEND_PENDING state.    
-     .addTransition(TaskAttemptState.SUSPEND_PENDING, // TODO: this is not longer valid; remove
-         TaskAttemptState.RUNNING, TaskAttemptEventType.TA_RESUME_FOR_TESTING,
-         new ResumeTestTransition())
+     // Transitions from SUSPEND_PENDING state.
      .addTransition(TaskAttemptState.SUSPEND_PENDING,
          TaskAttemptState.SUSPENDED, TaskAttemptEventType.TA_SUSPEND_DONE,
          new SuspendedTransition())
+     // While in SUSPEND_PENDING, if these happen, react as if RUNNING
+     // If no commit is required, task directly goes to success
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.SUCCESS_CONTAINER_CLEANUP,
+         TaskAttemptEventType.TA_DONE, CLEANUP_CONTAINER_TRANSITION)
+     // If commit is required, task goes through commit pending state.
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.COMMIT_PENDING,
+         TaskAttemptEventType.TA_COMMIT_PENDING, new CommitPendingTransition())
+     // Failure handling while SUSPEND_PENDING
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.FAIL_CONTAINER_CLEANUP,
+         TaskAttemptEventType.TA_FAILMSG, CLEANUP_CONTAINER_TRANSITION)
+      //for handling container exit without sending the done or fail msg
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.FAIL_CONTAINER_CLEANUP,
+         TaskAttemptEventType.TA_CONTAINER_COMPLETED,
+         CLEANUP_CONTAINER_TRANSITION)
+     // Timeout handling while SUSPEND_PENDING
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.FAIL_CONTAINER_CLEANUP,
+         TaskAttemptEventType.TA_TIMED_OUT, CLEANUP_CONTAINER_TRANSITION)
+     // Kill handling
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.KILL_CONTAINER_CLEANUP, TaskAttemptEventType.TA_KILL,
+         CLEANUP_CONTAINER_TRANSITION)
+     // Ignore-able events
+     .addTransition(TaskAttemptState.SUSPEND_PENDING,
+         TaskAttemptState.SUSPEND_PENDING,
+         EnumSet.of(TaskAttemptEventType.TA_UPDATE,
+             TaskAttemptEventType.TA_DIAGNOSTICS_UPDATE))
          
      // Transitions from COMMIT_PENDING state
      .addTransition(TaskAttemptState.COMMIT_PENDING,
@@ -439,9 +465,6 @@ public abstract class TaskAttemptImpl implements
              TaskAttemptEventType.TA_COMMIT_PENDING,
              TaskAttemptEventType.TA_DONE,
              TaskAttemptEventType.TA_FAILMSG))
-
-     // Transitions from SUSPEND_PENDING state
-     // (none yet!!!)
              
      // create the topology tables
      .installTopology();
@@ -515,9 +538,9 @@ public abstract class TaskAttemptImpl implements
   private int getMemoryRequired(Configuration conf, TaskType taskType) {
     int memory = 1024;
     if (taskType == TaskType.MAP)  {
-      memory = conf.getInt(MRJobConfig.MAP_MEMORY_MB, MAP_MEMORY_MB_DEFAULT);
+      memory = conf.getInt(MRJobConfig.MAP_MEMORY_MB, MRJobConfig.MAP_MEMORY_MB_DEFAULT);
     } else if (taskType == TaskType.REDUCE) {
-      memory = conf.getInt(MRJobConfig.REDUCE_MEMORY_MB, REDUCE_MEMORY_MB_DEFAULT);
+      memory = conf.getInt(MRJobConfig.REDUCE_MEMORY_MB, MRJobConfig.REDUCE_MEMORY_MB_DEFAULT);
     }
     
     return memory;
@@ -974,8 +997,8 @@ public abstract class TaskAttemptImpl implements
        taskAttempt.getMemoryRequired(taskAttempt.conf, taskType);
     int simSlotsRequired =
         slotMemoryReq
-            / (taskType == TaskType.MAP ? MAP_MEMORY_MB_DEFAULT
-                : REDUCE_MEMORY_MB_DEFAULT);
+            / (taskType == TaskType.MAP ? MRJobConfig.MAP_MEMORY_MB_DEFAULT
+                : MRJobConfig.REDUCE_MEMORY_MB_DEFAULT);
     // Simulating MRv1 slots for counters by assuming *_MEMORY_MB_DEFAULT
     // corresponds to a MrV1 slot.
     // Fallow slot millis is not applicable in MRv2 - since a container is
@@ -1353,17 +1376,9 @@ public abstract class TaskAttemptImpl implements
     }
   }
 
-  private static class ResumeTestTransition implements
-      SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> { // TODO: this is no longer valid
-    @Override
-    public void transition(TaskAttemptImpl taskAttempt, 
-        TaskAttemptEvent event) {
-      LOG.info("(bcho2) back to running state transition!");
-    }
-  }
-
   private static class SuspendedTransition implements
       SingleArcTransition<TaskAttemptImpl, TaskAttemptEvent> {
+    @SuppressWarnings("unchecked")
     @Override
     public void transition(TaskAttemptImpl taskAttempt, 
         TaskAttemptEvent event) {
@@ -1389,7 +1404,6 @@ public abstract class TaskAttemptImpl implements
       taskAttempt.eventHandler.handle(new TaskTAttemptEvent(
           taskAttempt.attemptId,
           TaskEventType.T_ATTEMPT_SUSPENDED));
-    
     }
   }
   

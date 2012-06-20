@@ -155,13 +155,23 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     lastClusterNmCount = clusterNmCount;
     clusterNmCount = allocateResponse.getNumClusterNodes();
 
-    if (ask.size() > 0 || release.size() > 0) {
+    // (bcho2) LOG.info in more cases
+    int newContainers = response.getAllocatedContainers().size();
+    int finishedContainers = response.getCompletedContainersStatuses().size();
+    if (ask.size() > 0 || release.size() > 0
+          || newContainers > 0 || finishedContainers > 0) {
       LOG.info("getResources() for " + applicationId + ":" + " ask="
           + ask.size() + " release= " + release.size() + " newContainers="
-          + response.getAllocatedContainers().size() + " finishedContainers="
-          + response.getCompletedContainersStatuses().size()
+          + newContainers + " finishedContainers="
+          + finishedContainers
           + " resourcelimit=" + availableResources + " knownNMs="
           + clusterNmCount);
+      for (ResourceRequest a : ask) {
+        LOG.info("(bcho2) ask for " + applicationId + ":"
+            + "resource=" + a.getCapability()
+            + "numContainers=" + a.getNumContainers()
+            + "priority=" + a.getPriority());
+      }
     }
 
     ask.clear();
@@ -321,12 +331,12 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
     // Note this down for next interaction with ResourceManager
     ask.add(remoteRequest);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("addResourceRequest:" + " applicationId="
+    // if (LOG.isDebugEnabled()) {
+      LOG.info("addResourceRequest:" + " applicationId="
           + applicationId.getId() + " priority=" + priority.getPriority()
           + " resourceName=" + resourceName + " numContainers="
           + remoteRequest.getNumContainers() + " #asks=" + ask.size());
-    }
+    // }
   }
 
   private void decResourceRequest(Priority priority, String resourceName,
@@ -346,12 +356,12 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     }
     ResourceRequest remoteRequest = reqMap.get(capability);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("BEFORE decResourceRequest:" + " applicationId="
+    // if (LOG.isDebugEnabled()) {
+      LOG.info("BEFORE decResourceRequest:" + " applicationId="
           + applicationId.getId() + " priority=" + priority.getPriority()
           + " resourceName=" + resourceName + " numContainers="
           + remoteRequest.getNumContainers() + " #asks=" + ask.size());
-    }
+    // }
 
     remoteRequest.setNumContainers(remoteRequest.getNumContainers() -1);
     if (remoteRequest.getNumContainers() == 0) {
@@ -369,12 +379,12 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       //already have it.
     }
 
-    if (LOG.isDebugEnabled()) {
+    // if (LOG.isDebugEnabled()) {
       LOG.info("AFTER decResourceRequest:" + " applicationId="
           + applicationId.getId() + " priority=" + priority.getPriority()
           + " resourceName=" + resourceName + " numContainers="
           + remoteRequest.getNumContainers() + " #asks=" + ask.size());
-    }
+    // }
   }
 
   protected void release(ContainerId containerId) {

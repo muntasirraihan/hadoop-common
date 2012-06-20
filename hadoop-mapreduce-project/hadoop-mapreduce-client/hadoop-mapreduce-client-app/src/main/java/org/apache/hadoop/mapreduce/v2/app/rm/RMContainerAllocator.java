@@ -55,12 +55,14 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptContainerAssigned
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+import org.apache.hadoop.mapreduce.v2.app.release.ReleaseEvent;
 import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.util.RackResolver;
 
@@ -576,8 +578,9 @@ public class RMContainerAllocator extends RMContainerRequestor
                                this.getContext().getApplicationID());
     }
     
+    Resource releaseResource = response.getReleaseResources(); 
     int releaseMemory =
-      response.getReleaseResources() != null ? response.getReleaseResources().getMemory() : 0;
+      releaseResource != null ? releaseResource.getMemory() : 0;
     if (releaseMemory > 0) {
       // TODO: send some kind of event to the correct (a new one?) handler
       LOG.info("(bcho2) mock:"
@@ -586,13 +589,8 @@ public class RMContainerAllocator extends RMContainerRequestor
       // but likely, using a class that has its own handle(),
       // that will find out what taskAttempts it wants to suspend
       // SEE: MRAppMaster.dispatcher.register(...)
-      /*
       getContext().getEventHandler().handle(                                                                                                                  
-          new TaskAttemptDiagnosticsUpdateEvent(taskAttemptId, message));                                                                                   
-      getContext().getEventHandler().handle(                                                                                                                  
-          new TaskAttemptEvent(taskAttemptId,     
-              TaskAttemptEventType.TA_SUSPEND));
-      */
+          new ReleaseEvent(releaseResource));
     }
     
     int newHeadRoom = getAvailableResources() != null ? getAvailableResources().getMemory() : 0;
@@ -655,6 +653,10 @@ public class RMContainerAllocator extends RMContainerRequestor
     
     private final LinkedHashMap<TaskAttemptId, ContainerRequest> reduces = 
       new LinkedHashMap<TaskAttemptId, ContainerRequest>();
+    // private final LinkedHashMap<TaskAttemptId, ContainerRequest> reduceResumes = 
+    //   new LinkedHashMap<TaskAttemptId, ContainerRequest>();
+    private final Map<String, LinkedList<TaskAttemptId>> reducesHostMapping = 
+      new HashMap<String, LinkedList<TaskAttemptId>>();
     
     boolean remove(TaskAttemptId tId) {
       ContainerRequest req = null;
@@ -721,6 +723,18 @@ public class RMContainerAllocator extends RMContainerRequestor
     
     
     void addReduce(ContainerRequest req) { // (bcho2) TODO have to change this to get local suspended reduce
+      for (String host : req.hosts) {
+        LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+        if (list == null) {
+          list = new LinkedList<TaskAttemptId>();
+          reducesHostMapping.put(host, list);
+        }
+        list.add(req.attemptID);
+        // if (LOG.isDebugEnabled()) {
+          LOG.info("(bcho2) Added reduce resume attempt req to host " + host);
+        // }
+      }
+      
       reduces.put(req.attemptID, req);
       addContainerReq(req);
     }
@@ -880,11 +894,15 @@ public class RMContainerAllocator extends RMContainerRequestor
       if (PRIORITY_FAST_FAIL_MAP.equals(priority)) {
         LOG.info("Assigning container " + allocated + " to fast fail map");
         assigned = assignToFailedMap(allocated);
-      } else if (PRIORITY_REDUCE_RESUME.equals(priority) ||
-          PRIORITY_REDUCE.equals(priority)) {
+      } else if (PRIORITY_REDUCE.equals(priority)) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Assigning container " + allocated + " to reduce");
         }
+        assigned = assignToReduce(allocated);
+      } else if (PRIORITY_REDUCE_RESUME.equals(priority)) {
+        // if (LOG.isDebugEnabled()) {
+          LOG.info("(bcho2) Assigning container " + allocated + " to reduce resume");
+        // }
         assigned = assignToReduce(allocated);
       } else if (PRIORITY_MAP.equals(priority)) {
         if (LOG.isDebugEnabled()) {
@@ -930,8 +948,18 @@ public class RMContainerAllocator extends RMContainerRequestor
       }
       else if (PRIORITY_REDUCE_RESUME.equals(priority)
           || PRIORITY_REDUCE.equals(priority)) {
-        TaskAttemptId tId = reduces.keySet().iterator().next();
-        toBeReplaced = reduces.remove(tId);    
+        String host = allocated.getNodeId().getHost();
+        LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+        if (list != null && list.size() > 0) {
+          TaskAttemptId tId = list.removeLast();
+          if (reduces.containsKey(tId)) {
+            toBeReplaced = reduces.remove(tId);
+          }
+        }
+        else {
+          TaskAttemptId tId = reduces.keySet().iterator().next();
+          toBeReplaced = reduces.remove(tId);
+        }
       }
       LOG.info("Found replacement: " + toBeReplaced);
       return toBeReplaced;
@@ -960,47 +988,33 @@ public class RMContainerAllocator extends RMContainerRequestor
     private ContainerRequest assignToReduce(Container allocated) {
       ContainerRequest assigned = null;
       //try to assign to reduces if present
-      if (assigned == null && reduces.size() > 0) {
-        Entry<TaskAttemptId, ContainerRequest> entry = reduces.entrySet().iterator().next();
-        TaskAttemptId tId = entry.getKey();
-        ContainerRequest cRequest = entry.getValue();
-        assigned = reduces.remove(tId);
-        LOG.info("(bcho2) Allocated host "+allocated.getNodeId().getHost()+" assigned to reduce "+tId+" for request with hosts "+cRequest.hosts);
-        if (cRequest.hosts != null) {
-          LOG.info("(bcho2) hosts.length: "+cRequest.hosts.length);
-          for (String host : cRequest.hosts) {
-            LOG.info("(bcho2) host: "+host);
+      //first by host, followed by *
+      while (assigned == null && reduces.size() > 0) {
+        String host = allocated.getNodeId().getHost();
+        LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+        while (list != null && list.size() > 0) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Host matched to the request list " + host);
+          }
+          TaskAttemptId tId = list.removeFirst();
+          if (reduces.containsKey(tId)) {
+            assigned = reduces.remove(tId);
+            LOG.info("(bcho2) reduce resume assigned, ta "+tId
+                +" assigned "+assigned
+                +" host "+host);
+            break;
           }
         }
-      }
-      return assigned;
-    }
-    /*
-    private ContainerRequest assignToReduce(Container allocated) { // (bcho2) TODO change to implement reduce hostname requests
-      ContainerRequest assigned = null;
-      //try to assign to reduces if present
-      if (assigned == null && reduces.size() > 0) {
-        
-        TaskAttemptId tId = null;
-        for (Entry<TaskAttemptId, ContainerRequest> entry : reduces.entrySet()) {
-          if (entry.getValue().hosts.length > 1 &&
-              entry.getValue().hosts[0].equals(allocated.getNodeId().getHost())) {
-            LOG.info("(bcho2) selected container host "+allocated.getNodeId().getHost());
-            tId = entry.getKey();
-          } else {
-            LOG.info("(bcho2) passing over container host "+allocated.getNodeId().getHost()+" where we want "+entry.getValue().hosts[0]);
-          }
-        }
-        if (tId == null) {
-          LOG.info("(bcho2) assignToReduce did not assign anything.");
-        } else {
+        if (assigned == null && reduces.size() > 0) {
+          TaskAttemptId tId = reduces.keySet().iterator().next();
           assigned = reduces.remove(tId);
-          LOG.info("Assigned to reduce");
+          LOG.info("(bcho2) reduce normal assigned");
+          break;
         }
       }
       return assigned;
     }
-    */
+    
     @SuppressWarnings("unchecked")
     private ContainerRequest assignToMap(Container allocated) {
     //try to assign to maps if present 

@@ -45,7 +45,7 @@ public class Suspender {
       LOG.info("(bcho2) Suspend failed: ", e);
     }
     // TODO: for StatefulSuspendableReducer, stall cannot come here. Must reconcile this whole stall business!!! (bcho2)
-    stall();
+    // stall();
     doneSuspend = true;
   }
   

@@ -488,7 +488,9 @@ public class ReduceTask extends Task {
       runOldReducer(job, umbilical, reporter, rIter, comparator, 
                     keyClass, valueClass);
     }
-    done(umbilical, reporter);
+    if (!suspender.isDoneSuspend()) {
+      done(umbilical, reporter);
+    }
   }
 
   private void resumeParse() throws AccessControlException, FileNotFoundException, IOException {

@@ -30,13 +30,28 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
 
   protected static final Log LOG = LogFactory.getLog(CSPreemptor.class);
   
-  // TODO make these config variables
-  private static final long PREEMPT_INTERVAL = 1000;
-  private static final long KILL_INTERVAL = 3000;
-  private static final long EXPIRE_INTERVAL = 6000;
+  private long preemptInterval;
+  private long killInterval;
+  private long expireInterval;
+  private float utilizationTolerance;
+
+  private static final String PREFIX =
+    CapacitySchedulerConfiguration.PREFIX + "preempt" +
+    CapacitySchedulerConfiguration.DOT;
+  private static final String INTERVAL_MS =
+    PREFIX + "interval-ms";
+  private static final String KILL_MS =
+    PREFIX + "kill-ms";
+  private static final String EXPIRE_MS =
+    PREFIX + "expire-ms";
+  private static final String UTILIZATION_TOL =
+    PREFIX + "utilization-tolerance";
   
-  private static final float UTILIZATION_TOLERANCE = 0.1f;
-  
+  private static final long DEFAULT_INTERVAL_MS = 1000;
+  private static final long DEFAULT_KILL_MS = 3000;
+  private static final long DEFAULT_EXPIRE_MS = 6000;
+  private static final float DEFAULT_UTILIZATION_TOL = 0.1f;
+
   private boolean stopReclaim = false;
   private Clock clock = new SystemClock();
   
@@ -75,13 +90,21 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   public void initialize(CSQueue root, CapacitySchedulerContext scheduler) {
     this.root = root;
     this.scheduler = scheduler;
+    
+    CapacitySchedulerConfiguration conf = scheduler.getConfiguration();
+    this.preemptInterval = conf.getLong(INTERVAL_MS, DEFAULT_INTERVAL_MS);
+    this.killInterval = conf.getLong(KILL_MS, DEFAULT_KILL_MS);
+    this.expireInterval = conf.getLong(EXPIRE_MS, DEFAULT_EXPIRE_MS);
+    this.utilizationTolerance = conf.getFloat(UTILIZATION_TOL, DEFAULT_UTILIZATION_TOL);
+    
+    LOG.info("(bcho2) kill interval "+killInterval);
   }
   
   public void run() {
-    LOG.info("(bcho2) preemptor started, with interval "+PREEMPT_INTERVAL);
+    LOG.info("(bcho2) preemptor started, with interval "+preemptInterval);
     while (true) {
       try {
-        Thread.sleep(PREEMPT_INTERVAL);
+        Thread.sleep(preemptInterval);
         if (stopReclaim) {
           break;
         }
@@ -102,6 +125,16 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     List<ReclaimedResource> reclaimList = reclaimLists.get(leafQueue);
     int reclaimAmount = assigned.getMemory();
     LOG.info("(bcho2) updatedPreemptor: before reclaim amount "+reclaimAmount);
+    if (reclaimingAmounts.containsKey(leafQueue)) {
+      int amount = reclaimingAmounts.get(leafQueue);
+      int updatedAmount = amount - reclaimAmount;
+      LOG.info("(bcho2) after update preemptor updatedAmount "+updatedAmount);
+      if (updatedAmount <= 0) {
+        reclaimingAmounts.remove(leafQueue);
+      } else {
+        reclaimingAmounts.put(leafQueue, updatedAmount);
+      }
+    }
     if (reclaimList != null && !reclaimList.isEmpty()) {
       Iterator<ReclaimedResource> it = reclaimList.iterator();
       while(reclaimAmount > 0 && it.hasNext()) {
@@ -161,7 +194,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           
           if (reclaimingAmounts.containsKey(queue)) {
             int amount = reclaimingAmounts.get(queue);
-            int updatedAmount = amount - reclaimedResource.originalAmount;
+            int updatedAmount = amount - reclaimedResource.currentAmount;
+            LOG.info("(bcho2) after remove from expire list updatedAmount "+updatedAmount);
             if (updatedAmount <= 0) {
               reclaimingAmounts.remove(queue);
             } else {
@@ -217,10 +251,17 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         continue;
       int memReclaiming = 0;
       float memReclaimingRatio = 0.0f;
+      
       if (reclaimingAmounts.containsKey(queue)) {
         memReclaiming = reclaimingAmounts.get(queue);
         memReclaimingRatio = (float)memReclaiming / rootMB;
       }
+      LOG.info("(bcho2) addIF"
+          + " memNeeded " + memNeeded
+          + " memReclaiming " + memReclaiming
+          + " queueUsed " + queue.getUtilization()*queue.getAbsoluteCapacity()
+          + " memReclaimingRatio " + memReclaimingRatio
+          + " queueCap " + queue.getAbsoluteCapacity());
       // If (need memory) && (not given capacity of memory), including what has been reclaimed
       if ((memNeeded - memReclaiming) > 0 &&
               (queue.getUtilization()*queue.getAbsoluteCapacity() + memReclaimingRatio)
@@ -228,8 +269,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         // TODO while adding to the queue, also alert the AM's that some more resources are wanted
         addReclaim(queue,
             new ReclaimedResource(memNeeded-memReclaiming,
-                currentTime+EXPIRE_INTERVAL,
-                currentTime+KILL_INTERVAL));
+                currentTime+expireInterval,
+                currentTime+killInterval));
         releaseAmount += (memNeeded-memReclaiming);
       }
     }
@@ -335,7 +376,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       List<CSQueue> overCapList) {
     List<CSQueue> children = queue.getChildQueues();
     if (children == null) { // LeafQueue
-      if (queue.getUtilization() > 1.0 + UTILIZATION_TOLERANCE) {
+      if (queue.getUtilization() > 1.0 + utilizationTolerance) {
         overCapList.add(queue);
       }
     } else {

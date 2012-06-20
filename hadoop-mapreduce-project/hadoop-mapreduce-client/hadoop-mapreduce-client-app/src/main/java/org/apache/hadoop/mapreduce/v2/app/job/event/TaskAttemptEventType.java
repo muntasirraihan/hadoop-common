@@ -30,7 +30,6 @@ public enum TaskAttemptEventType {
   //Producer:Client, Task
   TA_KILL,
   TA_SUSPEND,
-  TA_RESUME_FOR_TESTING, // (bcho2) TODO: eventually remove this
   TA_RESUME,
   
   //Producer:ContainerAllocator
