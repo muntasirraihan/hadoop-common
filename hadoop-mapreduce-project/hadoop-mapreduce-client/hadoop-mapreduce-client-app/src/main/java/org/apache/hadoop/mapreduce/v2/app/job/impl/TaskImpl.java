@@ -1012,16 +1012,21 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
       SingleArcTransition<TaskImpl, TaskEvent> {
     @Override
     public void transition(TaskImpl task, TaskEvent event) {
-      // TODO: Don't always want first one!
+      // (bcho2) Get the latest one!
       TaskAttempt suspendedTaskAttempt = null;
       for (TaskAttempt attempt : task.attempts.values()) {
         if (attempt.getState().equals(TaskAttemptState.SUSPENDED)) {
-          suspendedTaskAttempt = attempt;
-          break;
+          LOG.info("(bcho2) suspended found "+attempt.getID());
+          if (suspendedTaskAttempt == null
+              || suspendedTaskAttempt.getID().compareTo(attempt.getID()) < 0) {
+            suspendedTaskAttempt = attempt;
+            LOG.info("(bcho2) suspended updated "+attempt.getID());
+          }
         }
       }
       if (suspendedTaskAttempt != null) {
-        LOG.info("(bcho2) Scheduling a resume attempt for task " + task.taskId);
+        LOG.info("(bcho2) Scheduling a resume attempt for task " + task.taskId
+            + " from task attempt " + suspendedTaskAttempt.getID());
         String hostname =
           suspendedTaskAttempt.getAssignedContainerMgrAddress();
         TaskAttemptId suspendedAttemptId = 

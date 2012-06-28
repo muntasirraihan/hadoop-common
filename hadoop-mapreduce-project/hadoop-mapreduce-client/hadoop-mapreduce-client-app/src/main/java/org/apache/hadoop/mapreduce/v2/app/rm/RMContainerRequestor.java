@@ -168,9 +168,9 @@ public abstract class RMContainerRequestor extends RMCommunicator {
           + clusterNmCount);
       for (ResourceRequest a : ask) {
         LOG.info("(bcho2) ask for " + applicationId + ":"
-            + "resource=" + a.getCapability()
-            + "numContainers=" + a.getNumContainers()
-            + "priority=" + a.getPriority());
+            + " resource=" + a.getCapability()
+            + " numContainers=" + a.getNumContainers()
+            + " priority=" + a.getPriority());
       }
     }
 

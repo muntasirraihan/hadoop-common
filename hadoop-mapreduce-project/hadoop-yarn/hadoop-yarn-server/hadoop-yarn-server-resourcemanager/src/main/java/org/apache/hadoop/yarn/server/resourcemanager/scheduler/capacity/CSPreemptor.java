@@ -35,23 +35,23 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   private long expireInterval;
   private float utilizationTolerance;
 
-  private static final String PREFIX =
-    CapacitySchedulerConfiguration.PREFIX + "preempt" +
-    CapacitySchedulerConfiguration.DOT;
   private static final String INTERVAL_MS =
-    PREFIX + "interval-ms";
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "interval-ms";
   private static final String KILL_MS =
-    PREFIX + "kill-ms";
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "kill-ms";
   private static final String EXPIRE_MS =
-    PREFIX + "expire-ms";
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "expire-ms";
   private static final String UTILIZATION_TOL =
-    PREFIX + "utilization-tolerance";
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "utilization-tolerance";
+  private static final String SUSPEND =
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend";
   
   private static final long DEFAULT_INTERVAL_MS = 1000;
   private static final long DEFAULT_KILL_MS = 3000;
   private static final long DEFAULT_EXPIRE_MS = 6000;
   private static final float DEFAULT_UTILIZATION_TOL = 0.1f;
 
+  private boolean suspend = false;
   private boolean stopReclaim = false;
   private Clock clock = new SystemClock();
   
@@ -96,6 +96,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     this.killInterval = conf.getLong(KILL_MS, DEFAULT_KILL_MS);
     this.expireInterval = conf.getLong(EXPIRE_MS, DEFAULT_EXPIRE_MS);
     this.utilizationTolerance = conf.getFloat(UTILIZATION_TOL, DEFAULT_UTILIZATION_TOL);
+    this.suspend = conf.getBoolean(SUSPEND, false);
     
     LOG.info("(bcho2) kill interval "+killInterval);
   }
@@ -276,7 +277,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
     
     // * Go through queues, tell AM to release resources
-    if (releaseAmount > 0) {
+    if (suspend && releaseAmount > 0) {
       LOG.info("(bcho2) release amount "+releaseAmount);
       if (overCapList.size() > 0) {
         releaseContainers(releaseAmount, overCapList);

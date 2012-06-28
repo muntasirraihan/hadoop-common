@@ -749,6 +749,11 @@ public class LeafQueue implements CSQueue {
     if (reservedContainer != null) {
       SchedulerApp application = 
           getApplication(reservedContainer.getApplicationAttemptId());
+      LOG.info("(bcho2) assigning reserved container at"
+          +" application="+application.getApplicationId()
+          +" node="+node
+          +" container="+reservedContainer.getContainerId()
+          +" resource="+clusterResource);
       return new CSAssignment(
           assignReservedContainer(application, node, reservedContainer, 
               clusterResource),
@@ -774,6 +779,13 @@ public class LeafQueue implements CSQueue {
 
           // Do we need containers at this 'priority'?
           if (!needContainers(application, priority, required)) {
+            if (priority.getPriority() == 3) {
+              LOG.info("(bcho2) assignment unneeded,"
+                  +" node="+node
+                  +" application="+application.getApplicationId()
+                  +" priority="+priority
+                  +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
+            }
             continue;
           }
 
@@ -806,6 +818,11 @@ public class LeafQueue implements CSQueue {
 
           // (bcho2)
           if (assignment == null) {
+            LOG.info("(bcho2) assignment null,"
+                +" node="+node
+                +" application="+application.getApplicationId()
+                +" priority="+priority.getPriority()
+                +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
             continue;
           }
           
@@ -825,9 +842,19 @@ public class LeafQueue implements CSQueue {
             application.resetSchedulingOpportunities(priority);
             
             // Done
+            LOG.info("(bcho2) assignment="+assignment
+                +" node="+node
+                +" application="+application.getApplicationId()
+                +" priority="+priority.getPriority()
+                +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
             return assignment;
           } else {
             // Do not assign out of order w.r.t priorities
+            LOG.info("(bcho2) assignment break,"
+                +" node="+node
+                +" application="+application.getApplicationId()
+                +" priority="+priority.getPriority()
+                +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
             break;
           }
         }
@@ -839,7 +866,9 @@ public class LeafQueue implements CSQueue {
       }
       application.showRequests();
     }
-  
+
+    LOG.info("(bcho2) assignment returning null,"
+      +" node="+node);
     return NULL_ASSIGNMENT;
 
   }
@@ -1176,7 +1205,7 @@ public class LeafQueue implements CSQueue {
     if (rackLocalRequest == null || rackLocalRequest.getNumContainers() <= 0) {
       return false;
     }
-      
+
     // If we are here, we do need containers on this rack for RACK_LOCAL req
     if (type == NodeType.RACK_LOCAL) {
       return true;

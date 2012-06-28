@@ -230,8 +230,11 @@ implements ResourceScheduler, CapacitySchedulerContext {
     LOG.info("Initialized root queue " + root);
     
     // (bcho2)
-    preemptor.initialize(root, this);
-    new Thread(preemptor).start();
+    if (conf.getBoolean(CapacitySchedulerConfiguration.PREEMPT, false)) {
+      LOG.info("Initialized preemptor");
+      preemptor.initialize(root, this);
+      new Thread(preemptor).start();
+    }
   }
 
   @Lock(CapacityScheduler.class)
