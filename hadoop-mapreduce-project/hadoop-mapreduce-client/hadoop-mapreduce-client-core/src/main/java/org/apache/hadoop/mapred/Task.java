@@ -80,10 +80,9 @@ abstract public class Task implements Writable, Configurable {
   private static final Log LOG =
     LogFactory.getLog(Task.class);
 
-  public static String SUSPEND_MSG = "(bcho2)suspended:";
   public static String MERGED_OUTPUT_PREFIX = ".merged";
   public static final long DEFAULT_COMBINE_RECORDS_BEFORE_PROGRESS = 10000;
-  
+
   /**
    * @deprecated Provided for compatibility. Use {@link TaskCounter} instead.
    */

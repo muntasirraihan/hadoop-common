@@ -20,12 +20,10 @@ package org.apache.hadoop.mapred;
 
 import java.io.BufferedReader;
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -37,24 +35,19 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystem.Statistics;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableFactories;
 import org.apache.hadoop.io.WritableFactory;
-import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
-import org.apache.hadoop.mapred.Merger.MergeQueue;
-import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapreduce.MRConfig;
 import org.apache.hadoop.mapreduce.StatefulSuspendableReducer;
@@ -113,16 +106,10 @@ public class ReduceTask extends Task {
     getCounters().findCounter(FileOutputFormatCounter.BYTES_WRITTEN);
 
   boolean doSuspend = false;
-  RawKeyValueIterator rIter = null;
-  org.apache.hadoop.mapreduce.RecordWriter trackedRW = null;
-  org.apache.hadoop.mapreduce.Reducer.Context reducerContext = null;
   private final List<String> resumePaths = new ArrayList<String>();
   Path resumeLogPath = null;
   long resumeKeyNumber = 0;
   boolean resumeIsStateful = false;
-  
-  long stallKeyNumber = 0;
-  int stallTime = 0;
   
   // A custom comparator for map output files. Here the ordering is determined
   // by the file's size and path. In case of files with same size and different
@@ -387,6 +374,7 @@ public class ReduceTask extends Task {
       return;
     }
     
+    RawKeyValueIterator rIter = null;
     // Initialize the codec
     codec = initCodec();
     
@@ -451,26 +439,8 @@ public class ReduceTask extends Task {
                            reporter, spilledRecordsCounter, null, null);
     }
     
-    // (bcho2) TODO: stall, nasty hack for testing
-    // - If attemptId = first one
-    //     just stall here (waiting for suspend)
-    stallKeyNumber = job.getLong("mapreduce.bcho2.stall.key", 0);
-    stallTime = job.getInt("mapreduce.bcho2.stall.time", 0);
-    LOG.info("(bcho2) stallTime "+stallTime+" stallKeyNumber "+stallKeyNumber);
-    
-    suspender = new Suspender(getTaskID(), umbilical, stallTime);
-    
-    // (bcho2) "reverse engineering"
-    MergeQueue mergeQueue = (MergeQueue)rIter;
-    if (mergeQueue.segments == null) {
-      LOG.info("(bcho2)mergeQueue.segments null");
-    } else {
-      LOG.info("(bcho2)mergeQueue.segments-- size:" + mergeQueue.segments.size());
-      for (Object segment : mergeQueue.segments) {
-        LOG.info("(bcho2)mergeQueue.seqments--  " + segment);
-      }
-    }
-    
+    suspender = new Suspender(getTaskID(), umbilical);
+
     // free up the data structures
     mapOutputFilesOnDisk.clear();
     
@@ -720,7 +690,7 @@ public class ReduceTask extends Task {
                               ClassNotFoundException {
     // wrap value iterator to report progress.
     final RawKeyValueIterator rawIter = rIter;
-    this.rIter = new RawKeyValueIterator() {
+    rIter = new RawKeyValueIterator() {
      
       public void close() throws IOException {
         rawIter.close();
@@ -748,12 +718,13 @@ public class ReduceTask extends Task {
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE> reducer =
       (org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>)
         ReflectionUtils.newInstance(taskContext.getReducerClass(), job);
-    trackedRW = 
+    org.apache.hadoop.mapreduce.RecordWriter<OUTKEY,OUTVALUE> trackedRW = 
       new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
     job.setBoolean("mapred.skip.on", isSkipping());
     job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
-    reducerContext = createReduceContext(reducer, job, getTaskID(),
-                                               this.rIter, reduceInputKeyCounter, 
+    org.apache.hadoop.mapreduce.Reducer.Context
+        reducerContext = createReduceContext(reducer, job, getTaskID(),
+                                               rIter, reduceInputKeyCounter, 
                                                reduceInputValueCounter, 
                                                trackedRW,
                                                committer,

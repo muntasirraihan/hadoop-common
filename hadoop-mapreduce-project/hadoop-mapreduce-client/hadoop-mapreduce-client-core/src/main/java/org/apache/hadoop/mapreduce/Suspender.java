@@ -10,18 +10,15 @@ public class Suspender {
   private static final Log LOG = LogFactory.getLog(Suspender.class);
   
   private boolean doSuspend = false;
-  private int stallTime = 0;
   private final org.apache.hadoop.mapred.TaskAttemptID taskId;
   private final TaskUmbilicalProtocol umbilical;
   
   private boolean doneSuspend = false;
   
   public Suspender(final org.apache.hadoop.mapred.TaskAttemptID taskId,
-      final TaskUmbilicalProtocol umbilical,
-      int stallTime) {
+      final TaskUmbilicalProtocol umbilical) {
     this.taskId = taskId;
     this.umbilical = umbilical;
-    this.stallTime = stallTime;
   }
   
   public void suspend(ReduceContext reducerContext,
@@ -47,17 +44,6 @@ public class Suspender {
     // TODO: for StatefulSuspendableReducer, stall cannot come here. Must reconcile this whole stall business!!! (bcho2)
     // stall();
     doneSuspend = true;
-  }
-  
-  public void stall() {
-    LOG.info("(bcho2) stalling");
-    for (int i = 0; i < 10; i++) {
-      try {
-        Thread.sleep(stallTime/10);
-      } catch (InterruptedException e) {
-        LOG.info("(bcho2) stalling interrupted, i: "+i);
-      }
-    }
   }
 
   public void setDoSuspend(boolean doSuspend) {
