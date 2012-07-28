@@ -29,6 +29,7 @@ public enum TaskAttemptEventType {
 
   //Producer:Client, Task
   TA_KILL,
+  // TA_PARTIAL_COMMIT,
   TA_SUSPEND,
   TA_RESUME,
   

@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -296,6 +298,23 @@ public class MRClientService extends AbstractService
           new JobEvent(jobId, JobEventType.JOB_KILL));
       KillJobResponse response = 
         recordFactory.newRecordInstance(KillJobResponse.class);
+      return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) 
+      throws YarnRemoteException {
+      JobId jobId = request.getJobId();
+      String message = "PartialCommit Job received from client " + jobId;
+      LOG.info(message);
+      verifyAndGetJob(jobId, true);
+      appContext.getEventHandler().handle(
+          new JobDiagnosticsUpdateEvent(jobId, message));
+      appContext.getEventHandler().handle(
+          new JobEvent(jobId, JobEventType.JOB_PARTIAL_COMMIT));
+      PartialCommitJobResponse response = 
+        recordFactory.newRecordInstance(PartialCommitJobResponse.class);
       return response;
     }
 

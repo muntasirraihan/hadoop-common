@@ -623,6 +623,17 @@ public class Job extends JobContextImpl implements JobContext {
   }
 
   /**
+   * Partial commit on the running job.  Blocks until all job tasks have been
+   * partially committed.  If the job is no longer running, it simply returns.
+   * 
+   * @throws IOException
+   */
+  public void partialCommitJob() throws IOException, InterruptedException {
+    ensureState(JobState.RUNNING);
+    cluster.getClient().partialCommitJob(getJobID());
+  }
+  
+  /**
    * Set the priority of a running job.
    * @param priority the new priority for the job.
    * @throws IOException

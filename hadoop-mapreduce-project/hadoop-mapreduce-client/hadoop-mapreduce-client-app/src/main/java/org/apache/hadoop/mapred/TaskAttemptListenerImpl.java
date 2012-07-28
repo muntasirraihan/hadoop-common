@@ -50,7 +50,9 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdate
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent.TaskAttemptStatus;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.authorize.PolicyProvider;
@@ -491,6 +493,30 @@ public class TaskAttemptListenerImpl extends CompositeService
   }
 
   @Override
+  public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    Job job = context.getJob(attemptID.getTaskId().getJobId());
+    Task task = job.getTask(attemptID.getTaskId());
+    
+    return task.shouldPartialCommit(attemptID);
+  }
+
+  @Override
+  public boolean donePartialCommit(TaskAttemptID taskAttemptID) throws IOException {
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    LOG.info("(bcho2) donePartialCommit TA "+taskAttemptID);
+    context.getEventHandler().handle(
+        new TaskTAttemptEvent(attemptID,
+            TaskEventType.T_ATTEMPT_PARTIAL_COMMITTED));
+    
+    return true;
+  }
+
+  @Override
   public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
     // TODO: Find out if we have to suspend?
     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
@@ -519,6 +545,7 @@ public class TaskAttemptListenerImpl extends CompositeService
     return shouldSuspend;
   }
   
+  @Override
   public boolean doneSuspend(TaskAttemptID taskAttemptID) throws IOException {
     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
       TypeConverter.toYarn(taskAttemptID);
@@ -529,6 +556,4 @@ public class TaskAttemptListenerImpl extends CompositeService
     
     return true;
   }
-  
-  
 }

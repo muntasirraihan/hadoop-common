@@ -91,6 +91,7 @@ public class CLI extends Configured implements Tool {
     boolean getStatus = false;
     boolean getCounter = false;
     boolean killJob = false;
+    boolean partialCommitJob = false;
     boolean listEvents = false;
     boolean viewHistory = false;
     boolean viewAllHistory = false;
@@ -136,6 +137,13 @@ public class CLI extends Configured implements Tool {
       }
       jobid = argv[1];
       killJob = true;
+    } else if ("-partial-commit".equals(cmd)) {
+      if (argv.length != 2) {
+        displayUsage(cmd);
+        return exitCode;
+      }
+      jobid = argv[1];
+      partialCommitJob = true;
     } else if ("-set-priority".equals(cmd)) {
       if (argv.length != 3) {
         displayUsage(cmd);
@@ -307,6 +315,15 @@ public class CLI extends Configured implements Tool {
           System.out.println("Killed job " + jobid);
           exitCode = 0;
         }
+      } else if (partialCommitJob) {
+        Job job = cluster.getJob(JobID.forName(jobid));
+        if (job == null) {
+          System.out.println("Could not find job " + jobid);
+        } else {
+          job.partialCommitJob();
+          System.out.println("Partial commit on job " + jobid);
+          exitCode = 0;
+        }
       } else if (setJobPriority) {
         Job job = cluster.getJob(JobID.forName(jobid));
         if (job == null) {
@@ -464,7 +481,8 @@ public class CLI extends Configured implements Tool {
     String taskStates = "running, completed";
     if ("-submit".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + " <job-file>]");
-    } else if ("-status".equals(cmd) || "-kill".equals(cmd)) {
+    } else if ("-status".equals(cmd) || "-kill".equals(cmd) ||
+        "-partial-commit".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + " <job-id>]");
     } else if ("-counter".equals(cmd)) {
       System.err.println(prefix + "[" + cmd + 
@@ -506,6 +524,7 @@ public class CLI extends Configured implements Tool {
       System.err.printf("\t[-status <job-id>]\n");
       System.err.printf("\t[-counter <job-id> <group-name> <counter-name>]\n");
       System.err.printf("\t[-kill <job-id>]\n");
+      System.err.printf("\t[-partial-commit <job-id>]\n");
       System.err.printf("\t[-set-priority <job-id> <priority>]. " +
         "Valid values for priorities are: " + jobPriorityValues + "\n");
       System.err.printf("\t[-events <job-id> <from-event-#> <#-of-events>]\n");

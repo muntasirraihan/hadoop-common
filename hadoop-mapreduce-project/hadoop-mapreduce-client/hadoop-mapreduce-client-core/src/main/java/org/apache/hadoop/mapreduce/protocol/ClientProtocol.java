@@ -173,6 +173,11 @@ public interface ClientProtocol extends VersionedProtocol {
   public void killJob(JobID jobid) throws IOException, InterruptedException;
 
   /**
+   * Partial commit the indicated job
+   */
+  public void partialCommitJob(JobID jobid) throws IOException, InterruptedException;
+
+  /**
    * Set the priority of the specified job
    * @param jobid ID of the job
    * @param priority Priority to be set for the job

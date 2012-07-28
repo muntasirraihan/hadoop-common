@@ -53,7 +53,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.io.serializer.Deserializer;
 import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.mapred.IFile.Writer;
-import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.FileSystemCounter;
 import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.Suspender;
@@ -723,6 +722,14 @@ abstract public class Task implements Writable, Configurable {
 
           if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
             suspender.setDoSuspend(true);
+          }
+          if (!isMapTask() && umbilical.shouldPartialCommit(taskId)) {
+            LOG.info("(bcho2) shouldPartialCommit");
+            try {
+              umbilical.donePartialCommit(taskId);
+            } catch (IOException e) {
+              LOG.info("(bcho2) partialCommit failed: ", e);
+            }
           }
           
           sendProgress = resetProgressFlag(); 

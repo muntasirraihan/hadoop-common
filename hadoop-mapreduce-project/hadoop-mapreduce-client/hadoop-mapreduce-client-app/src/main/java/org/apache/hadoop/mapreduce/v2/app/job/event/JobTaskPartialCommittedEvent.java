@@ -18,33 +18,27 @@
 
 package org.apache.hadoop.mapreduce.v2.app.job.event;
 
-/**
- * Event types handled by Job.
- */
-public enum JobEventType {
+import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
+import org.apache.hadoop.mapreduce.v2.api.records.TaskState;
 
-  //Producer:Client
-  JOB_KILL,
-  JOB_PARTIAL_COMMIT,
 
-  //Producer:MRAppMaster
-  JOB_INIT,
-  JOB_START,
+public class JobTaskPartialCommittedEvent extends JobEvent {
 
-  //Producer:Task
-  JOB_TASK_COMPLETED,
-  JOB_MAP_TASK_RESCHEDULED,
-  JOB_TASK_ATTEMPT_COMPLETED,
-  JOB_TASK_PARTIAL_COMMITTED,
+  private TaskId taskID;
+  private TaskState taskState;
 
-  //Producer:Job
-  JOB_COMPLETED,
+  public JobTaskPartialCommittedEvent(TaskId taskID, TaskState taskState) {
+    super(taskID.getJobId(), JobEventType.JOB_TASK_PARTIAL_COMMITTED);
+    this.taskID = taskID;
+    this.taskState = taskState;
+  }
 
-  //Producer:Any component
-  JOB_DIAGNOSTIC_UPDATE,
-  INTERNAL_ERROR,
-  JOB_COUNTER_UPDATE,
+  public TaskId getTaskID() {
+    return taskID;
+  }
   
-  //Producer:TaskAttemptListener
-  JOB_TASK_ATTEMPT_FETCH_FAILURE
+  public TaskState getTaskState() {
+    return taskState;
+    
+  }
 }

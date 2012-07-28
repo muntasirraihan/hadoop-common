@@ -33,6 +33,7 @@ service MRClientProtocolService {
   rpc getDiagnostics (GetDiagnosticsRequestProto) returns (GetDiagnosticsResponseProto);
   rpc getDelegationToken (GetDelegationTokenRequestProto) returns (GetDelegationTokenResponseProto);
   rpc killJob (KillJobRequestProto) returns (KillJobResponseProto);
+  rpc partialCommitJob (PartialCommitJobRequestProto) returns (PartialCommitJobResponseProto);
   rpc killTask (KillTaskRequestProto) returns (KillTaskResponseProto);
   rpc killTaskAttempt (KillTaskAttemptRequestProto) returns (KillTaskAttemptResponseProto);
   rpc failTaskAttempt (FailTaskAttemptRequestProto) returns (FailTaskAttemptResponseProto);

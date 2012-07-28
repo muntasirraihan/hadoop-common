@@ -538,6 +538,45 @@ public class YARNRunner implements ClientProtocol {
   }
 
   @Override
+  public void partialCommitJob(JobID arg0)
+  throws IOException, InterruptedException {
+    /* check if the status is not running, if not send kill to RM */
+    JobStatus status = clientCache.getClient(arg0).getJobStatus(arg0);
+    /*
+    if (status.getState() != JobStatus.State.RUNNING) {
+      resMgrDelegate.killApplication(TypeConverter.toYarn(arg0).getAppId());
+      return;
+    }
+    */
+    try {
+      /* send a partial commit to the AM */
+      clientCache.getClient(arg0).partialCommitJob(arg0);
+      long currentTimeMillis = System.currentTimeMillis();
+      long timePartialCommitIssued = currentTimeMillis;
+      while ((currentTimeMillis < timePartialCommitIssued + 10000L)
+          // && (status.getState() != JobStatus.State.PARTIAL_COMMITTED)
+          // TODO: find a replacement field within JobStatus (not using State itself)
+          ) {
+          try {
+            Thread.sleep(1000L);
+          } catch(InterruptedException ie) {
+            /** interrupted, just break */
+            break;
+          }
+          currentTimeMillis = System.currentTimeMillis();
+          status = clientCache.getClient(arg0).getJobStatus(arg0);
+      }
+    } catch(IOException io) {
+      LOG.debug("Error when checking for application status", io);
+    }
+    /*
+    if (status.getState() != JobStatus.State.KILLED) {
+      resMgrDelegate.killApplication(TypeConverter.toYarn(arg0).getAppId());
+    }
+    */
+  }
+  
+  @Override
   public boolean killTask(TaskAttemptID arg0, boolean arg1) throws IOException,
       InterruptedException {
     return clientCache.getClient(arg0.getJobID()).killTask(arg0, arg1);

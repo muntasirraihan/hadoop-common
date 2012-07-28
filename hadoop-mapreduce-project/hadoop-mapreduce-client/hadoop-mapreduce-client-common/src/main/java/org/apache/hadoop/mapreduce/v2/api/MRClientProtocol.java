@@ -42,6 +42,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -57,6 +59,7 @@ public interface MRClientProtocol {
   public GetTaskReportsResponse getTaskReports(GetTaskReportsRequest request) throws YarnRemoteException;
   public GetDiagnosticsResponse getDiagnostics(GetDiagnosticsRequest request) throws YarnRemoteException;
   public KillJobResponse killJob(KillJobRequest request) throws YarnRemoteException;
+  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) throws YarnRemoteException;
   public KillTaskResponse killTask(KillTaskRequest request) throws YarnRemoteException;
   public KillTaskAttemptResponse killTaskAttempt(KillTaskAttemptRequest request) throws YarnRemoteException;
   public FailTaskAttemptResponse failTaskAttempt(FailTaskAttemptRequest request) throws YarnRemoteException;
