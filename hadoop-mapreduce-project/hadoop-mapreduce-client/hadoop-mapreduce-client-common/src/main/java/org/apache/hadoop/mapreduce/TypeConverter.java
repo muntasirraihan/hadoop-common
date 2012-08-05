@@ -190,6 +190,8 @@ public class TypeConverter {
       return TaskCompletionEvent.Status.SUCCEEDED;
     case TIPFAILED:
       return TaskCompletionEvent.Status.TIPFAILED;
+    case SUSPENDED:
+      return TaskCompletionEvent.Status.SUSPENDED;
     }
     throw new YarnException("Unrecognized status: " + newStatus);
   }

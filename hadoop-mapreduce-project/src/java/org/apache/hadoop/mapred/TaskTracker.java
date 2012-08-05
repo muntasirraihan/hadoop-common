@@ -3297,6 +3297,13 @@ public class TaskTracker
     }
   }
 
+  // (bcho2)
+  public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
+    LOG.info("(bcho2) Using old TaskTracker.java :(");
+
+    return false; // TODO: (bcho2) just added this so things will compile! Not functional at all.
+  }
+
   /**
    * Called when the task dies before completion, and we want to report back
    * diagnostic info

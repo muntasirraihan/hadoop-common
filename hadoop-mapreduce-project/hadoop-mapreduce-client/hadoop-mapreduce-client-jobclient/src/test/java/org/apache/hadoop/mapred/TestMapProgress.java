@@ -127,6 +127,14 @@ public class TestMapProgress extends TestCase {
       return true;
     }
 
+    public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+    
+    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+
     public void reportDiagnosticInfo(TaskAttemptID taskid, String trace) throws IOException {
       LOG.info("Task " + taskid + " has problem " + trace);
     }

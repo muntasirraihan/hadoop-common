@@ -29,7 +29,9 @@ public enum TaskAttemptEventType {
 
   //Producer:Client, Task
   TA_KILL,
-
+  TA_SUSPEND,
+  TA_RESUME,
+  
   //Producer:ContainerAllocator
   TA_ASSIGNED,
   TA_CONTAINER_COMPLETED,
@@ -46,6 +48,7 @@ public enum TaskAttemptEventType {
   TA_FAILMSG,
   TA_UPDATE,
   TA_TIMED_OUT,
+  TA_SUSPEND_DONE,
 
   //Producer:TaskCleaner
   TA_CLEANUP_DONE,

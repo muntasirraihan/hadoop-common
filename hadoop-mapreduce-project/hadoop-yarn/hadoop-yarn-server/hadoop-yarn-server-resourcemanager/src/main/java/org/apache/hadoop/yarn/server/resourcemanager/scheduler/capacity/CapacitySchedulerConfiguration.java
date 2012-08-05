@@ -114,6 +114,12 @@ public class CapacitySchedulerConfiguration extends Configuration {
 
   @Private
   public static final String ROOT = "root";
+  
+  public static final String PREEMPT_PREFIX =
+    PREFIX + "preempt" + DOT;
+  
+  public static final String PREEMPT = 
+    PREEMPT_PREFIX + "on";
 
   public CapacitySchedulerConfiguration() {
     this(new Configuration());

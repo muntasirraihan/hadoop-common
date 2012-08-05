@@ -56,6 +56,7 @@ import org.apache.hadoop.mapred.IFile.Writer;
 import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.FileSystemCounter;
 import org.apache.hadoop.mapreduce.OutputCommitter;
+import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.MRConfig;
@@ -81,7 +82,7 @@ abstract public class Task implements Writable, Configurable {
 
   public static String MERGED_OUTPUT_PREFIX = ".merged";
   public static final long DEFAULT_COMBINE_RECORDS_BEFORE_PROGRESS = 10000;
-  
+
   /**
    * @deprecated Provided for compatibility. Use {@link TaskCounter} instead.
    */
@@ -188,6 +189,11 @@ abstract public class Task implements Writable, Configurable {
   protected SecretKey tokenSecret;
   protected GcTimeUpdater gcUpdater;
 
+  // (bcho2)
+  protected String suspendedContainerLogDirStr;
+  protected String suspendedAttemptStr;
+  protected Suspender suspender;
+  
   ////////////////////////////////////////////
   // Constructors
   ////////////////////////////////////////////
@@ -715,6 +721,10 @@ abstract public class Task implements Writable, Configurable {
             System.exit(66);
           }
 
+          if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
+            suspender.setDoSuspend(true);
+          }
+          
           sendProgress = resetProgressFlag(); 
           remainingRetries = MAX_RETRIES;
         } 
@@ -986,6 +996,7 @@ abstract public class Task implements Writable, Configurable {
           }
         }
       }
+      
       //wait for commit approval and commit
       commit(umbilical, reporter, committer);
     }
@@ -1125,7 +1136,12 @@ abstract public class Task implements Writable, Configurable {
     // task can Commit now  
     try {
       LOG.info("Task " + taskId + " is allowed to commit now");
-      committer.commitTask(taskContext);
+      if (suspendedAttemptStr != null) {
+        // (bcho2) if a resumed task, then make sure to concat before commit
+        committer.commitTaskWithSuffix(taskContext, suspendedAttemptStr);
+      } else {
+        committer.commitTask(taskContext);
+      }
       return;
     } catch (IOException iee) {
       LOG.warn("Failure committing: " + 
@@ -1429,7 +1445,8 @@ abstract public class Task implements Writable, Configurable {
                       org.apache.hadoop.mapreduce.OutputCommitter committer,
                       org.apache.hadoop.mapreduce.StatusReporter reporter,
                       RawComparator<INKEY> comparator,
-                      Class<INKEY> keyClass, Class<INVALUE> valueClass
+                      Class<INKEY> keyClass, Class<INVALUE> valueClass,
+                      Suspender suspender
   ) throws IOException, InterruptedException {
     org.apache.hadoop.mapreduce.ReduceContext<INKEY, INVALUE, OUTKEY, OUTVALUE> 
     reduceContext = 
@@ -1442,7 +1459,8 @@ abstract public class Task implements Writable, Configurable {
                                                               reporter, 
                                                               comparator, 
                                                               keyClass, 
-                                                              valueClass);
+                                                              valueClass,
+                                                              suspender);
 
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>.Context 
         reducerContext = 
@@ -1611,7 +1629,8 @@ abstract public class Task implements Writable, Configurable {
                                                 new OutputConverter(collector),
                                                 committer,
                                                 reporter, comparator, keyClass,
-                                                valueClass);
+                                                valueClass,
+                                                null);
       reducer.run(reducerContext);
     } 
   }

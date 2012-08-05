@@ -36,6 +36,7 @@ import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.mapreduce.TaskID;
 import org.apache.hadoop.mapreduce.TaskType;
 import org.apache.hadoop.mapreduce.TypeConverter;
 import org.apache.hadoop.mapreduce.v2.LogParams;
@@ -55,6 +56,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillJobRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
 import org.apache.hadoop.mapreduce.v2.api.records.Counters;
 import org.apache.hadoop.mapreduce.v2.api.records.JobReport;
@@ -297,7 +300,7 @@ public class ClientServiceDelegate {
       try {
         return methodOb.invoke(getProxy(), args);
       } catch (YarnRemoteException yre) {
-        LOG.warn("Exception thrown by remote end.", yre);
+  LOG.warn("Exception thrown by remote end.", yre);
         throw yre;
       } catch (InvocationTargetException e) {
         if (e.getTargetException() instanceof YarnRemoteException) {
@@ -306,22 +309,22 @@ public class ClientServiceDelegate {
           LOG.debug("Tracing remote error ", e.getTargetException());
           throw (YarnRemoteException) e.getTargetException();
         }
-        LOG.debug("Failed to contact AM/History for job " + jobId + 
+        LOG.debug("Failed to contact AM/History for job " + jobId +
             " retrying..", e.getTargetException());
-        // Force reconnection by setting the proxy to null.
+        // Force reconnection by setting the proxy to null.                                                 
         realProxy = null;
-        // HS/AMS shut down
+        // HS/AMS shut down                                                                                 
         maxRetries--;
         lastException = new IOException(e.getMessage());
-        
+
       } catch (Exception e) {
         LOG.debug("Failed to contact AM/History for job " + jobId
             + "  Will retry..", e);
-        // Force reconnection by setting the proxy to null.
+        // Force reconnection by setting the proxy to null.                                                 
         realProxy = null;
-        // RM shutdown
+        // RM shutdown                                                                                      
         maxRetries--;
-        lastException = new IOException(e.getMessage());     
+        lastException = new IOException(e.getMessage());
       }
     }
     throw lastException;
@@ -427,7 +430,33 @@ public class ClientServiceDelegate {
     }
     return true;
   }
+  
+  public boolean suspendTask(TaskAttemptID taskAttemptID)
+       throws IOException {
+    LOG.info("(bcho2) entering suspendTask");
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID
+      = TypeConverter.toYarn(taskAttemptID);
+    SuspendTaskAttemptRequest suspendRequest =
+      recordFactory.newRecordInstance(SuspendTaskAttemptRequest.class);
+    suspendRequest.setTaskAttemptId(attemptID);
+    invoke("suspendTaskAttempt", SuspendTaskAttemptRequest.class, suspendRequest);
+    LOG.info("(bcho2) leaving suspendTask");
+    return true;
+  }  
 
+  public boolean resumeTask(TaskID taskID)
+      throws IOException {
+    LOG.info("(bcho2) entering resumeTask");
+    org.apache.hadoop.mapreduce.v2.api.records.TaskId tID = TypeConverter
+        .toYarn(taskID);
+    ResumeTaskRequest resumeRequest = 
+      recordFactory.newRecordInstance(ResumeTaskRequest.class);
+    resumeRequest.setTaskId(tID);
+    invoke("resumeTask", ResumeTaskRequest.class, resumeRequest);
+    LOG.info("(bcho2) leaving resumeTask");
+    return true;
+  }  
+  
   public boolean killJob(JobID oldJobID)
        throws IOException {
     org.apache.hadoop.mapreduce.v2.api.records.JobId jobId

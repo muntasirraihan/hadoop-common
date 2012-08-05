@@ -87,7 +87,16 @@ class YarnChild {
     int jvmIdInt = Integer.parseInt(args[3]);
     JVMId jvmId = new JVMId(firstTaskid.getJobID(),
         firstTaskid.getTaskType() == TaskType.MAP, jvmIdInt);
-
+    // (bcho2)
+    String suspendedAttemptStr =  null;
+    String suspendedLogDirStr = null;;
+    if (args.length > 5) {
+      suspendedAttemptStr = args[4];
+      suspendedLogDirStr = args[5];
+      LOG.info("(bcho2) suspended attempt id "+suspendedAttemptStr+
+          ", suspended logdir "+suspendedLogDirStr+", was passed to YarnChild!");
+    }
+    
     // initialize metrics
     DefaultMetricsSystem.initialize(
         StringUtils.camelize(firstTaskid.getTaskType().name()) +"Task");
@@ -130,6 +139,11 @@ class YarnChild {
 
       task = myTask.getTask();
       YarnChild.taskid = task.getTaskID();
+      
+      if (suspendedLogDirStr != null) {
+        ((ReduceTask)task).setSuspendedContainerLogDirStr(suspendedLogDirStr);
+        ((ReduceTask)task).setSuspendedAttemptStr(suspendedAttemptStr);
+      }
 
       // Create the job-conf and set credentials
       final JobConf job =

@@ -22,22 +22,36 @@ import java.util.List;
 
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 
 public class Allocation {
   final List<Container> containers;
   final Resource resourceLimit;
+  final Resource resourceRelease;
   
   public Allocation(List<Container> containers, Resource resourceLimit) {
     this.containers = containers;
     this.resourceLimit = resourceLimit;
+    this.resourceRelease = Resources.createResource(0);
   }
 
+  public Allocation(List<Container> containers, Resource resourceLimit,
+      Resource resourceRelease) {
+    this.containers = containers;
+    this.resourceLimit = resourceLimit;
+    this.resourceRelease = resourceRelease;
+  }
+  
   public List<Container> getContainers() {
     return containers;
   }
 
   public Resource getResourceLimit() {
     return resourceLimit;
+  }
+  
+  public Resource getResourceRelease() {
+    return resourceRelease;
   }
   
 }

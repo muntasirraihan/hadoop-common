@@ -593,6 +593,18 @@ public class LocalJobRunner implements ClientProtocol {
       return new MapTaskCompletionEventsUpdate(
         org.apache.hadoop.mapred.TaskCompletionEvent.EMPTY_ARRAY, false);
     }
+
+    @Override
+    public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+      // TODO Auto-generated method stub (bcho2)
+      return true;
+    }
+
+    @Override
+    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+      // TODO Auto-generated method stub (bcho2)
+      return true;
+    }
     
   }
 
@@ -641,6 +653,18 @@ public class LocalJobRunner implements ClientProtocol {
     "LocalJobRunner is not supported");
   }
 
+  /** Throws {@link UnsupportedOperationException} */
+  public boolean suspendTask(org.apache.hadoop.mapreduce.TaskAttemptID taskId) throws IOException {
+    throw new UnsupportedOperationException("Suspending tasks in " +
+    "LocalJobRunner is not supported");
+  }
+
+  /** Throws {@link UnsupportedOperationException} */
+  public boolean resumeTask(org.apache.hadoop.mapreduce.TaskID taskId) throws IOException {
+    throw new UnsupportedOperationException("Resuming tasks in " +
+    "LocalJobRunner is not supported");
+  }
+  
   public org.apache.hadoop.mapreduce.TaskReport[] getTaskReports(
       org.apache.hadoop.mapreduce.JobID id, TaskType type) {
     return new org.apache.hadoop.mapreduce.TaskReport[0];

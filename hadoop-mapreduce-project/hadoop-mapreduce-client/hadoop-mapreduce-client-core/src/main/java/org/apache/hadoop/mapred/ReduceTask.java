@@ -18,8 +18,11 @@
 
 package org.apache.hadoop.mapred;
 
+import java.io.BufferedReader;
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -39,18 +42,21 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableFactories;
 import org.apache.hadoop.io.WritableFactory;
-import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.apache.hadoop.mapreduce.StatefulSuspendableReducer;
+import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormatCounter;
 import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
+import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.ReflectionUtils;
@@ -99,6 +105,12 @@ public class ReduceTask extends Task {
   private Counters.Counter fileOutputByteCounter =
     getCounters().findCounter(FileOutputFormatCounter.BYTES_WRITTEN);
 
+  boolean doSuspend = false;
+  private final List<String> resumePaths = new ArrayList<String>();
+  Path resumeLogPath = null;
+  long resumeKeyNumber = 0;
+  boolean resumeIsStateful = false;
+  
   // A custom comparator for map output files. Here the ordering is determined
   // by the file's size and path. In case of files with same size and different
   // file paths, the first parameter is considered smaller than the second one.
@@ -132,6 +144,22 @@ public class ReduceTask extends Task {
     this.numMaps = numMaps;
   }
   
+  public void setSuspendedContainerLogDirStr(String suspendedContainerLogDirStr) {
+    this.suspendedContainerLogDirStr = suspendedContainerLogDirStr;
+  }
+
+  public String getSuspendedContainerLogDirStr() {
+    return suspendedContainerLogDirStr;
+  }
+
+  public void setSuspendedAttemptStr(String suspendedAttemptStr) {
+    this.suspendedAttemptStr = suspendedAttemptStr;
+  }
+
+  public String getSuspendedAttemptStr() {
+    return suspendedAttemptStr;
+  }
+
   private CompressionCodec initCodec() {
     // check if map-outputs are to be compressed
     if (conf.getCompressMapOutput()) {
@@ -182,7 +210,7 @@ public class ReduceTask extends Task {
       for(int i = 0; i < numMaps; ++i) {
         fileList.add(mapOutputFile.getInputFile(i));
       }
-    } else {
+    } else { // (bcho2) -- this code doesn't ever run?! mapOutputFilesOnDisk is unnecessary?
       // for non local jobs
       for (FileStatus filestatus : mapOutputFilesOnDisk) {
         fileList.add(filestatus.getPath());
@@ -320,6 +348,15 @@ public class ReduceTask extends Task {
     // start thread that will handle communication with parent
     TaskReporter reporter = startReporter(umbilical);
     
+    if (suspendedContainerLogDirStr != null) {
+      LOG.info("(bcho2) suspended logdir: "+suspendedContainerLogDirStr);
+      try {
+        resumeParse();
+      } catch (Exception e) {
+        LOG.error("(bcho2) exception", e);
+      }
+    }
+    
     boolean useNewApi = job.getUseNewReducer();
     initialize(job, getJobID(), reporter, useNewApi);
 
@@ -337,9 +374,9 @@ public class ReduceTask extends Task {
       return;
     }
     
+    RawKeyValueIterator rIter = null;
     // Initialize the codec
     codec = initCodec();
-    RawKeyValueIterator rIter = null;
     
     boolean isLocal = false; 
     // local if
@@ -351,8 +388,9 @@ public class ReduceTask extends Task {
         || (framework != null && framework.equals(MRConfig.LOCAL_FRAMEWORK_NAME))) {
       isLocal = true;
     }
+
     
-    if (!isLocal) {
+    if (!isLocal && resumePaths.size() == 0) {
       Class combinerClass = conf.getCombinerClass();
       CombineOutputCollector combineCollector = 
         (null != combinerClass) ? 
@@ -369,6 +407,24 @@ public class ReduceTask extends Task {
                     taskStatus, copyPhase, sortPhase, this,
                     mapOutputFile);
       rIter = shuffle.run();
+    } else if (!isLocal && resumePaths.size() > 0) {
+      LOG.info("(bcho2) trying to use the resumePaths list");
+      copyPhase.complete();
+      Path[] paths = new Path[resumePaths.size()];
+      int ind = 0;
+      for (String s : resumePaths) {
+        paths[ind] = new Path(s);
+        ind++;
+      }
+      final FileSystem rfs = FileSystem.getLocal(job).getRaw();
+      rIter = Merger.merge(job, rfs, job.getMapOutputKeyClass(),
+                           job.getMapOutputValueClass(), codec, 
+                           paths,
+                           !conf.getKeepFailedTaskFiles(), 
+                           job.getInt(JobContext.IO_SORT_FACTOR, 100),
+                           new Path(getTaskID().toString()), 
+                           job.getOutputKeyComparator(),
+                           reporter, spilledRecordsCounter, null, null);
     } else {
       // local job runner doesn't have a copy phase
       copyPhase.complete();
@@ -382,6 +438,9 @@ public class ReduceTask extends Task {
                            job.getOutputKeyComparator(),
                            reporter, spilledRecordsCounter, null, null);
     }
+    
+    suspender = new Suspender(getTaskID(), umbilical);
+
     // free up the data structures
     mapOutputFilesOnDisk.clear();
     
@@ -399,7 +458,44 @@ public class ReduceTask extends Task {
       runOldReducer(job, umbilical, reporter, rIter, comparator, 
                     keyClass, valueClass);
     }
-    done(umbilical, reporter);
+    if (!suspender.isDoneSuspend()) {
+      done(umbilical, reporter);
+    }
+  }
+
+  private void resumeParse() throws AccessControlException, FileNotFoundException, IOException {
+    resumeLogPath = new Path(suspendedContainerLogDirStr, TaskLog.LogName.SYSLOG.toString());
+
+    BufferedReader reader = new BufferedReader(new FileReader(resumeLogPath.toString()));
+    
+    int prevCounter = -1;
+    String line = null;
+    String[] split = null;
+    while ((line = reader.readLine()) != null) {
+      split = line.split("\\s+");
+      if (split.length > 7 && "(bcho2)".equals(split[5]) && "SEGMENT".equals(split[6])) {
+        int counter = Integer.parseInt(split[7]);
+        if (counter != prevCounter) {
+          resumePaths.clear();
+          prevCounter = counter;
+        }
+        if (split.length > 9) {
+          resumePaths.add(split[9]);
+        }
+      } else if (split.length > 7 && "(bcho2)".equals(split[5]) && "RESUMEKEY".equals(split[6])) {
+        resumeKeyNumber = Long.parseLong(split[7]);
+      } else if (split.length > 6 && "(bcho2)".equals(split[5]) && "STATEFUL".equals(split[6])) {
+        resumeIsStateful = true;
+      }
+    }
+    if (resumePaths.size() == 0) {
+      LOG.error("(bcho2) no paths to resume!"); 
+    } else {
+      for (String p : resumePaths) {
+        LOG.info("(bcho2) resume path: "+p); 
+      }
+    }
+    reader.close();
   }
 
   @SuppressWarnings("unchecked")
@@ -595,6 +691,7 @@ public class ReduceTask extends Task {
     // wrap value iterator to report progress.
     final RawKeyValueIterator rawIter = rIter;
     rIter = new RawKeyValueIterator() {
+     
       public void close() throws IOException {
         rawIter.close();
       }
@@ -609,7 +706,7 @@ public class ReduceTask extends Task {
       }
       public boolean next() throws IOException {
         boolean ret = rawIter.next();
-        reporter.setProgress(rawIter.getProgress().getProgress());
+        reporter.setProgress(rawIter.getProgress().getProgress()); 
         return ret;
       }
     };
@@ -625,14 +722,34 @@ public class ReduceTask extends Task {
       new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
     job.setBoolean("mapred.skip.on", isSkipping());
     job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
-    org.apache.hadoop.mapreduce.Reducer.Context 
-         reducerContext = createReduceContext(reducer, job, getTaskID(),
+    org.apache.hadoop.mapreduce.Reducer.Context
+        reducerContext = createReduceContext(reducer, job, getTaskID(),
                                                rIter, reduceInputKeyCounter, 
                                                reduceInputValueCounter, 
                                                trackedRW,
                                                committer,
                                                reporter, comparator, keyClass,
-                                               valueClass);
+                                               valueClass,
+                                               suspender);
+
+    if (reducer instanceof StatefulSuspendableReducer) { // TODO (bcho2) test this
+      LOG.info("(bcho2) StatefulSuspendableReducer");
+      StatefulSuspendableReducer<INKEY,INVALUE,OUTKEY,OUTVALUE> statefulReducer =
+        (StatefulSuspendableReducer<INKEY,INVALUE,OUTKEY,OUTVALUE>)reducer;
+      statefulReducer.setSuspender(suspender);
+      if (resumeIsStateful) {
+        statefulReducer.setLogPath(resumeLogPath);
+      }
+    } else {
+      LOG.info("(bcho2) NOT instanceof StatefulSuspendableReducer");
+    }
+    
+    // (bcho2) Resume
+    boolean isNextKey = true;
+    for (int i = 0; i < resumeKeyNumber; i++) {
+      isNextKey = reducerContext.nextKey();
+    }
+    LOG.info("(bcho2) isNextKey "+isNextKey);
     reducer.run(reducerContext);
     trackedRW.close(reducerContext);
   }

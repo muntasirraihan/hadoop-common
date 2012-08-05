@@ -404,6 +404,11 @@ public class MockJobs extends MockApps {
       public TaskState getState() {
         return report.getTaskState();
       }
+
+      @Override
+      public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+        return false;
+      }
     };
   }
 

@@ -105,6 +105,8 @@ enum TaskAttemptStateProto {
   TA_KILL_CONTAINER_CLEANUP = 11;
   TA_KILL_TASK_CLEANUP = 12;
   TA_KILLED = 13;
+  TA_SUSPEND_PENDING = 14;
+  TA_SUSPENDED = 15;
 }
 
 message TaskAttemptReportProto {
@@ -170,6 +172,7 @@ enum TaskAttemptCompletionEventStatusProto {
   TACE_SUCCEEDED = 3;
   TACE_OBSOLETE = 4;
   TACE_TIPFAILED = 5;
+  TACE_SUSPENDED = 6;
 }
 
 message TaskAttemptCompletionEventProto {

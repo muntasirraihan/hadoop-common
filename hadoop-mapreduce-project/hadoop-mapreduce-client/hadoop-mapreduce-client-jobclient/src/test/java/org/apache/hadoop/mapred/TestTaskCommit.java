@@ -158,6 +158,16 @@ public class TestTaskCommit extends HadoopTestCase {
     }
 
     @Override
+    public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+    
+    @Override
+    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+    
+    @Override
     public long getProtocolVersion(String protocol, long clientVersion)
         throws IOException {
       return 0;

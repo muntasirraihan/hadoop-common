@@ -152,7 +152,7 @@ public class TestTaskAttempt{
             jobConf, jobToken, taImpl.createRemoteTask(),
             TypeConverter.fromYarn(jobId), mock(Resource.class),
             mock(WrappedJvmID.class), taListener,
-            credentials);
+            credentials, null, null);
 
     Assert.assertEquals("ACLs mismatch", acls, launchCtx.getApplicationACLs());
     Credentials launchCredentials = new Credentials();

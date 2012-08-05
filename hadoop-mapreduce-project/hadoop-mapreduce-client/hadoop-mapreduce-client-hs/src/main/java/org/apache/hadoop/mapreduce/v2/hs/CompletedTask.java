@@ -116,6 +116,11 @@ public class CompletedTask implements Task {
         .valueOf(taskInfo.getTaskStatus());
   }
 
+  @Override                                                                                                
+  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {                                              
+    return false;                                                                                          
+  }                                                                                                        
+
   private void constructTaskReport() {
     loadAllTaskAttempts();
     this.report = Records.newRecord(TaskReport.class);

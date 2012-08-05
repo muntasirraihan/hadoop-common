@@ -44,6 +44,7 @@ import org.apache.hadoop.mapreduce.v2.app.TaskAttemptListener;
 import org.apache.hadoop.mapreduce.v2.app.TaskHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.job.Job;
 import org.apache.hadoop.mapreduce.v2.app.job.Task;
+import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
@@ -53,6 +54,7 @@ import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.service.CompositeService;
 
 /**
@@ -483,4 +485,46 @@ public class TaskAttemptListenerImpl extends CompositeService
     return ProtocolSignature.getProtocolSignature(this, 
         protocol, clientVersion, clientMethodsHash);
   }
+
+  @Override
+  public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+    // TODO: Find out if we have to suspend?
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    Job job = context.getJob(attemptID.getTaskId().getJobId());
+    Task task = job.getTask(attemptID.getTaskId());
+    
+    boolean shouldSuspend = task.shouldSuspend(attemptID);
+    
+    if (shouldSuspend) {
+      // Send the containerID info with the suspend request
+      ContainerId suspendContainerId = 
+        task.getAttempt(attemptID).getAssignedContainerID();
+      if (suspendContainerId == null) {
+        LOG.info("(bcho2) containerId is null, that's strange.");
+      } else {
+        LOG.info("(bcho2) containerId received on suspend: "+suspendContainerId.toString());
+      }
+      
+//      context.getEventHandler().handle(
+//          new TaskAttemptEvent(attemptID, 
+//              TaskAttemptEventType.TA_RESUME_FOR_TESTING));
+    }
+    
+    return shouldSuspend;
+  }
+  
+  public boolean doneSuspend(TaskAttemptID taskAttemptID) throws IOException {
+    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+      TypeConverter.toYarn(taskAttemptID);
+    
+    context.getEventHandler().handle(
+        new TaskAttemptEvent(attemptID, 
+            TaskAttemptEventType.TA_SUSPEND_DONE));    
+    
+    return true;
+  }
+  
+  
 }

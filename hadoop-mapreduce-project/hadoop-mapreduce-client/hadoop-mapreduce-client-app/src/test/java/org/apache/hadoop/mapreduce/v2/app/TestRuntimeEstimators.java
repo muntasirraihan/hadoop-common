@@ -350,6 +350,11 @@ public class TestRuntimeEstimators {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    @Override
+    public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
   }
 
   class MyJobImpl implements Job {

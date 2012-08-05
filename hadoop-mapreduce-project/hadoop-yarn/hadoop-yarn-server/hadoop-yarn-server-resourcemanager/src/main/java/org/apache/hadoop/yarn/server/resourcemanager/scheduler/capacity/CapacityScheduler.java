@@ -130,6 +130,9 @@ implements ResourceScheduler, CapacitySchedulerContext {
 
   private boolean initialized = false;
 
+  // (bcho2) TODO: later, add this to conf -- see: ResourceManager.createScheduler()
+  private CSPreemptor preemptor = new CSPreemptor();
+  
   public CapacityScheduler() {}
 
   @Override
@@ -177,6 +180,11 @@ implements ResourceScheduler, CapacitySchedulerContext {
   }
   
   @Override
+  public CSPreemptor getPreemptor() {
+    return preemptor;
+  }
+  
+  @Override
   public synchronized void reinitialize(Configuration conf,
       ContainerTokenSecretManager containerTokenSecretManager, RMContext rmContext) 
   throws IOException {
@@ -220,6 +228,13 @@ implements ResourceScheduler, CapacitySchedulerContext {
         parseQueue(this, conf, null, CapacitySchedulerConfiguration.ROOT, queues, queues, 
             queueComparator, applicationComparator, noop);
     LOG.info("Initialized root queue " + root);
+    
+    // (bcho2)
+    if (conf.getBoolean(CapacitySchedulerConfiguration.PREEMPT, false)) {
+      LOG.info("Initialized preemptor");
+      preemptor.initialize(root, this);
+      new Thread(preemptor).start();
+    }
   }
 
   @Lock(CapacityScheduler.class)
@@ -491,9 +506,17 @@ implements ResourceScheduler, CapacitySchedulerContext {
           " #ask=" + ask.size());
       }
 
+      Resource releaseResource = application.pullReleaseResources();
+      int releaseMemory = releaseResource.getMemory();
+      if (releaseMemory > 0) {
+        LOG.info("(bcho2) mock:"
+            +" release memory "+releaseMemory);
+      }
+      
       return new Allocation(
           application.pullNewlyAllocatedContainers(), 
-          application.getHeadroom());
+          application.getHeadroom(),
+          releaseResource);
     }
   }
 
@@ -698,8 +721,9 @@ implements ResourceScheduler, CapacitySchedulerContext {
         " clusterResource: " + clusterResource);
   }
   
+  @Override
   @Lock(CapacityScheduler.class)
-  private synchronized void completedContainer(RMContainer rmContainer,
+  public synchronized void completedContainer(RMContainer rmContainer,
       ContainerStatus containerStatus, RMContainerEventType event) {
     if (rmContainer == null) {
       LOG.info("Null container completed...");

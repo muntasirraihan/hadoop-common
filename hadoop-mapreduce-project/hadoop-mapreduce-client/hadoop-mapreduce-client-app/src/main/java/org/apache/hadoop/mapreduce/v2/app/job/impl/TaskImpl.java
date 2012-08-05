@@ -65,15 +65,18 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptCompletedEvent
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
+import org.apache.hadoop.mapreduce.v2.app.release.ReleaseEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerFailedEvent;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.yarn.Clock;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
@@ -170,6 +173,11 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         new AttemptFailedTransition())
     .addTransition(TaskState.RUNNING, TaskState.KILL_WAIT, 
         TaskEventType.T_KILL, KILL_TRANSITION)
+    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
+        TaskEventType.T_ATTEMPT_SUSPENDED,
+        new AttemptSuspendedTransition())
+    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
+        TaskEventType.T_RESUME, new ResumeTransition())
 
     // Transitions from KILL_WAIT state
     .addTransition(TaskState.KILL_WAIT,
@@ -529,6 +537,15 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
     return canCommit;
   }
+  
+  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+    if (getType() == TaskType.REDUCE) {
+      // Look at state, find out if we should?
+      return (TaskAttemptState.SUSPEND_PENDING.equals(getAttempt(taskAttemptID).getState()));
+    } else {
+      return false;
+    }
+  }
 
   protected abstract TaskAttemptImpl createAttempt();
 
@@ -553,6 +570,32 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Created attempt " + attempt.getID());
     }
+    addAttempt(attempt);
+    //schedule the nextAttemptNumber
+    if (failedAttempts > 0) {
+      eventHandler.handle(new TaskAttemptEvent(attempt.getID(),
+        TaskAttemptEventType.TA_RESCHEDULE));
+    } else {
+      eventHandler.handle(new TaskAttemptEvent(attempt.getID(),
+          TaskAttemptEventType.TA_SCHEDULE));
+    }
+  }
+
+  private void addAndResumeAttempt(String hostname, TaskAttemptId attemptId, ContainerId containerId) {
+    TaskAttempt attempt = createAttempt(); // TODO: create new attempt, with containerId and hostname
+    LOG.info("(bcho2) Created resume attempt "+attempt.getID()+
+        ", suspended container "+containerId+
+        ", suspended TAID "+attemptId+
+        ", at host "+hostname);
+    addAttempt(attempt);
+
+    //schedule the nextAttemptNumber
+    eventHandler.handle(new TaskAttemptResumeEvent(attempt.getID(),
+        hostname, attemptId, containerId));
+    // TODO: How does AppMaster recover on the same node? Will there be an analogous way to do this?
+  }
+
+  private void addAttempt(TaskAttempt attempt) {
     switch (attempts.size()) {
       case 0:
         attempts = Collections.singletonMap(attempt.getID(), attempt);
@@ -581,14 +624,6 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
 
     ++numberUncompletedAttempts;
-    //schedule the nextAttemptNumber
-    if (failedAttempts > 0) {
-      eventHandler.handle(new TaskAttemptEvent(attempt.getID(),
-        TaskAttemptEventType.TA_RESCHEDULE));
-    } else {
-      eventHandler.handle(new TaskAttemptEvent(attempt.getID(),
-          TaskAttemptEventType.TA_SCHEDULE));
-    }
   }
 
   @Override
@@ -605,7 +640,10 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
       } catch (InvalidStateTransitonException e) {
         LOG.error("Can't handle this event at current state for "
             + this.taskId, e);
-        internalError(event.getType());
+        if (!event.getType().equals(TaskEventType.T_RESUME)) { // TODO: (bcho2) remove this once state machine is completely implemented
+          LOG.error("(bcho2) inside if block");
+          internalError(event.getType());
+        }
       }
       if (oldState != getState()) {
         LOG.info(taskId + " Task Transitioned from " + oldState + " to "
@@ -797,6 +835,19 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
 
+  private static class AttemptSuspendedTransition implements
+      SingleArcTransition<TaskImpl, TaskEvent> {
+    @Override
+    public void transition(TaskImpl task, TaskEvent event) {
+      LOG.info("(bcho2) AttemptSuspendedTransition");
+      task.handleTaskAttemptCompletion(
+          ((TaskTAttemptEvent) event).getTaskAttemptID(), 
+          TaskAttemptCompletionEventStatus.SUSPENDED);
+      --task.numberUncompletedAttempts;
+      task.eventHandler.handle(
+          new ReleaseEvent(task.taskId));
+    }
+  }
 
   private static class KillWaitAttemptKilledTransition implements
       MultipleArcTransition<TaskImpl, TaskEvent, TaskState> {
@@ -970,6 +1021,38 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
 
+  private static class ResumeTransition implements
+      SingleArcTransition<TaskImpl, TaskEvent> {
+    @Override
+    public void transition(TaskImpl task, TaskEvent event) {
+      // (bcho2) Get the latest one!
+      TaskAttempt suspendedTaskAttempt = null;
+      for (TaskAttempt attempt : task.attempts.values()) {
+        if (attempt.getState().equals(TaskAttemptState.SUSPENDED)) {
+          LOG.info("(bcho2) suspended found "+attempt.getID());
+          if (suspendedTaskAttempt == null
+              || suspendedTaskAttempt.getID().compareTo(attempt.getID()) < 0) {
+            suspendedTaskAttempt = attempt;
+            LOG.info("(bcho2) suspended updated "+attempt.getID());
+          }
+        }
+      }
+      if (suspendedTaskAttempt != null) {
+        LOG.info("(bcho2) Scheduling a resume attempt for task " + task.taskId
+            + " from task attempt " + suspendedTaskAttempt.getID());
+        String hostname =
+          suspendedTaskAttempt.getAssignedContainerMgrAddress();
+        TaskAttemptId suspendedAttemptId = 
+          suspendedTaskAttempt.getID();
+        ContainerId suspendedContainerId = 
+          suspendedTaskAttempt.getAssignedContainerID();
+        task.addAndResumeAttempt(hostname, suspendedAttemptId, suspendedContainerId);
+      } else {
+        LOG.info("(bcho2) There was no suspendedTaskAttempt, so ignoring resume");
+      }
+    }
+  }  
+  
   static class LaunchTransition
       implements SingleArcTransition<TaskImpl, TaskEvent> {
     @Override

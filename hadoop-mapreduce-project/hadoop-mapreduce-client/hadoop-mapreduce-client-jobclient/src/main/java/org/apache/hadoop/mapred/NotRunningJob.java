@@ -48,6 +48,10 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.records.CounterGroup;
 import org.apache.hadoop.mapreduce.v2.api.records.Counters;
 import org.apache.hadoop.mapreduce.v2.api.records.JobReport;
@@ -61,6 +65,7 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.impl.pb.YarnRemoteExceptionPBImpl;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.util.BuilderUtils;
@@ -99,6 +104,28 @@ public class NotRunningJob implements MRClientProtocol {
     return resp;
   }
 
+  @Override
+  public SuspendTaskAttemptResponse suspendTaskAttempt(
+      SuspendTaskAttemptRequest request) throws YarnRemoteException {
+    System.err.println("(bcho2): NotRunningJob");
+    /*if (true)
+      throw new YarnRemoteExceptionPBImpl("(bcho2)");*/
+    SuspendTaskAttemptResponse resp =
+      recordFactory.newRecordInstance(SuspendTaskAttemptResponse.class);
+    return resp;
+  }
+
+  @Override
+  public ResumeTaskResponse resumeTask(
+      ResumeTaskRequest request) throws YarnRemoteException {
+    System.err.println("(bcho2): NotRunningJob");
+    /*if (true)
+      throw new YarnRemoteExceptionPBImpl("(bcho2)");*/
+    ResumeTaskResponse resp =
+      recordFactory.newRecordInstance(ResumeTaskResponse.class);
+    return resp;
+  }
+  
   @Override
   public GetCountersResponse getCounters(GetCountersRequest request)
       throws YarnRemoteException {

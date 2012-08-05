@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapreduce.v2.app.rm;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -54,12 +55,14 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptContainerAssigned
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+import org.apache.hadoop.mapreduce.v2.app.release.ReleaseEvent;
 import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.util.RackResolver;
 
@@ -76,6 +79,7 @@ public class RMContainerAllocator extends RMContainerRequestor
   
   private static final Priority PRIORITY_FAST_FAIL_MAP;
   private static final Priority PRIORITY_REDUCE;
+  private static final Priority PRIORITY_REDUCE_RESUME;
   private static final Priority PRIORITY_MAP;
 
   private Thread eventHandlingThread;
@@ -86,6 +90,8 @@ public class RMContainerAllocator extends RMContainerRequestor
     PRIORITY_FAST_FAIL_MAP.setPriority(5);
     PRIORITY_REDUCE = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
     PRIORITY_REDUCE.setPriority(10);
+    PRIORITY_REDUCE_RESUME = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
+    PRIORITY_REDUCE_RESUME.setPriority(3);
     PRIORITY_MAP = RecordFactoryProvider.getRecordFactory(null).newRecordInstance(Priority.class);
     PRIORITY_MAP.setPriority(20);
   }
@@ -317,11 +323,15 @@ public class RMContainerAllocator extends RMContainerRequestor
         }
         //set the rounded off memory
         reqEvent.getCapability().setMemory(reduceResourceReqt);
-        if (reqEvent.getEarlierAttemptFailed()) {
+        Priority priority = PRIORITY_REDUCE; // (bcho2)
+        if (reqEvent.isResumeAttempt()) {
+          priority = PRIORITY_REDUCE_RESUME;
+        }
+        if (reqEvent.getEarlierAttemptFailed() || priority == PRIORITY_REDUCE_RESUME) {
           //add to the front of queue for fail fast
-          pendingReduces.addFirst(new ContainerRequest(reqEvent, PRIORITY_REDUCE));
+          pendingReduces.addFirst(new ContainerRequest(reqEvent, priority));
         } else {
-          pendingReduces.add(new ContainerRequest(reqEvent, PRIORITY_REDUCE));
+          pendingReduces.add(new ContainerRequest(reqEvent, priority));
           //reduces are added to pending and are slowly ramped up
         }
       }
@@ -576,6 +586,22 @@ public class RMContainerAllocator extends RMContainerRequestor
       throw new YarnException("Resource Manager doesn't recognize AttemptId: " +
                                this.getContext().getApplicationID());
     }
+    
+    Resource releaseResource = response.getReleaseResources(); 
+    int releaseMemory =
+      releaseResource != null ? releaseResource.getMemory() : 0;
+    if (releaseMemory > 0) {
+      // TODO: send some kind of event to the correct (a new one?) handler
+      LOG.info("(bcho2) mock:"
+          +" release memory "+releaseMemory);
+      // TODO (bcho2) Eventually, call TaskAttempt handlers,
+      // but likely, using a class that has its own handle(),
+      // that will find out what taskAttempts it wants to suspend
+      // SEE: MRAppMaster.dispatcher.register(...)
+      getContext().getEventHandler().handle(                                                                                                                  
+          new ReleaseEvent(releaseResource));
+    }
+    
     int newHeadRoom = getAvailableResources() != null ? getAvailableResources().getMemory() : 0;
     List<Container> newContainers = response.getAllocatedContainers();
     List<ContainerStatus> finishedContainers = response.getCompletedContainersStatuses();
@@ -636,6 +662,10 @@ public class RMContainerAllocator extends RMContainerRequestor
     
     private final LinkedHashMap<TaskAttemptId, ContainerRequest> reduces = 
       new LinkedHashMap<TaskAttemptId, ContainerRequest>();
+    // private final LinkedHashMap<TaskAttemptId, ContainerRequest> reduceResumes = 
+    //   new LinkedHashMap<TaskAttemptId, ContainerRequest>();
+    private final Map<String, LinkedList<TaskAttemptId>> reducesHostMapping = 
+      new HashMap<String, LinkedList<TaskAttemptId>>();
     
     boolean remove(TaskAttemptId tId) {
       ContainerRequest req = null;
@@ -701,7 +731,19 @@ public class RMContainerAllocator extends RMContainerRequestor
     }
     
     
-    void addReduce(ContainerRequest req) {
+    void addReduce(ContainerRequest req) { // (bcho2) TODO have to change this to get local suspended reduce
+      for (String host : req.hosts) {
+        LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+        if (list == null) {
+          list = new LinkedList<TaskAttemptId>();
+          reducesHostMapping.put(host, list);
+        }
+        list.add(req.attemptID);
+        // if (LOG.isDebugEnabled()) {
+          LOG.info("(bcho2) Added reduce resume attempt req to host " + host);
+        // }
+      }
+      
       reduces.put(req.attemptID, req);
       addContainerReq(req);
     }
@@ -737,14 +779,17 @@ public class RMContainerAllocator extends RMContainerRequestor
             isAssignable = false; 
           }
         } 
-        else if (PRIORITY_REDUCE.equals(priority)) {
+        else if ( PRIORITY_REDUCE_RESUME.equals(priority)
+            || PRIORITY_REDUCE.equals(priority)) {
           if (allocatedMemory < reduceResourceReqt
               || reduces.isEmpty()) {
             LOG.info("Cannot assign container " + allocated 
                 + " for a reduce as either "
                 + " container memory less than required " + reduceResourceReqt
                 + " or no pending reduce tasks - reduces.isEmpty=" 
-                + reduces.isEmpty()); 
+                + reduces.isEmpty()
+                + " priority="
+                + priority.getPriority()); 
             isAssignable = false;
           }
         }          
@@ -758,6 +803,42 @@ public class RMContainerAllocator extends RMContainerRequestor
           // blacklisted host
           String allocatedHost = allocated.getNodeId().getHost();
           blackListed = isNodeBlacklisted(allocatedHost);
+          
+          // TODO (bcho2) overloading blackListed, for now -- will it work? not sure
+          // TODO (bcho2) Think about the case with multiple reduces
+          //        -- need to check in a new function, e.g. assignToReduceResume
+          // TODO (bcho2) is there a case when this passes, yet priority_reduce should not be allocated?
+          
+          // TODO (bcho2) removing overloading blackListed -- it created nasty corner-cases
+          // TODO (bcho2) NOTE: blackList code may still have nasty corner-cases; make sure
+          //      reduces map, and related maps work for all permutations of
+          //      assignments.
+          
+          LOG.debug("(bcho2) Got allocated with priority "+priority);
+          if (!blackListed && PRIORITY_REDUCE_RESUME.equals(priority)) {
+            boolean hasContainer = false;
+            LOG.info("(bcho2) Got allocated with reduce_resume priority, host "+allocatedHost);
+            if (reduces.size() > 0) {
+              for (Entry<TaskAttemptId, ContainerRequest> entry : reduces.entrySet()) {
+                if (entry.getValue().hosts.length > 0) {
+                  if (entry.getValue().hosts[0].equals(allocatedHost)) {
+                    LOG.info("(bcho2) selected container host "+allocatedHost);
+                    hasContainer = true;
+                    break;
+                  } else {
+                    LOG.debug("(bcho2) passing over container host "+ allocatedHost
+                        + " where we want " + entry.getValue().hosts[0]);
+                  }
+                } else {
+                  LOG.debug("(bcho2) passing over non-resume reduce");
+                }
+              }
+            }
+            if (!hasContainer) {
+              LOG.warn("(bcho2) Could not find a reduce_resume at host "+allocatedHost); 
+            }
+          }
+          
           if (blackListed) {
             // we need to request for a new container 
             // and release the current one
@@ -774,6 +855,8 @@ public class RMContainerAllocator extends RMContainerRequestor
                   + toBeReplacedReq.attemptID);
               ContainerRequest newReq = 
                   getFilteredContainerRequest(toBeReplacedReq);
+              LOG.info("(bcho2) newReq.hosts="+Arrays.asList(newReq.hosts)+
+                  " newReq.racks="+Arrays.asList(newReq.racks));
               decContainerReq(toBeReplacedReq);
               if (toBeReplacedReq.attemptID.getTaskId().getTaskType() ==
                   TaskType.MAP) {
@@ -812,6 +895,23 @@ public class RMContainerAllocator extends RMContainerRequestor
               LOG.info("Releasing unassigned and invalid container " 
                   + allocated + ". RM has gone crazy, someone go look!"
                   + " Hey RM, if you are so rich, go donate to non-profits!");
+              // TODO: (bcho2) still haven't figured out the exact reason this may happen.
+              //       But, it appears there is some kind of race condition.
+              //       I have seen behavior, even without suspension, where
+              //       AM requests and RM requests get out of sync, because
+              //       asks does not get updated quickly enough after getting
+              //       newContainers, thus the previous number of containers needed
+              //       gets repeated. But again, not entirely sure.
+              LOG.info("(bcho2) This should not happen, but since it did"
+                  +", add+dec reduce resume containers to get them added back to asks");
+              for (Entry<String, LinkedList<TaskAttemptId>> entry : reducesHostMapping.entrySet()) {
+                for (TaskAttemptId tId : entry.getValue()) {
+                   LOG.info("(bcho2) still need tId="+tId);
+                   ContainerRequest req = reduces.get(tId);
+                   addContainerReq(req);
+                   decContainerReq(req);
+                }
+              }
             }
           }
         }
@@ -837,6 +937,28 @@ public class RMContainerAllocator extends RMContainerRequestor
           LOG.debug("Assigning container " + allocated + " to reduce");
         }
         assigned = assignToReduce(allocated);
+        if (assigned == null) { // TODO (bcho2) try again -- by why is this happening?
+          LOG.warn("(bcho2) Could not assign reduce, trying reduce resume instead.");
+          assigned = assignToReduceResume(allocated);
+        }
+      } else if (PRIORITY_REDUCE_RESUME.equals(priority)) {
+        // if (LOG.isDebugEnabled()) {
+          LOG.info("(bcho2) Assigning container " + allocated + " to reduce resume");
+        // }
+        for (Entry<String, LinkedList<TaskAttemptId>> entry : reducesHostMapping.entrySet()) {
+          LOG.info("entry: key="+entry.getKey()
+              +" list.size="+entry.getValue().size());
+          //for (TaskAttemptId tId : entry.getValue()) {
+          //   LOG.info("entry: list.tId="+tId);
+          //}
+        }
+        assigned = assignToReduceResume(allocated);
+        if (assigned == null) { // TODO (bcho2) try again -- by why is this happening?
+          LOG.warn("(bcho2) Could not assign reduce resume, trying reduce instead. "
+              +" reducesHostMapping.size="+reducesHostMapping.size()
+              +" reduces.size="+reduces.size());
+          assigned = assignToReduce(allocated);
+        }
       } else if (PRIORITY_MAP.equals(priority)) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Assigning container " + allocated + " to map");
@@ -880,8 +1002,27 @@ public class RMContainerAllocator extends RMContainerRequestor
         }        
       }
       else if (PRIORITY_REDUCE.equals(priority)) {
-        TaskAttemptId tId = reduces.keySet().iterator().next();
-        toBeReplaced = reduces.remove(tId);    
+        Iterator<TaskAttemptId> iter = reduces.keySet().iterator();
+        while (toBeReplaced == null && iter.hasNext()) {
+          TaskAttemptId tId = reduces.keySet().iterator().next();
+          ContainerRequest req = reduces.get(tId);
+          if (req.hosts == null || req.hosts.length == 0) {
+            toBeReplaced = reduces.remove(tId);
+          }
+        }
+      }
+      else if (PRIORITY_REDUCE_RESUME.equals(priority)) {
+        String host = allocated.getNodeId().getHost();
+        LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+        if (list != null && list.size() > 0) {
+          TaskAttemptId tId = list.removeLast();
+          if (reduces.containsKey(tId)) {
+            toBeReplaced = reduces.remove(tId);
+          } else {
+            LOG.warn("(bcho2) tId "+tId+" in reducesHostMapping"
+                +" does not exist in reduces");
+          }
+        }
       }
       LOG.info("Found replacement: " + toBeReplaced);
       return toBeReplaced;
@@ -907,13 +1048,45 @@ public class RMContainerAllocator extends RMContainerRequestor
       return assigned;
     }
     
-    private ContainerRequest assignToReduce(Container allocated) {
+    private ContainerRequest assignToReduceResume(Container allocated) {
       ContainerRequest assigned = null;
-      //try to assign to reduces if present
-      if (assigned == null && reduces.size() > 0) {
-        TaskAttemptId tId = reduces.keySet().iterator().next();
-        assigned = reduces.remove(tId);
-        LOG.info("Assigned to reduce");
+      //assign only by host
+      String host = allocated.getNodeId().getHost();
+      LinkedList<TaskAttemptId> list = reducesHostMapping.get(host);
+      while (list != null && list.size() > 0) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Host matched to the request list " + host);
+        }
+        TaskAttemptId tId = list.removeFirst();
+        if (reduces.containsKey(tId)) {
+          assigned = reduces.remove(tId);
+          LOG.info("(bcho2) reduce resume assigned, ta "+tId
+              +" assigned "+assigned
+              +" host "+host);
+          break;
+        } else {
+          LOG.warn("(bcho2) reduce resume not assigned,"
+              +" because not in reduces, ta "+tId
+              +" assigned "+assigned
+              +" host "+host);
+        }
+      }
+      return assigned;
+    }
+    
+    private ContainerRequest assignToReduce(Container allocated) {
+      TaskAttemptId tId = null;
+      ContainerRequest assigned = null;
+      for (Entry<TaskAttemptId, ContainerRequest> entry : reduces.entrySet()) {
+        ContainerRequest req = entry.getValue();
+        if (req.hosts == null || req.hosts.length == 0) {
+          tId = entry.getKey();
+          assigned = entry.getValue();
+          break;
+        }
+      }
+      if (tId != null) {
+        reduces.remove(tId);
       }
       return assigned;
     }
