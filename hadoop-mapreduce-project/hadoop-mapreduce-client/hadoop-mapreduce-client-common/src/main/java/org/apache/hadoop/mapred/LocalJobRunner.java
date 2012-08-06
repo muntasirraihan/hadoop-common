@@ -595,6 +595,18 @@ public class LocalJobRunner implements ClientProtocol {
     }
 
     @Override
+    public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
+      // TODO Auto-generated method stub (bcho2)
+      return true;
+    }
+
+    @Override
+    public boolean donePartialCommit(TaskAttemptID taskId) throws IOException {
+      // TODO Auto-generated method stub (bcho2)
+      return true;
+    }
+    
+    @Override
     public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
       // TODO Auto-generated method stub (bcho2)
       return true;
@@ -640,6 +652,12 @@ public class LocalJobRunner implements ClientProtocol {
     jobs.get(JobID.downgrade(id)).interrupt();
   }
 
+  /** Throws {@link UnsupportedOperationException} */
+  public void partialCommitJob(org.apache.hadoop.mapreduce.JobID id) {
+    throw new UnsupportedOperationException("Partial commit job in " +
+    "LocalJobRunner is not supported");
+  }
+  
   public void setJobPriority(org.apache.hadoop.mapreduce.JobID id,
       String jp) throws IOException {
     throw new UnsupportedOperationException("Changing job priority " +

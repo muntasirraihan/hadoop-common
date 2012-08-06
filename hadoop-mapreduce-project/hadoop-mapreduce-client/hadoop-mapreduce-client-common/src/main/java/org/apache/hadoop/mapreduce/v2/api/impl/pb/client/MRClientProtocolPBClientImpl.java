@@ -49,6 +49,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -77,6 +79,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemp
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemptResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskRequestPBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskResponsePBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobRequestPBImpl;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskRequestPBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskResponsePBImpl;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.SuspendTaskAttemptRequestPBImpl;
@@ -93,6 +97,7 @@ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.GetTaskReportsReques
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillJobRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskAttemptRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskRequestProto;
+import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.ResumeTaskRequestProto;
 import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.SuspendTaskAttemptRequestProto;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
@@ -262,6 +267,23 @@ public class MRClientProtocolPBClientImpl implements MRClientProtocol {
     KillJobRequestProto requestProto = ((KillJobRequestPBImpl)request).getProto();
     try {
       return new KillJobResponsePBImpl(proxy.killJob(null, requestProto));
+    } catch (ServiceException e) {
+      if (e.getCause() instanceof YarnRemoteException) {
+        throw (YarnRemoteException)e.getCause();
+      } else if (e.getCause() instanceof UndeclaredThrowableException) {
+        throw (UndeclaredThrowableException)e.getCause();
+      } else {
+        throw new UndeclaredThrowableException(e);
+      }
+    }
+  }
+
+  @Override
+  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
+      throws YarnRemoteException {
+    PartialCommitJobRequestProto requestProto = ((PartialCommitJobRequestPBImpl)request).getProto();
+    try {
+      return new PartialCommitJobResponsePBImpl(proxy.partialCommitJob(null, requestProto));
     } catch (ServiceException e) {
       if (e.getCause() instanceof YarnRemoteException) {
         throw (YarnRemoteException)e.getCause();

@@ -117,6 +117,11 @@ public class CompletedTask implements Task {
   }
 
   @Override                                                                                                
+  public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {                                              
+    return false;                                                                                          
+  }                                                                                                        
+
+  @Override                                                                                                
   public boolean shouldSuspend(TaskAttemptId taskAttemptID) {                                              
     return false;                                                                                          
   }                                                                                                        

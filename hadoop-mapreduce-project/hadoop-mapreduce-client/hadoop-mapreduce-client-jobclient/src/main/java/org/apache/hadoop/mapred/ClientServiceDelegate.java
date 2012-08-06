@@ -56,6 +56,7 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillJobRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
@@ -467,6 +468,16 @@ public class ClientServiceDelegate {
     return true;
   }
 
+  public boolean partialCommitJob(JobID oldJobID)
+       throws IOException {
+    org.apache.hadoop.mapreduce.v2.api.records.JobId jobId
+    = TypeConverter.toYarn(oldJobID);
+    PartialCommitJobRequest partialCommitRequest = recordFactory.newRecordInstance(PartialCommitJobRequest.class);
+    partialCommitRequest.setJobId(jobId);
+    invoke("partialCommitJob", PartialCommitJobRequest.class, partialCommitRequest);
+    return true;
+  }
+  
   public LogParams getLogFilePath(JobID oldJobID, TaskAttemptID oldTaskAttemptID)
       throws YarnRemoteException, IOException {
     org.apache.hadoop.mapreduce.v2.api.records.JobId jobId =

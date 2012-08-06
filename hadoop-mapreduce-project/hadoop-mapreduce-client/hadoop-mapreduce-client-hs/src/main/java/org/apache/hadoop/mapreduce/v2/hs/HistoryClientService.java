@@ -60,6 +60,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -263,6 +265,11 @@ public class HistoryClientService extends AbstractService {
       throw RPCUtil.getRemoteException("Invalid operation on completed job");
     }
 
+    @Override
+    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) throws YarnRemoteException {
+      throw RPCUtil.getRemoteException("Invalid operation on completed job");
+    }
+    
     @Override
     public KillTaskResponse killTask(KillTaskRequest request) throws YarnRemoteException {
       throw RPCUtil.getRemoteException("Invalid operation on completed job");

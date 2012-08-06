@@ -63,6 +63,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.JobEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobMapTaskRescheduledEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptCompletedEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskEvent;
+import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskPartialCommittedEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
@@ -139,6 +140,8 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         TaskEventType.T_SCHEDULE, new InitialScheduleTransition())
     .addTransition(TaskState.NEW, TaskState.KILLED, 
         TaskEventType.T_KILL, new KillNewTransition())
+    .addTransition(TaskState.NEW, TaskState.NEW,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
 
     // Transitions from SCHEDULED state
       //when the first attempt is launched, the task state is set to RUNNING
@@ -152,7 +155,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         EnumSet.of(TaskState.SCHEDULED, TaskState.FAILED), 
         TaskEventType.T_ATTEMPT_FAILED, 
         new AttemptFailedTransition())
- 
+    .addTransition(TaskState.SCHEDULED, TaskState.SCHEDULED,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+
     // Transitions from RUNNING state
     .addTransition(TaskState.RUNNING, TaskState.RUNNING, 
         TaskEventType.T_ATTEMPT_LAUNCHED) //more attempts may start later
@@ -178,12 +183,19 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         new AttemptSuspendedTransition())
     .addTransition(TaskState.RUNNING, TaskState.RUNNING,
         TaskEventType.T_RESUME, new ResumeTransition())
+    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitRunningTransition())
+    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
+        TaskEventType.T_ATTEMPT_PARTIAL_COMMITTED,
+        new PartialCommittedTransition())
 
     // Transitions from KILL_WAIT state
     .addTransition(TaskState.KILL_WAIT,
         EnumSet.of(TaskState.KILL_WAIT, TaskState.KILLED),
         TaskEventType.T_ATTEMPT_KILLED,
         new KillWaitAttemptKilledTransition())
+    .addTransition(TaskState.KILL_WAIT, TaskState.KILL_WAIT,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
     // Ignore-able transitions.
     .addTransition(
         TaskState.KILL_WAIT,
@@ -199,6 +211,8 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     .addTransition(TaskState.SUCCEEDED, //only possible for map tasks
         EnumSet.of(TaskState.SCHEDULED, TaskState.SUCCEEDED, TaskState.FAILED),
         TaskEventType.T_ATTEMPT_FAILED, new MapRetroactiveFailureTransition())
+    .addTransition(TaskState.SUCCEEDED, TaskState.SUCCEEDED,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
     // Ignore-able transitions.
     .addTransition(
         TaskState.SUCCEEDED, TaskState.SUCCEEDED,
@@ -211,11 +225,15 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     .addTransition(TaskState.FAILED, TaskState.FAILED,
         EnumSet.of(TaskEventType.T_KILL,
                    TaskEventType.T_ADD_SPEC_ATTEMPT))
+    .addTransition(TaskState.FAILED, TaskState.FAILED,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
 
     // Transitions from KILLED state
     .addTransition(TaskState.KILLED, TaskState.KILLED,
         EnumSet.of(TaskEventType.T_KILL,
                    TaskEventType.T_ADD_SPEC_ATTEMPT))
+    .addTransition(TaskState.KILLED, TaskState.KILLED,
+        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
 
     // create the topology tables
     .installTopology();
@@ -249,6 +267,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
   private int failedAttempts;
   private int finishedAttempts;//finish are total of success, failed and killed
 
+  private TaskAttemptId partialCommitAttempt = null;
+  private boolean isPartialCommitting = false;
+  
   @Override
   public TaskState getState() {
     return stateMachine.getCurrentState();
@@ -547,6 +568,21 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
 
+  public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
+    if (partialCommitAttempt != null) {
+      LOG.info("(bcho2) attempt "+taskAttemptID
+          +" partialCommitAttempt "+partialCommitAttempt
+          +" equals "+(taskAttemptID.equals(partialCommitAttempt)));
+    }
+    if (!isPartialCommitting && getType() == TaskType.REDUCE && taskAttemptID.equals(partialCommitAttempt)) {
+      LOG.info("Returning true for shouldPartialCommit TA "+taskAttemptID);
+      isPartialCommitting = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
   protected abstract TaskAttemptImpl createAttempt();
 
   // No override of this method may require that the subclass be initialized.
@@ -688,6 +724,11 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
       //raise the event to job so that it adds the completion event to its
       //data structures
       eventHandler.handle(new JobTaskAttemptCompletedEvent(tce));
+      
+      if (isPartialCommitting && attemptId.equals(partialCommitAttempt)) {
+        LOG.info("(bcho2) calling partialCommitted from handleTaskAttemptCompletion");
+        partialCommitted(getState());
+      }
     }
   }
 
@@ -1006,6 +1047,26 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
               TaskAttemptEventType.TA_KILL));
     }
   }
+  
+  private void partialCommitAttempt(TaskAttempt attempt, String logMsg) {
+    if (attempt != null && !attempt.isFinished()) {
+      LOG.info("(bcho2) "+logMsg+" attempt "+attempt.getID());
+      partialCommitAttempt = attempt.getID();
+
+      // Partial commit stays within TaskImpl, doesn't get passed to
+      // TaskAttemptImpl. Is this the correct way to do it?
+      // eventHandler.handle(
+      //     new TaskAttemptEvent(attempt.getID(),
+      //         TaskAttemptEventType.TA_PARTIAL_COMMIT));
+    }
+  }
+
+  private void partialCommitted(TaskState state) {
+    this.partialCommitAttempt = null;
+    this.isPartialCommitting = false;
+    this.eventHandler.handle(
+        new JobTaskPartialCommittedEvent(this.taskId, state));
+  }
 
   private static class KillTransition 
     implements SingleArcTransition<TaskImpl, TaskEvent> {
@@ -1052,6 +1113,56 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
       }
     }
   }  
+
+  private static class PartialCommitRunningTransition implements
+      SingleArcTransition<TaskImpl, TaskEvent> {
+    @Override
+    public void transition(TaskImpl task, TaskEvent event) {
+      LOG.info("(bcho2) PartialCommitRunningTransition");
+      // issue kill to all non finished attempts
+      float maxProgress = 0.0f;
+      TaskAttempt cAttempt = null;
+
+      for (TaskAttempt attempt : task.attempts.values()) {
+        TaskAttemptState state = attempt.getState();
+        if (state.equals(TaskAttemptState.RUNNING) &&
+            attempt.getProgress() >= maxProgress) {
+          maxProgress = attempt.getProgress();
+          cAttempt = attempt;
+        }
+      }
+      if (cAttempt == null) {
+        LOG.warn("(bcho2) Calling partialCommitted because No RUNNING attempt for "+task.taskId+", thus Immediate return");
+        task.partialCommitted(TaskState.SCHEDULED); // Treat same as if just scheduled.
+        // TODO (bcho2) Need to make sure partialCommits work with Suspend/Resume
+      } else {
+        task.partialCommitAttempt
+          (cAttempt, "Task PARTIAL_COMMIT is received. Committing attempt!");
+      }
+    }
+  }
+
+  private static class PartialCommitImmediateTransition implements
+      SingleArcTransition<TaskImpl, TaskEvent> {
+    @Override
+    public void transition(TaskImpl task, TaskEvent event) {
+      LOG.info("(bcho2) Calling partialCommitted because Task in state "+task.getState());
+      task.partialCommitted(task.getState());
+    }
+  }
+  
+  private static class PartialCommittedTransition implements
+      SingleArcTransition<TaskImpl, TaskEvent> {
+    @Override
+    public void transition(TaskImpl task, TaskEvent event) {
+      TaskTAttemptEvent ttae = (TaskTAttemptEvent)event;
+      if (task.isPartialCommitting && ttae.getTaskAttemptID().equals(task.partialCommitAttempt)) {
+        LOG.info("(bcho2) Calling partialCommitted because got T_ATTEMPT_PARTIAL_COMMITTED TA "
+            +ttae.getTaskAttemptID()+" equals "+(ttae.getTaskAttemptID().equals(task.partialCommitAttempt)));
+        task.partialCommitted(task.getState());
+      }
+    }
+  }
   
   static class LaunchTransition
       implements SingleArcTransition<TaskImpl, TaskEvent> {

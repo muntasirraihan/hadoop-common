@@ -127,6 +127,14 @@ public class TestMapProgress extends TestCase {
       return true;
     }
 
+    public boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+    
+    public boolean donePartialCommit(TaskAttemptID taskId) throws IOException {
+      return false;
+    }
+
     public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
       return false;
     }

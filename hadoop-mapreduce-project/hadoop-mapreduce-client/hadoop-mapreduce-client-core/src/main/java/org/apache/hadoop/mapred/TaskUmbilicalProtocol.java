@@ -90,6 +90,8 @@ public interface TaskUmbilicalProtocol extends VersionedProtocol {
   throws IOException, InterruptedException;
   
   // (bcho2)
+  boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException;
+  boolean donePartialCommit(TaskAttemptID taskId) throws IOException;
   boolean shouldSuspend(TaskAttemptID taskId) throws IOException;
   boolean doneSuspend(TaskAttemptID taskId) throws IOException;
   

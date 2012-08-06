@@ -85,6 +85,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.JobFinishEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptCompletedEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptFetchFailureEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskEvent;
+import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskPartialCommittedEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
@@ -262,6 +263,12 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
           .addTransition(JobState.RUNNING, JobState.RUNNING,
               JobEventType.JOB_TASK_ATTEMPT_FETCH_FAILURE,
               new TaskAttemptFetchFailureTransition())
+          .addTransition(JobState.RUNNING, JobState.RUNNING,
+              JobEventType.JOB_PARTIAL_COMMIT,
+              new PartialCommitTransition())
+          .addTransition(JobState.RUNNING, JobState.RUNNING,
+              JobEventType.JOB_TASK_PARTIAL_COMMITTED,
+              new PartialCommitTaskCompletedTransition())
           .addTransition(
               JobState.RUNNING,
               JobState.ERROR, JobEventType.INTERNAL_ERROR,
@@ -372,6 +379,8 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
   private float reduceProgress;
   private float cleanupProgress;
   private boolean isUber = false;
+  private int numPartialCommitTasks = 0;
+  private int completedPartialCommitTasks = 0;
 
   private Credentials fsTokens;
   private Token<JobTokenIdentifier> jobToken;
@@ -1258,6 +1267,49 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
     }
   }
 
+  private static class PartialCommitTransition implements
+      SingleArcTransition<JobImpl, JobEvent> {
+    @Override
+    public void transition(JobImpl job, JobEvent event) {
+      // int numPartialCommitTasks = 0;
+      LOG.info("(bcho2) Job received PartialCommit while in RUNNING state.");
+      job.addDiagnostic("Job received PartialCommit while in RUNNING state.");
+      for (Task task : job.tasks.values()) {
+        if (task.getType().equals(TaskType.REDUCE) && !task.isFinished()) {
+          job.numPartialCommitTasks++;
+          // numPartialCommitTasks++;
+          job.eventHandler.handle(new TaskEvent(task.getID(),
+              TaskEventType.T_PARTIAL_COMMIT));
+        }
+      }
+      // LOG.info("(bcho2) numPartialCommitTasks " + numPartialCommitTasks);
+      LOG.info("(bcho2) numPartialCommitTasks " + job.numPartialCommitTasks);
+      // job.metrics.endRunningJob(job);
+    }
+  }
+
+  private static class PartialCommitTaskCompletedTransition implements
+      SingleArcTransition<JobImpl, JobEvent> {
+    @Override
+    public void transition(JobImpl job, JobEvent event) {
+      JobTaskPartialCommittedEvent jtpce = (JobTaskPartialCommittedEvent)event;
+      job.completedPartialCommitTasks++;
+      LOG.info("(bcho2) completedPartialCommitTasks "+job.completedPartialCommitTasks
+          +" with state "+jtpce.getTaskState());
+      checkJobForCompletion(job); // TODO: (bcho2) how to alert the JobClient that partial commit was completed?
+    }
+
+    protected void checkJobForCompletion(JobImpl job) {
+      if (job.completedPartialCommitTasks >= job.numPartialCommitTasks) {
+        LOG.info("Job partial committed."
+            +" Skipping alert or job abort, for now.");
+        // RESET
+        job.numPartialCommitTasks = 0;
+        job.completedPartialCommitTasks = 0;
+      }
+    }
+  }
+  
   private static class TaskAttemptCompletedEventTransition implements
       SingleArcTransition<JobImpl, JobEvent> {
     @Override

@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -479,6 +481,12 @@ public class TestClientRedirect {
     public KillJobResponse killJob(KillJobRequest request)
         throws YarnRemoteException {
       return recordFactory.newRecordInstance(KillJobResponse.class);
+    }
+
+    @Override
+    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
+        throws YarnRemoteException {
+      return recordFactory.newRecordInstance(PartialCommitJobResponse.class);
     }
 
     @Override

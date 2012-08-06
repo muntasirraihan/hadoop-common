@@ -90,6 +90,12 @@ message KillJobRequestProto {
 message KillJobResponseProto {
 }
 
+message PartialCommitJobRequestProto {
+  optional JobIdProto job_id = 1;
+}
+message PartialCommitJobResponseProto {
+}
+
 message KillTaskRequestProto {
   optional TaskIdProto task_id = 1;
 }

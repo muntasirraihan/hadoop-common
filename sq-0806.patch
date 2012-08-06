@@ -1,0 +1,1342 @@
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapred/TaskAttemptListenerImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapred/TaskAttemptListenerImpl.java
+index 974833b..65a1492 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapred/TaskAttemptListenerImpl.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapred/TaskAttemptListenerImpl.java
+@@ -50,7 +50,9 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdate
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent;
++import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent.TaskAttemptStatus;
++import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
+ import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
+ import org.apache.hadoop.net.NetUtils;
+ import org.apache.hadoop.security.authorize.PolicyProvider;
+@@ -491,6 +493,30 @@ public class TaskAttemptListenerImpl extends CompositeService
+   }
+ 
+   @Override
++  public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
++    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
++      TypeConverter.toYarn(taskAttemptID);
++    
++    Job job = context.getJob(attemptID.getTaskId().getJobId());
++    Task task = job.getTask(attemptID.getTaskId());
++    
++    return task.shouldPartialCommit(attemptID);
++  }
++
++  @Override
++  public boolean donePartialCommit(TaskAttemptID taskAttemptID) throws IOException {
++    org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
++      TypeConverter.toYarn(taskAttemptID);
++    
++    LOG.info("(bcho2) donePartialCommit TA "+taskAttemptID);
++    context.getEventHandler().handle(
++        new TaskTAttemptEvent(attemptID,
++            TaskEventType.T_ATTEMPT_PARTIAL_COMMITTED));
++    
++    return true;
++  }
++
++  @Override
+   public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+     // TODO: Find out if we have to suspend?
+     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+@@ -519,6 +545,7 @@ public class TaskAttemptListenerImpl extends CompositeService
+     return shouldSuspend;
+   }
+   
++  @Override
+   public boolean doneSuspend(TaskAttemptID taskAttemptID) throws IOException {
+     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
+       TypeConverter.toYarn(taskAttemptID);
+@@ -529,6 +556,4 @@ public class TaskAttemptListenerImpl extends CompositeService
+     
+     return true;
+   }
+-  
+-  
+ }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/client/MRClientService.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/client/MRClientService.java
+index 59423a8..47ce3df 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/client/MRClientService.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/client/MRClientService.java
+@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -301,6 +303,23 @@ public class MRClientService extends AbstractService
+ 
+     @SuppressWarnings("unchecked")
+     @Override
++    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) 
++      throws YarnRemoteException {
++      JobId jobId = request.getJobId();
++      String message = "PartialCommit Job received from client " + jobId;
++      LOG.info(message);
++      verifyAndGetJob(jobId, true);
++      appContext.getEventHandler().handle(
++          new JobDiagnosticsUpdateEvent(jobId, message));
++      appContext.getEventHandler().handle(
++          new JobEvent(jobId, JobEventType.JOB_PARTIAL_COMMIT));
++      PartialCommitJobResponse response = 
++        recordFactory.newRecordInstance(PartialCommitJobResponse.class);
++      return response;
++    }
++
++    @SuppressWarnings("unchecked")
++    @Override
+     public KillTaskResponse killTask(KillTaskRequest request) 
+       throws YarnRemoteException {
+       TaskId taskId = request.getTaskId();
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/Task.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/Task.java
+index 480a6e5..55a9c75 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/Task.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/Task.java
+@@ -53,6 +53,7 @@ public interface Task {
+    * @return whether the attempt's output can be committed or not.
+    */
+   boolean canCommit(TaskAttemptId taskAttemptID);
++  boolean shouldPartialCommit(TaskAttemptId taskAttemptID);
+   boolean shouldSuspend(TaskAttemptId taskAttemptID);
+ 
+   
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobEventType.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobEventType.java
+index e0223b1..a9df47e 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobEventType.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobEventType.java
+@@ -25,6 +25,7 @@ public enum JobEventType {
+ 
+   //Producer:Client
+   JOB_KILL,
++  JOB_PARTIAL_COMMIT,
+ 
+   //Producer:MRAppMaster
+   JOB_INIT,
+@@ -34,6 +35,7 @@ public enum JobEventType {
+   JOB_TASK_COMPLETED,
+   JOB_MAP_TASK_RESCHEDULED,
+   JOB_TASK_ATTEMPT_COMPLETED,
++  JOB_TASK_PARTIAL_COMMITTED,
+ 
+   //Producer:Job
+   JOB_COMPLETED,
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobTaskPartialCommittedEvent.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobTaskPartialCommittedEvent.java
+new file mode 100644
+index 0000000..cfc171c
+--- /dev/null
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/JobTaskPartialCommittedEvent.java
+@@ -0,0 +1,44 @@
++/**
++* Licensed to the Apache Software Foundation (ASF) under one
++* or more contributor license agreements.  See the NOTICE file
++* distributed with this work for additional information
++* regarding copyright ownership.  The ASF licenses this file
++* to you under the Apache License, Version 2.0 (the
++* "License"); you may not use this file except in compliance
++* with the License.  You may obtain a copy of the License at
++*
++*     http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*/
++
++package org.apache.hadoop.mapreduce.v2.app.job.event;
++
++import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
++import org.apache.hadoop.mapreduce.v2.api.records.TaskState;
++
++
++public class JobTaskPartialCommittedEvent extends JobEvent {
++
++  private TaskId taskID;
++  private TaskState taskState;
++
++  public JobTaskPartialCommittedEvent(TaskId taskID, TaskState taskState) {
++    super(taskID.getJobId(), JobEventType.JOB_TASK_PARTIAL_COMMITTED);
++    this.taskID = taskID;
++    this.taskState = taskState;
++  }
++
++  public TaskId getTaskID() {
++    return taskID;
++  }
++  
++  public TaskState getTaskState() {
++    return taskState;
++    
++  }
++}
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskAttemptEventType.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskAttemptEventType.java
+index 7b33c3f..c260c21 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskAttemptEventType.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskAttemptEventType.java
+@@ -29,6 +29,7 @@ public enum TaskAttemptEventType {
+ 
+   //Producer:Client, Task
+   TA_KILL,
++  // TA_PARTIAL_COMMIT,
+   TA_SUSPEND,
+   TA_RESUME,
+   
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskEventType.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskEventType.java
+index 819685e..ecb164a 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskEventType.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/event/TaskEventType.java
+@@ -26,6 +26,7 @@ public enum TaskEventType {
+   //Producer:Client, Job
+   T_KILL,
+   T_RESUME,
++  T_PARTIAL_COMMIT,
+ 
+   //Producer:Job
+   T_SCHEDULE,
+@@ -40,4 +41,5 @@ public enum TaskEventType {
+   T_ATTEMPT_SUCCEEDED,
+   T_ATTEMPT_KILLED,
+   T_ATTEMPT_SUSPENDED,
++  T_ATTEMPT_PARTIAL_COMMITTED
+ }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
+index cd357a2..235b1ca 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
+@@ -83,6 +83,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.JobFinishEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptCompletedEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptFetchFailureEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskEvent;
++import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskPartialCommittedEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
+@@ -259,6 +260,12 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
+           .addTransition(JobState.RUNNING, JobState.RUNNING,
+               JobEventType.JOB_TASK_ATTEMPT_FETCH_FAILURE,
+               new TaskAttemptFetchFailureTransition())
++          .addTransition(JobState.RUNNING, JobState.RUNNING,
++              JobEventType.JOB_PARTIAL_COMMIT,
++              new PartialCommitTransition())
++          .addTransition(JobState.RUNNING, JobState.RUNNING,
++              JobEventType.JOB_TASK_PARTIAL_COMMITTED,
++              new PartialCommitTaskCompletedTransition())
+           .addTransition(
+               JobState.RUNNING,
+               JobState.ERROR, JobEventType.INTERNAL_ERROR,
+@@ -367,6 +374,8 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
+   private float reduceProgress;
+   private float cleanupProgress;
+   private boolean isUber = false;
++  private int numPartialCommitTasks = 0;
++  private int completedPartialCommitTasks = 0;
+ 
+   private Credentials fsTokens;
+   private Token<JobTokenIdentifier> jobToken;
+@@ -1245,6 +1254,49 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
+     }
+   }
+ 
++  private static class PartialCommitTransition implements
++      SingleArcTransition<JobImpl, JobEvent> {
++    @Override
++    public void transition(JobImpl job, JobEvent event) {
++      // int numPartialCommitTasks = 0;
++      LOG.info("(bcho2) Job received PartialCommit while in RUNNING state.");
++      job.addDiagnostic("Job received PartialCommit while in RUNNING state.");
++      for (Task task : job.tasks.values()) {
++        if (task.getType().equals(TaskType.REDUCE) && !task.isFinished()) {
++          job.numPartialCommitTasks++;
++          // numPartialCommitTasks++;
++          job.eventHandler.handle(new TaskEvent(task.getID(),
++              TaskEventType.T_PARTIAL_COMMIT));
++        }
++      }
++      // LOG.info("(bcho2) numPartialCommitTasks " + numPartialCommitTasks);
++      LOG.info("(bcho2) numPartialCommitTasks " + job.numPartialCommitTasks);
++      // job.metrics.endRunningJob(job);
++    }
++  }
++
++  private static class PartialCommitTaskCompletedTransition implements
++      SingleArcTransition<JobImpl, JobEvent> {
++    @Override
++    public void transition(JobImpl job, JobEvent event) {
++      JobTaskPartialCommittedEvent jtpce = (JobTaskPartialCommittedEvent)event;
++      job.completedPartialCommitTasks++;
++      LOG.info("(bcho2) completedPartialCommitTasks "+job.completedPartialCommitTasks
++          +" with state "+jtpce.getTaskState());
++      checkJobForCompletion(job); // TODO: (bcho2) how to alert the JobClient that partial commit was completed?
++    }
++
++    protected void checkJobForCompletion(JobImpl job) {
++      if (job.completedPartialCommitTasks >= job.numPartialCommitTasks) {
++        LOG.info("Job partial committed."
++            +" Skipping alert or job abort, for now.");
++        // RESET
++        job.numPartialCommitTasks = 0;
++        job.completedPartialCommitTasks = 0;
++      }
++    }
++  }
++  
+   private static class TaskAttemptCompletedEventTransition implements
+       SingleArcTransition<JobImpl, JobEvent> {
+     @Override
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
+index e6a7506..f75af56 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
+@@ -63,6 +63,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.JobEventType;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobMapTaskRescheduledEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskAttemptCompletedEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskEvent;
++import org.apache.hadoop.mapreduce.v2.app.job.event.JobTaskPartialCommittedEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
+ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
+@@ -138,6 +139,8 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+         TaskEventType.T_SCHEDULE, new InitialScheduleTransition())
+     .addTransition(TaskState.NEW, TaskState.KILLED, 
+         TaskEventType.T_KILL, new KillNewTransition())
++    .addTransition(TaskState.NEW, TaskState.NEW,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+ 
+     // Transitions from SCHEDULED state
+       //when the first attempt is launched, the task state is set to RUNNING
+@@ -151,7 +154,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+         EnumSet.of(TaskState.SCHEDULED, TaskState.FAILED), 
+         TaskEventType.T_ATTEMPT_FAILED, 
+         new AttemptFailedTransition())
+- 
++    .addTransition(TaskState.SCHEDULED, TaskState.SCHEDULED,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
++
+     // Transitions from RUNNING state
+     .addTransition(TaskState.RUNNING, TaskState.RUNNING, 
+         TaskEventType.T_ATTEMPT_LAUNCHED) //more attempts may start later
+@@ -177,12 +182,19 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+         new AttemptSuspendedTransition())
+     .addTransition(TaskState.RUNNING, TaskState.RUNNING,
+         TaskEventType.T_RESUME, new ResumeTransition())
++    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitRunningTransition())
++    .addTransition(TaskState.RUNNING, TaskState.RUNNING,
++        TaskEventType.T_ATTEMPT_PARTIAL_COMMITTED,
++        new PartialCommittedTransition())
+ 
+     // Transitions from KILL_WAIT state
+     .addTransition(TaskState.KILL_WAIT,
+         EnumSet.of(TaskState.KILL_WAIT, TaskState.KILLED),
+         TaskEventType.T_ATTEMPT_KILLED,
+         new KillWaitAttemptKilledTransition())
++    .addTransition(TaskState.KILL_WAIT, TaskState.KILL_WAIT,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+     // Ignore-able transitions.
+     .addTransition(
+         TaskState.KILL_WAIT,
+@@ -198,6 +210,8 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+     .addTransition(TaskState.SUCCEEDED, //only possible for map tasks
+         EnumSet.of(TaskState.SCHEDULED, TaskState.FAILED),
+         TaskEventType.T_ATTEMPT_FAILED, new MapRetroactiveFailureTransition())
++    .addTransition(TaskState.SUCCEEDED, TaskState.SUCCEEDED,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+     // Ignore-able transitions.
+     .addTransition(
+         TaskState.SUCCEEDED, TaskState.SUCCEEDED,
+@@ -210,11 +224,15 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+     .addTransition(TaskState.FAILED, TaskState.FAILED,
+         EnumSet.of(TaskEventType.T_KILL,
+                    TaskEventType.T_ADD_SPEC_ATTEMPT))
++    .addTransition(TaskState.FAILED, TaskState.FAILED,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+ 
+     // Transitions from KILLED state
+     .addTransition(TaskState.KILLED, TaskState.KILLED,
+         EnumSet.of(TaskEventType.T_KILL,
+                    TaskEventType.T_ADD_SPEC_ATTEMPT))
++    .addTransition(TaskState.KILLED, TaskState.KILLED,
++        TaskEventType.T_PARTIAL_COMMIT, new PartialCommitImmediateTransition())
+ 
+     // create the topology tables
+     .installTopology();
+@@ -248,6 +266,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+   private int failedAttempts;
+   private int finishedAttempts;//finish are total of success, failed and killed
+ 
++  private TaskAttemptId partialCommitAttempt = null;
++  private boolean isPartialCommitting = false;
++  
+   @Override
+   public TaskState getState() {
+     return stateMachine.getCurrentState();
+@@ -545,6 +566,21 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+     }
+   }
+ 
++  public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
++    if (partialCommitAttempt != null) {
++      LOG.info("(bcho2) attempt "+taskAttemptID
++          +" partialCommitAttempt "+partialCommitAttempt
++          +" equals "+(taskAttemptID.equals(partialCommitAttempt)));
++    }
++    if (!isPartialCommitting && getType() == TaskType.REDUCE && taskAttemptID.equals(partialCommitAttempt)) {
++      LOG.info("Returning true for shouldPartialCommit TA "+taskAttemptID);
++      isPartialCommitting = true;
++      return true;
++    } else {
++      return false;
++    }
++  }
++  
+   protected abstract TaskAttemptImpl createAttempt();
+ 
+   // No override of this method may require that the subclass be initialized.
+@@ -686,6 +722,11 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+       //raise the event to job so that it adds the completion event to its
+       //data structures
+       eventHandler.handle(new JobTaskAttemptCompletedEvent(tce));
++      
++      if (isPartialCommitting && attemptId.equals(partialCommitAttempt)) {
++        LOG.info("(bcho2) calling partialCommitted from handleTaskAttemptCompletion");
++        partialCommitted(getState());
++      }
+     }
+   }
+ 
+@@ -993,6 +1034,26 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+               TaskAttemptEventType.TA_KILL));
+     }
+   }
++  
++  private void partialCommitAttempt(TaskAttempt attempt, String logMsg) {
++    if (attempt != null && !attempt.isFinished()) {
++      LOG.info("(bcho2) "+logMsg+" attempt "+attempt.getID());
++      partialCommitAttempt = attempt.getID();
++
++      // Partial commit stays within TaskImpl, doesn't get passed to
++      // TaskAttemptImpl. Is this the correct way to do it?
++      // eventHandler.handle(
++      //     new TaskAttemptEvent(attempt.getID(),
++      //         TaskAttemptEventType.TA_PARTIAL_COMMIT));
++    }
++  }
++
++  private void partialCommitted(TaskState state) {
++    this.partialCommitAttempt = null;
++    this.isPartialCommitting = false;
++    this.eventHandler.handle(
++        new JobTaskPartialCommittedEvent(this.taskId, state));
++  }
+ 
+   private static class KillTransition 
+     implements SingleArcTransition<TaskImpl, TaskEvent> {
+@@ -1039,6 +1100,56 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+       }
+     }
+   }  
++
++  private static class PartialCommitRunningTransition implements
++      SingleArcTransition<TaskImpl, TaskEvent> {
++    @Override
++    public void transition(TaskImpl task, TaskEvent event) {
++      LOG.info("(bcho2) PartialCommitRunningTransition");
++      // issue kill to all non finished attempts
++      float maxProgress = 0.0f;
++      TaskAttempt cAttempt = null;
++
++      for (TaskAttempt attempt : task.attempts.values()) {
++        TaskAttemptState state = attempt.getState();
++        if (state.equals(TaskAttemptState.RUNNING) &&
++            attempt.getProgress() >= maxProgress) {
++          maxProgress = attempt.getProgress();
++          cAttempt = attempt;
++        }
++      }
++      if (cAttempt == null) {
++        LOG.warn("(bcho2) Calling partialCommitted because No RUNNING attempt for "+task.taskId+", thus Immediate return");
++        task.partialCommitted(TaskState.SCHEDULED); // Treat same as if just scheduled.
++        // TODO (bcho2) Need to make sure partialCommits work with Suspend/Resume
++      } else {
++        task.partialCommitAttempt
++          (cAttempt, "Task PARTIAL_COMMIT is received. Committing attempt!");
++      }
++    }
++  }
++
++  private static class PartialCommitImmediateTransition implements
++      SingleArcTransition<TaskImpl, TaskEvent> {
++    @Override
++    public void transition(TaskImpl task, TaskEvent event) {
++      LOG.info("(bcho2) Calling partialCommitted because Task in state "+task.getState());
++      task.partialCommitted(task.getState());
++    }
++  }
++  
++  private static class PartialCommittedTransition implements
++      SingleArcTransition<TaskImpl, TaskEvent> {
++    @Override
++    public void transition(TaskImpl task, TaskEvent event) {
++      TaskTAttemptEvent ttae = (TaskTAttemptEvent)event;
++      if (task.isPartialCommitting && ttae.getTaskAttemptID().equals(task.partialCommitAttempt)) {
++        LOG.info("(bcho2) Calling partialCommitted because got T_ATTEMPT_PARTIAL_COMMITTED TA "
++            +ttae.getTaskAttemptID()+" equals "+(ttae.getTaskAttemptID().equals(task.partialCommitAttempt)));
++        task.partialCommitted(task.getState());
++      }
++    }
++  }
+   
+   static class LaunchTransition
+       implements SingleArcTransition<TaskImpl, TaskEvent> {
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MockJobs.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MockJobs.java
+index 0d93911..571326d 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MockJobs.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MockJobs.java
+@@ -375,6 +375,11 @@ public class MockJobs extends MockApps {
+       }
+ 
+       @Override
++      public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
++        return false;
++      }
++      
++      @Override
+       public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+         return false;
+       }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRuntimeEstimators.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRuntimeEstimators.java
+index 2eb4114..ee54b40 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRuntimeEstimators.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRuntimeEstimators.java
+@@ -350,6 +350,11 @@ public class TestRuntimeEstimators {
+     }
+ 
+     @Override
++    public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
++      throw new UnsupportedOperationException("Not supported yet.");
++    }
++
++    @Override
+     public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
+       throw new UnsupportedOperationException("Not supported yet.");
+     }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapred/LocalJobRunner.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapred/LocalJobRunner.java
+index 36db605..a8f8617 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapred/LocalJobRunner.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapred/LocalJobRunner.java
+@@ -595,6 +595,18 @@ public class LocalJobRunner implements ClientProtocol {
+     }
+ 
+     @Override
++    public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
++      // TODO Auto-generated method stub (bcho2)
++      return true;
++    }
++
++    @Override
++    public boolean donePartialCommit(TaskAttemptID taskId) throws IOException {
++      // TODO Auto-generated method stub (bcho2)
++      return true;
++    }
++    
++    @Override
+     public boolean shouldSuspend(TaskAttemptID taskAttemptID) throws IOException {
+       // TODO Auto-generated method stub (bcho2)
+       return true;
+@@ -640,6 +652,12 @@ public class LocalJobRunner implements ClientProtocol {
+     jobs.get(JobID.downgrade(id)).interrupt();
+   }
+ 
++  /** Throws {@link UnsupportedOperationException} */
++  public void partialCommitJob(org.apache.hadoop.mapreduce.JobID id) {
++    throw new UnsupportedOperationException("Partial commit job in " +
++    "LocalJobRunner is not supported");
++  }
++  
+   public void setJobPriority(org.apache.hadoop.mapreduce.JobID id,
+       String jp) throws IOException {
+     throw new UnsupportedOperationException("Changing job priority " +
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/MRClientProtocol.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/MRClientProtocol.java
+index d5cf94c..3cf1c43 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/MRClientProtocol.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/MRClientProtocol.java
+@@ -42,6 +42,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -57,6 +59,7 @@ public interface MRClientProtocol {
+   public GetTaskReportsResponse getTaskReports(GetTaskReportsRequest request) throws YarnRemoteException;
+   public GetDiagnosticsResponse getDiagnostics(GetDiagnosticsRequest request) throws YarnRemoteException;
+   public KillJobResponse killJob(KillJobRequest request) throws YarnRemoteException;
++  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) throws YarnRemoteException;
+   public KillTaskResponse killTask(KillTaskRequest request) throws YarnRemoteException;
+   public KillTaskAttemptResponse killTaskAttempt(KillTaskAttemptRequest request) throws YarnRemoteException;
+   public FailTaskAttemptResponse failTaskAttempt(FailTaskAttemptRequest request) throws YarnRemoteException;
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/client/MRClientProtocolPBClientImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/client/MRClientProtocolPBClientImpl.java
+index 6026989..f89e97d 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/client/MRClientProtocolPBClientImpl.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/client/MRClientProtocolPBClientImpl.java
+@@ -49,6 +49,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -77,6 +79,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemp
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemptResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskRequestPBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskResponsePBImpl;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobRequestPBImpl;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskRequestPBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.SuspendTaskAttemptRequestPBImpl;
+@@ -93,6 +97,7 @@ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.GetTaskReportsReques
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillJobRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskAttemptRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskRequestProto;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.ResumeTaskRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.SuspendTaskAttemptRequestProto;
+ import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+@@ -269,6 +274,23 @@ public class MRClientProtocolPBClientImpl implements MRClientProtocol {
+   }
+ 
+   @Override
++  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
++      throws YarnRemoteException {
++    PartialCommitJobRequestProto requestProto = ((PartialCommitJobRequestPBImpl)request).getProto();
++    try {
++      return new PartialCommitJobResponsePBImpl(proxy.partialCommitJob(null, requestProto));
++    } catch (ServiceException e) {
++      if (e.getCause() instanceof YarnRemoteException) {
++        throw (YarnRemoteException)e.getCause();
++      } else if (e.getCause() instanceof UndeclaredThrowableException) {
++        throw (UndeclaredThrowableException)e.getCause();
++      } else {
++        throw new UndeclaredThrowableException(e);
++      }
++    }
++  }
++
++  @Override
+   public KillTaskResponse killTask(KillTaskRequest request)
+       throws YarnRemoteException {
+     KillTaskRequestProto requestProto = ((KillTaskRequestPBImpl)request).getProto();
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/service/MRClientProtocolPBServiceImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/service/MRClientProtocolPBServiceImpl.java
+index d97f92e..1109b7d 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/service/MRClientProtocolPBServiceImpl.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/impl/pb/service/MRClientProtocolPBServiceImpl.java
+@@ -42,6 +42,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -70,6 +72,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemp
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskAttemptResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskRequestPBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.KillTaskResponsePBImpl;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobRequestPBImpl;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.PartialCommitJobResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskRequestPBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.ResumeTaskResponsePBImpl;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb.SuspendTaskAttemptRequestPBImpl;
+@@ -98,6 +102,8 @@ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskAttemptReque
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskAttemptResponseProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.KillTaskResponseProto;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobRequestProto;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobResponseProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.ResumeTaskRequestProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.ResumeTaskResponseProto;
+ import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.SuspendTaskAttemptRequestProto;
+@@ -229,6 +235,18 @@ public class MRClientProtocolPBServiceImpl implements BlockingInterface {
+   }
+ 
+   @Override
++  public PartialCommitJobResponseProto partialCommitJob(RpcController controller,
++      PartialCommitJobRequestProto proto) throws ServiceException {
++    PartialCommitJobRequest request = new PartialCommitJobRequestPBImpl(proto);
++    try {
++      PartialCommitJobResponse response = real.partialCommitJob(request);
++      return ((PartialCommitJobResponsePBImpl)response).getProto();
++    } catch (YarnRemoteException e) {
++      throw new ServiceException(e);
++    }
++  }
++
++  @Override
+   public KillTaskResponseProto killTask(RpcController controller,
+       KillTaskRequestProto proto) throws ServiceException {
+     KillTaskRequest request = new KillTaskRequestPBImpl(proto);
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobRequest.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobRequest.java
+new file mode 100644
+index 0000000..ccf404c
+--- /dev/null
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobRequest.java
+@@ -0,0 +1,27 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.v2.api.protocolrecords;
++
++import org.apache.hadoop.mapreduce.v2.api.records.JobId;
++
++public interface PartialCommitJobRequest {
++  public abstract JobId getJobId();
++  
++  public abstract void setJobId(JobId jobId);
++}
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobResponse.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobResponse.java
+new file mode 100644
+index 0000000..2e4fce5
+--- /dev/null
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/PartialCommitJobResponse.java
+@@ -0,0 +1,23 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.v2.api.protocolrecords;
++
++public interface PartialCommitJobResponse {
++
++}
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobRequestPBImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobRequestPBImpl.java
+new file mode 100644
+index 0000000..3d01096
+--- /dev/null
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobRequestPBImpl.java
+@@ -0,0 +1,109 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb;
++
++
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.records.JobId;
++import org.apache.hadoop.mapreduce.v2.api.records.impl.pb.JobIdPBImpl;
++import org.apache.hadoop.mapreduce.v2.proto.MRProtos.JobIdProto;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobRequestProto;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobRequestProtoOrBuilder;
++import org.apache.hadoop.yarn.api.records.ProtoBase;
++
++
++    
++public class PartialCommitJobRequestPBImpl extends ProtoBase<PartialCommitJobRequestProto> implements PartialCommitJobRequest {
++  PartialCommitJobRequestProto proto = PartialCommitJobRequestProto.getDefaultInstance();
++  PartialCommitJobRequestProto.Builder builder = null;
++  boolean viaProto = false;
++  
++  private JobId jobId = null;
++  
++  
++  public PartialCommitJobRequestPBImpl() {
++    builder = PartialCommitJobRequestProto.newBuilder();
++  }
++
++  public PartialCommitJobRequestPBImpl(PartialCommitJobRequestProto proto) {
++    this.proto = proto;
++    viaProto = true;
++  }
++  
++  public PartialCommitJobRequestProto getProto() {
++      mergeLocalToProto();
++    proto = viaProto ? proto : builder.build();
++    viaProto = true;
++    return proto;
++  }
++
++  private void mergeLocalToBuilder() {
++    if (this.jobId != null) {
++      builder.setJobId(convertToProtoFormat(this.jobId));
++    }
++  }
++
++  private void mergeLocalToProto() {
++    if (viaProto) 
++      maybeInitBuilder();
++    mergeLocalToBuilder();
++    proto = builder.build();
++    viaProto = true;
++  }
++
++  private void maybeInitBuilder() {
++    if (viaProto || builder == null) {
++      builder = PartialCommitJobRequestProto.newBuilder(proto);
++    }
++    viaProto = false;
++  }
++    
++  
++  @Override
++  public JobId getJobId() {
++    PartialCommitJobRequestProtoOrBuilder p = viaProto ? proto : builder;
++    if (this.jobId != null) {
++      return this.jobId;
++    }
++    if (!p.hasJobId()) {
++      return null;
++    }
++    this.jobId = convertFromProtoFormat(p.getJobId());
++    return this.jobId;
++  }
++
++  @Override
++  public void setJobId(JobId jobId) {
++    maybeInitBuilder();
++    if (jobId == null) 
++      builder.clearJobId();
++    this.jobId = jobId;
++  }
++
++  private JobIdPBImpl convertFromProtoFormat(JobIdProto p) {
++    return new JobIdPBImpl(p);
++  }
++
++  private JobIdProto convertToProtoFormat(JobId t) {
++    return ((JobIdPBImpl)t).getProto();
++  }
++
++
++
++}  
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobResponsePBImpl.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobResponsePBImpl.java
+new file mode 100644
+index 0000000..c7d36ba
+--- /dev/null
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/java/org/apache/hadoop/mapreduce/v2/api/protocolrecords/impl/pb/PartialCommitJobResponsePBImpl.java
+@@ -0,0 +1,59 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.v2.api.protocolrecords.impl.pb;
++
++
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
++import org.apache.hadoop.mapreduce.v2.proto.MRServiceProtos.PartialCommitJobResponseProto;
++import org.apache.hadoop.yarn.api.records.ProtoBase;
++
++
++    
++public class PartialCommitJobResponsePBImpl extends ProtoBase<PartialCommitJobResponseProto> implements PartialCommitJobResponse {
++  PartialCommitJobResponseProto proto = PartialCommitJobResponseProto.getDefaultInstance();
++  PartialCommitJobResponseProto.Builder builder = null;
++  boolean viaProto = false;
++  
++  public PartialCommitJobResponsePBImpl() {
++    builder = PartialCommitJobResponseProto.newBuilder();
++  }
++
++  public PartialCommitJobResponsePBImpl(PartialCommitJobResponseProto proto) {
++    this.proto = proto;
++    viaProto = true;
++  }
++  
++  public PartialCommitJobResponseProto getProto() {
++    proto = viaProto ? proto : builder.build();
++    viaProto = true;
++    return proto;
++  }
++
++  private void maybeInitBuilder() {
++    if (viaProto || builder == null) {
++      builder = PartialCommitJobResponseProto.newBuilder(proto);
++    }
++    viaProto = false;
++  }
++    
++  
++
++
++
++}  
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/MRClientProtocol.proto hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/MRClientProtocol.proto
+index 5a8b8c9..5cea771 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/MRClientProtocol.proto
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/MRClientProtocol.proto
+@@ -33,6 +33,7 @@ service MRClientProtocolService {
+   rpc getDiagnostics (GetDiagnosticsRequestProto) returns (GetDiagnosticsResponseProto);
+   rpc getDelegationToken (GetDelegationTokenRequestProto) returns (GetDelegationTokenResponseProto);
+   rpc killJob (KillJobRequestProto) returns (KillJobResponseProto);
++  rpc partialCommitJob (PartialCommitJobRequestProto) returns (PartialCommitJobResponseProto);
+   rpc killTask (KillTaskRequestProto) returns (KillTaskResponseProto);
+   rpc killTaskAttempt (KillTaskAttemptRequestProto) returns (KillTaskAttemptResponseProto);
+   rpc failTaskAttempt (FailTaskAttemptRequestProto) returns (FailTaskAttemptResponseProto);
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/mr_service_protos.proto hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/mr_service_protos.proto
+index 62787fe..eb221c2 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/mr_service_protos.proto
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/main/proto/mr_service_protos.proto
+@@ -90,6 +90,12 @@ message KillJobRequestProto {
+ message KillJobResponseProto {
+ }
+ 
++message PartialCommitJobRequestProto {
++  optional JobIdProto job_id = 1;
++}
++message PartialCommitJobResponseProto {
++}
++
+ message KillTaskRequestProto {
+   optional TaskIdProto task_id = 1;
+ }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/test/java/org/apache/hadoop/mapreduce/v2/TestRPCFactories.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/test/java/org/apache/hadoop/mapreduce/v2/TestRPCFactories.java
+index 2339517..9cd9425 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/test/java/org/apache/hadoop/mapreduce/v2/TestRPCFactories.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-common/src/test/java/org/apache/hadoop/mapreduce/v2/TestRPCFactories.java
+@@ -50,6 +50,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -176,6 +178,12 @@ public class TestRPCFactories {
+     }
+ 
+     @Override
++    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
++        throws YarnRemoteException {
++      return null;
++    }
++
++    @Override
+     public KillTaskResponse killTask(KillTaskRequest request)
+         throws YarnRemoteException {
+       return null;
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/Task.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/Task.java
+index 10b59be..29c0c34 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/Task.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/Task.java
+@@ -53,7 +53,6 @@ import org.apache.hadoop.io.WritableUtils;
+ import org.apache.hadoop.io.serializer.Deserializer;
+ import org.apache.hadoop.io.serializer.SerializationFactory;
+ import org.apache.hadoop.mapred.IFile.Writer;
+-import org.apache.hadoop.mapreduce.Counter;
+ import org.apache.hadoop.mapreduce.FileSystemCounter;
+ import org.apache.hadoop.mapreduce.OutputCommitter;
+ import org.apache.hadoop.mapreduce.Suspender;
+@@ -724,6 +723,14 @@ abstract public class Task implements Writable, Configurable {
+           if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
+             suspender.setDoSuspend(true);
+           }
++          if (!isMapTask() && umbilical.shouldPartialCommit(taskId)) {
++            LOG.info("(bcho2) shouldPartialCommit");
++            try {
++              umbilical.donePartialCommit(taskId);
++            } catch (IOException e) {
++              LOG.info("(bcho2) partialCommit failed: ", e);
++            }
++          }
+           
+           sendProgress = resetProgressFlag(); 
+           remainingRetries = MAX_RETRIES;
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/TaskUmbilicalProtocol.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/TaskUmbilicalProtocol.java
+index a5f259b..4a00f82 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/TaskUmbilicalProtocol.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/TaskUmbilicalProtocol.java
+@@ -90,6 +90,8 @@ public interface TaskUmbilicalProtocol extends VersionedProtocol {
+   throws IOException, InterruptedException;
+   
+   // (bcho2)
++  boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException;
++  boolean donePartialCommit(TaskAttemptID taskId) throws IOException;
+   boolean shouldSuspend(TaskAttemptID taskId) throws IOException;
+   boolean doneSuspend(TaskAttemptID taskId) throws IOException;
+   
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/Job.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/Job.java
+index ddad1dd..08c045e 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/Job.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/Job.java
+@@ -623,6 +623,17 @@ public class Job extends JobContextImpl implements JobContext {
+   }
+ 
+   /**
++   * Partial commit on the running job.  Blocks until all job tasks have been
++   * partially committed.  If the job is no longer running, it simply returns.
++   * 
++   * @throws IOException
++   */
++  public void partialCommitJob() throws IOException, InterruptedException {
++    ensureState(JobState.RUNNING);
++    cluster.getClient().partialCommitJob(getJobID());
++  }
++  
++  /**
+    * Set the priority of a running job.
+    * @param priority the new priority for the job.
+    * @throws IOException
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/protocol/ClientProtocol.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/protocol/ClientProtocol.java
+index 9a062a5..acad0d1 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/protocol/ClientProtocol.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/protocol/ClientProtocol.java
+@@ -173,6 +173,11 @@ public interface ClientProtocol extends VersionedProtocol {
+   public void killJob(JobID jobid) throws IOException, InterruptedException;
+ 
+   /**
++   * Partial commit the indicated job
++   */
++  public void partialCommitJob(JobID jobid) throws IOException, InterruptedException;
++
++  /**
+    * Set the priority of the specified job
+    * @param jobid ID of the job
+    * @param priority Priority to be set for the job
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/tools/CLI.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/tools/CLI.java
+index 3c2d6f1..0f06363 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/tools/CLI.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/tools/CLI.java
+@@ -91,6 +91,7 @@ public class CLI extends Configured implements Tool {
+     boolean getStatus = false;
+     boolean getCounter = false;
+     boolean killJob = false;
++    boolean partialCommitJob = false;
+     boolean listEvents = false;
+     boolean viewHistory = false;
+     boolean viewAllHistory = false;
+@@ -136,6 +137,13 @@ public class CLI extends Configured implements Tool {
+       }
+       jobid = argv[1];
+       killJob = true;
++    } else if ("-partial-commit".equals(cmd)) {
++      if (argv.length != 2) {
++        displayUsage(cmd);
++        return exitCode;
++      }
++      jobid = argv[1];
++      partialCommitJob = true;
+     } else if ("-set-priority".equals(cmd)) {
+       if (argv.length != 3) {
+         displayUsage(cmd);
+@@ -307,6 +315,15 @@ public class CLI extends Configured implements Tool {
+           System.out.println("Killed job " + jobid);
+           exitCode = 0;
+         }
++      } else if (partialCommitJob) {
++        Job job = cluster.getJob(JobID.forName(jobid));
++        if (job == null) {
++          System.out.println("Could not find job " + jobid);
++        } else {
++          job.partialCommitJob();
++          System.out.println("Partial commit on job " + jobid);
++          exitCode = 0;
++        }
+       } else if (setJobPriority) {
+         Job job = cluster.getJob(JobID.forName(jobid));
+         if (job == null) {
+@@ -464,7 +481,8 @@ public class CLI extends Configured implements Tool {
+     String taskStates = "running, completed";
+     if ("-submit".equals(cmd)) {
+       System.err.println(prefix + "[" + cmd + " <job-file>]");
+-    } else if ("-status".equals(cmd) || "-kill".equals(cmd)) {
++    } else if ("-status".equals(cmd) || "-kill".equals(cmd) ||
++        "-partial-commit".equals(cmd)) {
+       System.err.println(prefix + "[" + cmd + " <job-id>]");
+     } else if ("-counter".equals(cmd)) {
+       System.err.println(prefix + "[" + cmd + 
+@@ -506,6 +524,7 @@ public class CLI extends Configured implements Tool {
+       System.err.printf("\t[-status <job-id>]\n");
+       System.err.printf("\t[-counter <job-id> <group-name> <counter-name>]\n");
+       System.err.printf("\t[-kill <job-id>]\n");
++      System.err.printf("\t[-partial-commit <job-id>]\n");
+       System.err.printf("\t[-set-priority <job-id> <priority>]. " +
+         "Valid values for priorities are: " + jobPriorityValues + "\n");
+       System.err.printf("\t[-events <job-id> <from-event-#> <#-of-events>]\n");
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/CompletedTask.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/CompletedTask.java
+index 7eae6df..19c795a 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/CompletedTask.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/CompletedTask.java
+@@ -141,8 +141,12 @@ public class CompletedTask implements Task {
+   }
+ 
+   @Override
+-  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
++  public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
+     return false;
+   }
+ 
++  @Override
++  public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
++    return false;
++  }
+ }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/HistoryClientService.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/HistoryClientService.java
+index 57dc69e..07bc6d9 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/HistoryClientService.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/main/java/org/apache/hadoop/mapreduce/v2/hs/HistoryClientService.java
+@@ -60,6 +60,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -255,6 +257,11 @@ public class HistoryClientService extends AbstractService {
+     }
+ 
+     @Override
++    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request) throws YarnRemoteException {
++      throw RPCUtil.getRemoteException("Invalid operation on completed job");
++    }
++    
++    @Override
+     public KillTaskResponse killTask(KillTaskRequest request) throws YarnRemoteException {
+       throw RPCUtil.getRemoteException("Invalid operation on completed job");
+     }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/ClientServiceDelegate.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/ClientServiceDelegate.java
+index 8e1b8fd..3ec5c4d 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/ClientServiceDelegate.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/ClientServiceDelegate.java
+@@ -57,6 +57,7 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.GetTaskReportsResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillJobRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+ import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
+@@ -452,6 +453,16 @@ public class ClientServiceDelegate {
+     return true;
+   }
+ 
++  public boolean partialCommitJob(JobID oldJobID)
++       throws YarnRemoteException {
++    org.apache.hadoop.mapreduce.v2.api.records.JobId jobId
++    = TypeConverter.toYarn(oldJobID);
++    PartialCommitJobRequest partialCommitRequest = recordFactory.newRecordInstance(PartialCommitJobRequest.class);
++    partialCommitRequest.setJobId(jobId);
++    invoke("partialCommitJob", PartialCommitJobRequest.class, partialCommitRequest);
++    return true;
++  }
++  
+   public LogParams getLogFilePath(JobID oldJobID, TaskAttemptID oldTaskAttemptID)
+       throws YarnRemoteException, IOException {
+     org.apache.hadoop.mapreduce.v2.api.records.JobId jobId =
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/NotRunningJob.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/NotRunningJob.java
+index f2892ad..5673805 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/NotRunningJob.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/NotRunningJob.java
+@@ -47,6 +47,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -215,6 +217,14 @@ public class NotRunningJob implements MRClientProtocol {
+   }
+ 
+   @Override
++  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
++      throws YarnRemoteException {
++    PartialCommitJobResponse resp =
++      recordFactory.newRecordInstance(PartialCommitJobResponse.class);
++    return resp;
++  }
++
++  @Override
+   public KillTaskResponse killTask(KillTaskRequest request)
+       throws YarnRemoteException {
+     KillTaskResponse resp =
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/YARNRunner.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/YARNRunner.java
+index 1c2b314..9e0c3e6 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/YARNRunner.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/main/java/org/apache/hadoop/mapred/YARNRunner.java
+@@ -538,6 +538,45 @@ public class YARNRunner implements ClientProtocol {
+   }
+ 
+   @Override
++  public void partialCommitJob(JobID arg0)
++  throws IOException, InterruptedException {
++    /* check if the status is not running, if not send kill to RM */
++    JobStatus status = clientCache.getClient(arg0).getJobStatus(arg0);
++    /*
++    if (status.getState() != JobStatus.State.RUNNING) {
++      resMgrDelegate.killApplication(TypeConverter.toYarn(arg0).getAppId());
++      return;
++    }
++    */
++    try {
++      /* send a partial commit to the AM */
++      clientCache.getClient(arg0).partialCommitJob(arg0);
++      long currentTimeMillis = System.currentTimeMillis();
++      long timePartialCommitIssued = currentTimeMillis;
++      while ((currentTimeMillis < timePartialCommitIssued + 10000L)
++          // && (status.getState() != JobStatus.State.PARTIAL_COMMITTED)
++          // TODO: find a replacement field within JobStatus (not using State itself)
++          ) {
++          try {
++            Thread.sleep(1000L);
++          } catch(InterruptedException ie) {
++            /** interrupted, just break */
++            break;
++          }
++          currentTimeMillis = System.currentTimeMillis();
++          status = clientCache.getClient(arg0).getJobStatus(arg0);
++      }
++    } catch(IOException io) {
++      LOG.debug("Error when checking for application status", io);
++    }
++    /*
++    if (status.getState() != JobStatus.State.KILLED) {
++      resMgrDelegate.killApplication(TypeConverter.toYarn(arg0).getAppId());
++    }
++    */
++  }
++  
++  @Override
+   public boolean killTask(TaskAttemptID arg0, boolean arg1) throws IOException,
+       InterruptedException {
+     return clientCache.getClient(arg0.getJobID()).killTask(arg0, arg1);
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestClientRedirect.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestClientRedirect.java
+index 021a530..de47688 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestClientRedirect.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestClientRedirect.java
+@@ -57,6 +57,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
++import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
+ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
+@@ -479,6 +481,12 @@ public class TestClientRedirect {
+     }
+ 
+     @Override
++    public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
++        throws YarnRemoteException {
++      return recordFactory.newRecordInstance(PartialCommitJobResponse.class);
++    }
++
++    @Override
+     public KillTaskResponse killTask(KillTaskRequest request)
+         throws YarnRemoteException {
+       return null;
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestMapProgress.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestMapProgress.java
+index 1172388..fcc3a7e 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestMapProgress.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestMapProgress.java
+@@ -127,6 +127,14 @@ public class TestMapProgress extends TestCase {
+       return true;
+     }
+ 
++    public boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException {
++      return false;
++    }
++    
++    public boolean donePartialCommit(TaskAttemptID taskId) throws IOException {
++      return false;
++    }
++
+     public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
+       return false;
+     }
+diff --git hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestTaskCommit.java hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestTaskCommit.java
+index f05b0b7..ac10f73 100644
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestTaskCommit.java
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/mapred/TestTaskCommit.java
+@@ -158,6 +158,16 @@ public class TestTaskCommit extends HadoopTestCase {
+     }
+ 
+     @Override
++    public boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException {
++      return false;
++    }
++    
++    @Override
++    public boolean donePartialCommit(TaskAttemptID taskId) throws IOException {
++      return false;
++    }
++
++    @Override
+     public boolean shouldSuspend(TaskAttemptID taskId) throws IOException {
+       return false;
+     }

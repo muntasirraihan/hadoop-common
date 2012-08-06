@@ -406,6 +406,11 @@ public class MockJobs extends MockApps {
       }
 
       @Override
+      public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
+        return false;
+      }
+      
+      @Override
       public boolean shouldSuspend(TaskAttemptId taskAttemptID) {
         return false;
       }

@@ -48,6 +48,8 @@ import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptRequest
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskAttemptResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.KillTaskResponse;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobRequest;
+import org.apache.hadoop.mapreduce.v2.api.protocolrecords.PartialCommitJobResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskRequest;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.ResumeTaskResponse;
 import org.apache.hadoop.mapreduce.v2.api.protocolrecords.SuspendTaskAttemptRequest;
@@ -212,6 +214,14 @@ public class NotRunningJob implements MRClientProtocol {
       throws YarnRemoteException {
     KillJobResponse resp =
       recordFactory.newRecordInstance(KillJobResponse.class);
+    return resp;
+  }
+
+  @Override
+  public PartialCommitJobResponse partialCommitJob(PartialCommitJobRequest request)
+      throws YarnRemoteException {
+    PartialCommitJobResponse resp =
+      recordFactory.newRecordInstance(PartialCommitJobResponse.class);
     return resp;
   }
 
