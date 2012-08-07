@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapred;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -263,7 +264,7 @@ public abstract class OutputCommitter
   @Override
   public final
   void commitTaskWithSuffix(org.apache.hadoop.mapreduce.TaskAttemptContext taskContext,
-      String suspendedAttemptId) throws IOException {
+      List<String> suspendedAttemptIds) throws IOException {
     throw new IOException("(bcho2) not supported");
   }
   

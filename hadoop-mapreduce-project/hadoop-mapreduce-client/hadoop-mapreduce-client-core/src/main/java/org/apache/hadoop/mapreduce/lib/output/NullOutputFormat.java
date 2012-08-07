@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapreduce.lib.output;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -53,7 +54,8 @@ public class NullOutputFormat<K, V> extends OutputFormat<K, V> {
       public void abortTask(TaskAttemptContext taskContext) { }
       public void cleanupJob(JobContext jobContext) { }
       public void commitTask(TaskAttemptContext taskContext) { }
-      public void commitTaskWithSuffix(TaskAttemptContext taskContext, String suspendedAttemptId) { }
+      public void commitTaskWithSuffix(TaskAttemptContext taskContext,
+          List<String> suspendedAttemptIds) { }
       public boolean needsTaskCommit(TaskAttemptContext taskContext) {
         return false;
       }
