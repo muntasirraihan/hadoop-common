@@ -1,6 +1,7 @@
 package org.apache.hadoop.mapreduce;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -11,18 +12,25 @@ public class Suspender {
   
   private boolean doSuspend = false;
   private final org.apache.hadoop.mapred.TaskAttemptID taskId;
+  private final List<String> suspendedTaskIds;
   private final TaskUmbilicalProtocol umbilical;
   
   private boolean doneSuspend = false;
   
-  public Suspender(final org.apache.hadoop.mapred.TaskAttemptID taskId,
-      final TaskUmbilicalProtocol umbilical) {
-    this.taskId = taskId;
+  public Suspender(final TaskUmbilicalProtocol umbilical,
+      final org.apache.hadoop.mapred.TaskAttemptID taskId,
+      final List<String> suspendedTaskIds) {
     this.umbilical = umbilical;
+    this.taskId = taskId;
+    this.suspendedTaskIds = suspendedTaskIds;
   }
   
   public void suspend(ReduceContext reducerContext,
       RecordWriter trackedRW, long keyCount) {
+    for (String idStr : suspendedTaskIds) {
+      LOG.info("(bcho2) SUSPENDED "+idStr);
+    }
+    LOG.info("(bcho2) SUSPENDED "+ taskId);
     LOG.info("(bcho2) RESUMEKEY "+keyCount);
     if (trackedRW != null && reducerContext != null) {
       LOG.info("(bcho2) closing, trackedRW "+trackedRW+" reducerContext "+reducerContext);

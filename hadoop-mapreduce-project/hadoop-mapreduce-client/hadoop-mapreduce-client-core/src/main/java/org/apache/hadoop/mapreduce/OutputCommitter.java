@@ -19,6 +19,7 @@
 package org.apache.hadoop.mapreduce;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -149,7 +150,8 @@ public abstract class OutputCommitter {
   public abstract void commitTask(TaskAttemptContext taskContext)
   throws IOException;
 
-  public abstract void commitTaskWithSuffix(TaskAttemptContext taskContext, String suspendedAttemptId)
+  public abstract void commitTaskWithSuffix(TaskAttemptContext taskContext,
+      List<String> suspendedAttemptIds)
   throws IOException;
   
   /**

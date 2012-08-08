@@ -20,6 +20,7 @@ package org.apache.hadoop.mapreduce.lib.output;
 
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -431,13 +432,18 @@ public class FileOutputCommitter extends OutputCommitter {
   // While this seems to make more sense, it means that we must rename the files
   // beforehand, then call commitTask
   @Override
-  public void commitTaskWithSuffix(TaskAttemptContext context, String suspendedAttemptId)
+  public void commitTaskWithSuffix(TaskAttemptContext context,
+      List<String> suspendedAttemptIds)
   throws IOException {
     Path taskAttemptPath = getTaskAttemptPath(context);
-    Path suspendedPath = new Path(taskAttemptPath.getParent(), suspendedAttemptId);
-    LOG.info("(bcho2) suspended path "+suspendedPath);
-    Path[] paths = new Path[]{suspendedPath, taskAttemptPath};
-    
+    Path[] paths = new Path[suspendedAttemptIds.size()+1];
+    for (int i = 0; i < suspendedAttemptIds.size(); i++) {
+      Path suspendedPath = new Path(taskAttemptPath.getParent(), suspendedAttemptIds.get(i));
+      LOG.info("(bcho2) suspended path "+suspendedPath);
+      paths[i] = suspendedPath;
+    }
+    paths[suspendedAttemptIds.size()] = taskAttemptPath;
+
     for (int i = paths.length-1; i >= 0; i--) {
       FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
       if (fs.exists(paths[i])) {
