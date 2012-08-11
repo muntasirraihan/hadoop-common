@@ -38,6 +38,8 @@ public class ExampleDriver {
     try {
       pgd.addClass("wordcount", WordCount.class, 
                    "A map/reduce program that counts the words in the input files.");
+      pgd.addClass("sleepingwordcount", SleepingWordCount.class, 
+                   "(bcho2) WordCount, that sleeps periodically to simulate longer computations.");
       pgd.addClass("aggregatewordcount", AggregateWordCount.class, 
                    "An Aggregate based map/reduce program that counts the words in the input files.");
       pgd.addClass("aggregatewordhist", AggregateWordHistogram.class, 
