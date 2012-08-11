@@ -34,6 +34,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.Partitioner;
+import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.ReduceContext;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
@@ -99,6 +100,11 @@ public class WrappedReducer<KEYIN, VALUEIN, KEYOUT, VALUEOUT>
       return reduceContext.getOutputCommitter();
     }
 
+    @Override
+    public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter() {
+      return reduceContext.getRecordWriter();
+    }
+    
     @Override
     public void write(KEYOUT key, VALUEOUT value) throws IOException,
         InterruptedException {

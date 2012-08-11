@@ -69,4 +69,10 @@ public interface TaskInputOutputContext<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
    * @return the <code>OutputCommitter</code> for the task-attempt
    */
   public OutputCommitter getOutputCommitter();
+  
+  /**
+   * Get the {@link RecordWriter} for the task-attempt.
+   * @return the <code>RecordWriter</code> for the task-attempt
+   */
+  public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter();  
 }

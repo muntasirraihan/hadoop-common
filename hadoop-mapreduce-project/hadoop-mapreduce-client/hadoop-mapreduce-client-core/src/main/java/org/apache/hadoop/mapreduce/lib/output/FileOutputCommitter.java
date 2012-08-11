@@ -458,6 +458,19 @@ public class FileOutputCommitter extends OutputCommitter {
     commitTask(context, null);
   }
   
+  public void renameFileWithSuffix(TaskAttemptContext context, int i)
+  throws IOException {
+    Path taskAttemptPath = getTaskAttemptPath(context);
+    FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
+    if (fs.exists(taskAttemptPath)) {
+      String suffix = "-"+idFormat.format(i);
+      LOG.info("(bcho2) renaming files in path "+taskAttemptPath+" with "+suffix);
+      renameFilesWithSuffix(fs, taskAttemptPath, suffix);
+    } else {
+      LOG.error("(bcho2) taskAttemptPath "+taskAttemptPath+" did not exist.");
+    }
+  }
+  
   private void renameFilesWithSuffix(FileSystem fs, Path taskOutput, String suffix)
   throws IOException {
     if (fs.isFile(taskOutput)) {

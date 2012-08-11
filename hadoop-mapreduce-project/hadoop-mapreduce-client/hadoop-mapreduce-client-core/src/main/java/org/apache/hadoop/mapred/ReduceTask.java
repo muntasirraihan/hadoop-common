@@ -50,6 +50,7 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.apache.hadoop.mapreduce.PartialCommitter;
 import org.apache.hadoop.mapreduce.StatefulSuspendableReducer;
 import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
@@ -440,7 +441,8 @@ public class ReduceTask extends Task {
     }
     
     suspender = new Suspender(umbilical, getTaskID(), suspendedAttempts);
-
+    partialCommitter = new PartialCommitter(this, committer, umbilical, getTaskID());
+    
     // free up the data structures
     mapOutputFilesOnDisk.clear();
     
@@ -622,6 +624,11 @@ public class ReduceTask extends Task {
     }
   }
 
+  public <OUTKEY, OUTVALUE> org.apache.hadoop.mapreduce.RecordWriter initNewTrackingRecordWriter()
+  throws InterruptedException, IOException {
+    return new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
+  }
+  
   static class NewTrackingRecordWriter<K,V> 
       extends org.apache.hadoop.mapreduce.RecordWriter<K,V> {
     private final org.apache.hadoop.mapreduce.RecordWriter<K,V> real;
@@ -712,16 +719,17 @@ public class ReduceTask extends Task {
         return ret;
       }
     };
+    // TODO: (bcho2) why is a reduntant taskContext made?
     // make a task context so we can get the classes
-    org.apache.hadoop.mapreduce.TaskAttemptContext taskContext =
-      new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job,
-          getTaskID(), reporter);
+    // org.apache.hadoop.mapreduce.TaskAttemptContext taskContext =
+    //   new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job,
+    //       getTaskID(), reporter);
     // make a reducer
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE> reducer =
       (org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>)
         ReflectionUtils.newInstance(taskContext.getReducerClass(), job);
-    org.apache.hadoop.mapreduce.RecordWriter<OUTKEY,OUTVALUE> trackedRW = 
-      new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
+    org.apache.hadoop.mapreduce.RecordWriter
+        trackedRW = initNewTrackingRecordWriter();
     job.setBoolean("mapred.skip.on", isSkipping());
     job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
     org.apache.hadoop.mapreduce.Reducer.Context
@@ -732,7 +740,8 @@ public class ReduceTask extends Task {
                                                committer,
                                                reporter, comparator, keyClass,
                                                valueClass,
-                                               suspender);
+                                               suspender,
+                                               partialCommitter);
 
     if (reducer instanceof StatefulSuspendableReducer) { // TODO (bcho2) test this
       LOG.info("(bcho2) StatefulSuspendableReducer");
@@ -753,6 +762,7 @@ public class ReduceTask extends Task {
     }
     LOG.info("(bcho2) isNextKey "+isNextKey);
     reducer.run(reducerContext);
-    trackedRW.close(reducerContext);
+    
+    reducerContext.getRecordWriter().close(reducerContext);
   }
 }

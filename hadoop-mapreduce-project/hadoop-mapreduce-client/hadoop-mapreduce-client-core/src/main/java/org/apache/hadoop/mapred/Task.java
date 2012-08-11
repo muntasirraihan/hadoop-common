@@ -55,6 +55,7 @@ import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.mapred.IFile.Writer;
 import org.apache.hadoop.mapreduce.FileSystemCounter;
 import org.apache.hadoop.mapreduce.OutputCommitter;
+import org.apache.hadoop.mapreduce.PartialCommitter;
 import org.apache.hadoop.mapreduce.Suspender;
 import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.JobStatus;
@@ -193,6 +194,8 @@ abstract public class Task implements Writable, Configurable {
   protected String suspendedAttemptStr;
   protected final List<String> suspendedAttempts = new ArrayList<String>();
   protected Suspender suspender;
+  
+  protected PartialCommitter partialCommitter;
   
   ////////////////////////////////////////////
   // Constructors
@@ -726,11 +729,16 @@ abstract public class Task implements Writable, Configurable {
           }
           if (!isMapTask() && umbilical.shouldPartialCommit(taskId)) {
             LOG.info("(bcho2) shouldPartialCommit");
+            partialCommitter.setDoPartialCommit(true);
+            
+            //TODO: re-init partialCommitter?
+            /*
             try {
               umbilical.donePartialCommit(taskId);
             } catch (IOException e) {
               LOG.info("(bcho2) partialCommit failed: ", e);
             }
+            */
           }
           
           sendProgress = resetProgressFlag(); 
@@ -1454,7 +1462,8 @@ abstract public class Task implements Writable, Configurable {
                       org.apache.hadoop.mapreduce.StatusReporter reporter,
                       RawComparator<INKEY> comparator,
                       Class<INKEY> keyClass, Class<INVALUE> valueClass,
-                      Suspender suspender
+                      Suspender suspender,
+                      PartialCommitter partialCommitter
   ) throws IOException, InterruptedException {
     org.apache.hadoop.mapreduce.ReduceContext<INKEY, INVALUE, OUTKEY, OUTVALUE> 
     reduceContext = 
@@ -1468,7 +1477,8 @@ abstract public class Task implements Writable, Configurable {
                                                               comparator, 
                                                               keyClass, 
                                                               valueClass,
-                                                              suspender);
+                                                              suspender,
+                                                              partialCommitter);
 
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>.Context 
         reducerContext = 
@@ -1638,6 +1648,7 @@ abstract public class Task implements Writable, Configurable {
                                                 committer,
                                                 reporter, comparator, keyClass,
                                                 valueClass,
+                                                null,
                                                 null);
       reducer.run(reducerContext);
     } 

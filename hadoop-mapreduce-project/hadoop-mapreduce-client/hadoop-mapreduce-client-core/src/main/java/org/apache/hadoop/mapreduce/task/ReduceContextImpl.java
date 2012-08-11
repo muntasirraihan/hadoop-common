@@ -35,6 +35,7 @@ import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.hadoop.mapred.BackupStore;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
+import org.apache.hadoop.mapreduce.PartialCommitter;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.OutputCommitter;
@@ -84,6 +85,7 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
   
   // (bcho2)
   private final Suspender suspender;
+  private final PartialCommitter partialCommitter;
   
   public ReduceContextImpl(Configuration conf, TaskAttemptID taskid,
                            RawKeyValueIterator input, 
@@ -95,7 +97,8 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
                            RawComparator<KEYIN> comparator,
                            Class<KEYIN> keyClass,
                            Class<VALUEIN> valueClass,
-                           Suspender suspender
+                           Suspender suspender,
+                           PartialCommitter partialCommitter
                           ) throws InterruptedException, IOException{
     super(conf, taskid, output, committer, reporter);
     this.input = input;
@@ -113,6 +116,7 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
     this.conf = conf;
     this.taskid = taskid;
     this.suspender = suspender;
+    this.partialCommitter = partialCommitter;
   }
 
   /** Start processing next unique key. */
@@ -126,6 +130,10 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
         if (suspender.isDoSuspend()) {
           suspender.suspend(this, this.output, inputKeyCounter.getValue()); // TODO: is this right?
           return false;
+        }
+        if (partialCommitter.isDoPartialCommit()) {
+          this.output = partialCommitter.partialCommit(this, this.output);
+          System.out.println("(bcho2) this.output = "+this.output);
         }
         inputKeyCounter.increment(1);
       }

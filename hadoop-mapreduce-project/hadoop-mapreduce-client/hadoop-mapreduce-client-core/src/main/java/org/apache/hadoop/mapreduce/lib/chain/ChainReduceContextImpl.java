@@ -91,6 +91,11 @@ class ChainReduceContextImpl<KEYIN, VALUEIN, KEYOUT, VALUEOUT> implements
   public OutputCommitter getOutputCommitter() {
     return base.getOutputCommitter();
   }
+  
+  @Override
+  public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter() {
+    return base.getRecordWriter();
+  }
 
   @Override
   public boolean nextKeyValue() throws IOException, InterruptedException {

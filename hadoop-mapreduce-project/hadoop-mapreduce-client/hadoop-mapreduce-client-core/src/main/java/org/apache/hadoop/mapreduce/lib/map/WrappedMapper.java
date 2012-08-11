@@ -36,6 +36,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.Partitioner;
+import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.security.Credentials;
@@ -104,6 +105,11 @@ public class WrappedMapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT>
     @Override
     public OutputCommitter getOutputCommitter() {
       return mapContext.getOutputCommitter();
+    }
+    
+    @Override
+    public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter() {
+      return mapContext.getRecordWriter();
     }
 
     @Override

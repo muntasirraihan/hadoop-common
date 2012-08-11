@@ -105,6 +105,11 @@ class ChainMapContextImpl<KEYIN, VALUEIN, KEYOUT, VALUEOUT> implements
   }
 
   @Override
+  public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter() {
+    return base.getRecordWriter();
+  }
+
+  @Override
   public void write(KEYOUT key, VALUEOUT value) throws IOException,
       InterruptedException {
     output.write(key, value);

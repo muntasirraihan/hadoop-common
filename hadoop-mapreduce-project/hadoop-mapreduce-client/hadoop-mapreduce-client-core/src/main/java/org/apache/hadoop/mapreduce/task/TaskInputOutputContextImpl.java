@@ -92,4 +92,8 @@ public abstract class TaskInputOutputContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
   public OutputCommitter getOutputCommitter() {
     return committer;
   }
+  
+  public RecordWriter<KEYOUT,VALUEOUT> getRecordWriter() {
+    return output;
+  }
 }
