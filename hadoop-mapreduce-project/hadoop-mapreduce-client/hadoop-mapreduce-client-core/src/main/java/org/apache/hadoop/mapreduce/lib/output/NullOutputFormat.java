@@ -52,10 +52,15 @@ public class NullOutputFormat<K, V> extends OutputFormat<K, V> {
   public OutputCommitter getOutputCommitter(TaskAttemptContext context) {
     return new OutputCommitter() {
       public void abortTask(TaskAttemptContext taskContext) { }
+      public void partialCommitJob(JobContext jobContext, int commitId) { }
       public void cleanupJob(JobContext jobContext) { }
       public void commitTask(TaskAttemptContext taskContext) { }
-      public void commitTaskWithSuffix(TaskAttemptContext taskContext,
+      public void commitTaskWithPartials(TaskAttemptContext taskContext,
           List<String> suspendedAttemptIds) { }
+      public void renamePartialData(TaskAttemptContext context,
+          long firstKey, long lastKey) { }
+      public void partialCommitTask(TaskAttemptContext context,
+          String partialAttemptId) { }
       public boolean needsTaskCommit(TaskAttemptContext taskContext) {
         return false;
       }

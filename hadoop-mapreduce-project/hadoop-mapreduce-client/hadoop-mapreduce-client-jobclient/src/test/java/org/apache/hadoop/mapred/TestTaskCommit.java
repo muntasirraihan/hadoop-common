@@ -158,8 +158,8 @@ public class TestTaskCommit extends HadoopTestCase {
     }
 
     @Override
-    public boolean shouldPartialCommit(TaskAttemptID taskId) throws IOException {
-      return false;
+    public int shouldPartialCommit(TaskAttemptID taskId) throws IOException {
+      return -1;
     }
     
     @Override

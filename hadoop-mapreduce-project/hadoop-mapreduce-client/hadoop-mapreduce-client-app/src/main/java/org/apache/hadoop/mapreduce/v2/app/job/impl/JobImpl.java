@@ -90,6 +90,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskNumberedEvent;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
 import org.apache.hadoop.mapreduce.v2.util.MRApps;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
@@ -381,6 +382,7 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
   private boolean isUber = false;
   private int numPartialCommitTasks = 0;
   private int completedPartialCommitTasks = 0;
+  private int partialCommitAttemptId = -1;
 
   private Credentials fsTokens;
   private Token<JobTokenIdentifier> jobToken;
@@ -1274,12 +1276,14 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
       // int numPartialCommitTasks = 0;
       LOG.info("(bcho2) Job received PartialCommit while in RUNNING state.");
       job.addDiagnostic("Job received PartialCommit while in RUNNING state.");
+      job.partialCommitAttemptId++;
+      
       for (Task task : job.tasks.values()) {
         if (task.getType().equals(TaskType.REDUCE) && !task.isFinished()) {
           job.numPartialCommitTasks++;
           // numPartialCommitTasks++;
-          job.eventHandler.handle(new TaskEvent(task.getID(),
-              TaskEventType.T_PARTIAL_COMMIT));
+          job.eventHandler.handle(new TaskNumberedEvent(task.getID(),
+              TaskEventType.T_PARTIAL_COMMIT, job.partialCommitAttemptId));
         }
       }
       // LOG.info("(bcho2) numPartialCommitTasks " + numPartialCommitTasks);
@@ -1303,6 +1307,14 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
       if (job.completedPartialCommitTasks >= job.numPartialCommitTasks) {
         LOG.info("Job partial committed."
             +" Skipping alert or job abort, for now.");
+
+        try {
+          job.getCommitter().partialCommitJob(
+              job.getJobContext(), job.partialCommitAttemptId);
+        } catch (IOException e) {
+          LOG.error("Could not finish partial commit of Job", e);
+        }
+
         // RESET
         job.numPartialCommitTasks = 0;
         job.completedPartialCommitTasks = 0;

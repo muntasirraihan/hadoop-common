@@ -440,7 +440,8 @@ public class ReduceTask extends Task {
                            reporter, spilledRecordsCounter, null, null);
     }
     
-    suspender = new Suspender(umbilical, getTaskID(), suspendedAttempts);
+    suspender = new Suspender(committer, umbilical, getTaskID(),
+        resumeKeyNumber, suspendedAttempts);
     partialCommitter = new PartialCommitter(this, committer, umbilical, getTaskID());
     
     // free up the data structures

@@ -69,6 +69,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskNumberedEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
 import org.apache.hadoop.mapreduce.v2.app.release.ReleaseEvent;
@@ -268,6 +269,7 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
   private int finishedAttempts;//finish are total of success, failed and killed
 
   private TaskAttemptId partialCommitAttempt = null;
+  private int partialCommitAttemptId = -1;
   private boolean isPartialCommitting = false;
   
   @Override
@@ -568,7 +570,7 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
 
-  public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
+  public int shouldPartialCommit(TaskAttemptId taskAttemptID) {
     if (partialCommitAttempt != null) {
       LOG.info("(bcho2) attempt "+taskAttemptID
           +" partialCommitAttempt "+partialCommitAttempt
@@ -577,9 +579,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     if (!isPartialCommitting && getType() == TaskType.REDUCE && taskAttemptID.equals(partialCommitAttempt)) {
       LOG.info("Returning true for shouldPartialCommit TA "+taskAttemptID);
       isPartialCommitting = true;
-      return true;
+      return partialCommitAttemptId;
     } else {
-      return false;
+      return -1;
     }
   }
   
@@ -1048,10 +1050,11 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
   
-  private void partialCommitAttempt(TaskAttempt attempt, String logMsg) {
+  private void partialCommitAttempt(TaskAttempt attempt, String logMsg, int attemptId) {
     if (attempt != null && !attempt.isFinished()) {
       LOG.info("(bcho2) "+logMsg+" attempt "+attempt.getID());
       partialCommitAttempt = attempt.getID();
+      partialCommitAttemptId = attemptId;
 
       // Partial commit stays within TaskImpl, doesn't get passed to
       // TaskAttemptImpl. Is this the correct way to do it?
@@ -1136,8 +1139,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
         task.partialCommitted(TaskState.SCHEDULED); // Treat same as if just scheduled.
         // TODO (bcho2) Need to make sure partialCommits work with Suspend/Resume
       } else {
+        TaskNumberedEvent nEvent = (TaskNumberedEvent)event;
         task.partialCommitAttempt
-          (cAttempt, "Task PARTIAL_COMMIT is received. Committing attempt!");
+          (cAttempt, "Task PARTIAL_COMMIT is received. Committing attempt!", nEvent.getNumber());
       }
     }
   }

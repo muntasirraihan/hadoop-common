@@ -132,13 +132,17 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
           return false;
         }
         if (partialCommitter.isDoPartialCommit()) {
-          this.output = partialCommitter.partialCommit(this, this.output);
-          System.out.println("(bcho2) this.output = "+this.output);
+          this.output = partialCommitter.partialCommit(this, this.output,
+              inputKeyCounter.getValue());
         }
         inputKeyCounter.increment(1);
       }
       return nextKeyValue();
     } else {
+      if (inputKeyCounter != null) {
+        suspender.setLastKeyCount(inputKeyCounter.getValue());
+        partialCommitter.setLastKeyCount(inputKeyCounter.getValue());
+      }
       return false;
     }
   }

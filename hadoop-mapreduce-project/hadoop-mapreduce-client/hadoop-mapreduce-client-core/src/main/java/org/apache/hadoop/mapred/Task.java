@@ -727,18 +727,10 @@ abstract public class Task implements Writable, Configurable {
           if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
             suspender.setDoSuspend(true);
           }
-          if (!isMapTask() && umbilical.shouldPartialCommit(taskId)) {
+          int partialCommitId = umbilical.shouldPartialCommit(taskId);
+          if (!isMapTask() && (partialCommitId >= 0)) {
             LOG.info("(bcho2) shouldPartialCommit");
-            partialCommitter.setDoPartialCommit(true);
-            
-            //TODO: re-init partialCommitter?
-            /*
-            try {
-              umbilical.donePartialCommit(taskId);
-            } catch (IOException e) {
-              LOG.info("(bcho2) partialCommit failed: ", e);
-            }
-            */
+            partialCommitter.setDoPartialCommit(partialCommitId);
           }
           
           sendProgress = resetProgressFlag(); 
@@ -1152,9 +1144,19 @@ abstract public class Task implements Writable, Configurable {
     // task can Commit now  
     try {
       LOG.info("Task " + taskId + " is allowed to commit now");
-      if (suspendedAttemptStr != null) {
+
+      if (partialCommitter.isDonePartialCommit()) { // Partial Commit was called for this attempt
+        LOG.info("(bcho2) committing after a partial commit");
+        committer.renamePartialData(taskContext,
+            partialCommitter.getFirstKey(), partialCommitter.getLastKey());
+        committer.commitTask(taskContext);
+        // committer.commitTaskWithPartials(taskContext,
+        //     partialCommitter.getPartialAttempts());
+      } else if (suspendedAttemptStr != null) { // No partial commit, yes resumed
+        committer.renamePartialData(taskContext,
+            suspender.getFirstKey(), suspender.getLastKey());
         // (bcho2) if a resumed task, then make sure to concat before commit
-        committer.commitTaskWithSuffix(taskContext, suspendedAttempts);
+        committer.commitTaskWithPartials(taskContext, suspendedAttempts);
       } else {
         committer.commitTask(taskContext);
       }

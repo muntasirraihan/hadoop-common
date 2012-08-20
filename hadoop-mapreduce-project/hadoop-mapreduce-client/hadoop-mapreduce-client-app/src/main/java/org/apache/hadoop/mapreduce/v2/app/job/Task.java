@@ -53,7 +53,7 @@ public interface Task {
    * @return whether the attempt's output can be committed or not.
    */
   boolean canCommit(TaskAttemptId taskAttemptID);
-  boolean shouldPartialCommit(TaskAttemptId taskAttemptID);
+  int shouldPartialCommit(TaskAttemptId taskAttemptID);
   boolean shouldSuspend(TaskAttemptId taskAttemptID);
 
   

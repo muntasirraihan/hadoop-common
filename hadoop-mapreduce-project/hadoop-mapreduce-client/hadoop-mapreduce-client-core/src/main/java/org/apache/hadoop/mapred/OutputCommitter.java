@@ -91,6 +91,13 @@ public abstract class OutputCommitter
   public void commitJob(JobContext jobContext) throws IOException {
     cleanupJob(jobContext);
   }
+
+  @Override
+  public final void partialCommitJob(
+      org.apache.hadoop.mapreduce.JobContext jobContext, int commitId)
+  throws IOException {
+    throw new IOException("(bcho2) not supported");
+  }
   
   /**
    * For aborting an unsuccessful job's output. Note that this is invoked for 
@@ -263,8 +270,22 @@ public abstract class OutputCommitter
   
   @Override
   public final
-  void commitTaskWithSuffix(org.apache.hadoop.mapreduce.TaskAttemptContext taskContext,
+  void commitTaskWithPartials(org.apache.hadoop.mapreduce.TaskAttemptContext taskContext,
       List<String> suspendedAttemptIds) throws IOException {
+    throw new IOException("(bcho2) not supported");
+  }
+
+  @Override
+  public final
+  void renamePartialData(org.apache.hadoop.mapreduce.TaskAttemptContext context,
+      long firstKey, long lastKey) throws IOException {
+    throw new IOException("(bcho2) not supported");
+  }
+  
+  @Override
+  public final
+  void partialCommitTask(org.apache.hadoop.mapreduce.TaskAttemptContext context,
+      String partialAttemptId) throws IOException {
     throw new IOException("(bcho2) not supported");
   }
   

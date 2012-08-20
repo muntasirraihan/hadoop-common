@@ -20,6 +20,8 @@ package org.apache.hadoop.fs.shell;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -27,7 +29,10 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.shell.PathExceptions.PathIsDirectoryException;
+import org.apache.hadoop.fs.shell.PathExceptions.PathExistsException;
 import org.apache.hadoop.io.IOUtils;
 
 /** Various commands for copy files */
@@ -42,6 +47,8 @@ class CopyCommands {
     factory.addClass(CopyToLocal.class, "-copyToLocal");
     factory.addClass(Get.class, "-get");
     factory.addClass(Put.class, "-put");
+    factory.addClass(Append.class, "-append");
+    factory.addClass(Symlink.class, "-symlink");
   }
 
   /** merge multiple files together */
@@ -140,6 +147,63 @@ class CopyCommands {
     }
   }
   
+  static class Append extends CommandWithDestination {
+    public static final String NAME = "append";
+    public static final String USAGE = "<src> ... <dst>";
+    public static final String DESCRIPTION =
+      "Append files that match the file pattern <src> to a\n" +
+      "destination file. Destination MUST be a file.";
+
+    @Override
+    protected void processOptions(LinkedList<String> args) throws IOException {
+      setOverwrite(true);
+      CommandFormat cf = new CommandFormat(2, Integer.MAX_VALUE);
+      cf.parse(args);
+      getRemoteDestination(args);
+    }
+
+    // Do a straight append, not using temp file at all.                                                                                                                                                                                     
+    @Override
+    protected void copyStreamToTarget(InputStream in, PathData target)
+    throws IOException {
+      if (target.exists && (target.stat.isDirectory() || !overwrite)) {
+        throw new PathExistsException(target.toString());
+      }
+      FSDataOutputStream out = target.fs.append(target.path);
+      IOUtils.copyBytes(in, out, getConf(), true);
+    }
+  }
+
+  static class Symlink extends CommandWithDestination {
+    public static final String NAME = "symlink";
+    public static final String USAGE = "<target> <linkname>";
+    public static final String DESCRIPTION =
+      "Create symlink <linkname> linking to <target>.";
+
+    @Override
+    protected void processOptions(LinkedList<String> args) throws IOException {
+      setOverwrite(true);
+      CommandFormat cf = new CommandFormat(2, 2);
+      cf.parse(args);
+      getRemoteDestination(args);
+    }
+
+    // Do a straight append, not using temp file at all.                                                                                                                                                                                     
+    @Override
+    protected void copyFileToTarget(PathData target, PathData linkname) throws IOException {
+      
+      FileContext fileContext = FileContext.getFileContext();
+      URI targetUri = target.path.toUri();
+      URI linkUri = linkname.path.toUri();
+      URI relativeTargetUri = linkUri.relativize(targetUri);
+      System.out.println("(bcho2) relativeUri "+relativeTargetUri);
+      Path relativeTarget = new Path(relativeTargetUri.getPath());
+      System.out.println("(bcho2) relative "+relativeTarget);
+      
+      fileContext.createSymlink(relativeTarget, linkname.path, false);
+    }
+  }
+
   /** 
    * Copy local files to a remote filesystem
    */

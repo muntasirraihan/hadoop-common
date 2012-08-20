@@ -351,7 +351,7 @@ public class TestRuntimeEstimators {
     }
 
     @Override
-    public boolean shouldPartialCommit(TaskAttemptId taskAttemptID) {
+    public int shouldPartialCommit(TaskAttemptId taskAttemptID) {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 

@@ -595,9 +595,9 @@ public class LocalJobRunner implements ClientProtocol {
     }
 
     @Override
-    public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
+    public int shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
       // TODO Auto-generated method stub (bcho2)
-      return true;
+      return 0;
     }
 
     @Override

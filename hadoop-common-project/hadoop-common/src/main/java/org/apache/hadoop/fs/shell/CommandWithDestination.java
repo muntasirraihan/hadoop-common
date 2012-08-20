@@ -43,7 +43,7 @@ import org.apache.hadoop.io.IOUtils;
  */
 abstract class CommandWithDestination extends FsCommand {  
   protected PathData dst;
-  private boolean overwrite = false;
+  protected boolean overwrite = false;
   private boolean verifyChecksum = true;
   private boolean writeChecksum = true;
   

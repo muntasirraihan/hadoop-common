@@ -489,7 +489,7 @@ public class TaskAttemptListenerImpl extends CompositeService
   }
 
   @Override
-  public boolean shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
+  public int shouldPartialCommit(TaskAttemptID taskAttemptID) throws IOException {
     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
       TypeConverter.toYarn(taskAttemptID);
     

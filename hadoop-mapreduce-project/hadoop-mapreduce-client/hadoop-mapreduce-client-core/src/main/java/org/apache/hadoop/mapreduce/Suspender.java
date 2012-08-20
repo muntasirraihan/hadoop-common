@@ -13,15 +13,22 @@ public class Suspender {
   private boolean doSuspend = false;
   private final org.apache.hadoop.mapred.TaskAttemptID taskId;
   private final List<String> suspendedTaskIds;
+  private final OutputCommitter committer;
   private final TaskUmbilicalProtocol umbilical;
   
   private boolean doneSuspend = false;
+  private long firstKey;
+  private long lastKey;
   
-  public Suspender(final TaskUmbilicalProtocol umbilical,
+  public Suspender(final OutputCommitter committer,
+      final TaskUmbilicalProtocol umbilical,
       final org.apache.hadoop.mapred.TaskAttemptID taskId,
+      long firstKey,
       final List<String> suspendedTaskIds) {
+    this.committer = committer;
     this.umbilical = umbilical;
     this.taskId = taskId;
+    this.firstKey = firstKey;
     this.suspendedTaskIds = suspendedTaskIds;
   }
   
@@ -32,10 +39,12 @@ public class Suspender {
     }
     LOG.info("(bcho2) SUSPENDED "+ taskId);
     LOG.info("(bcho2) RESUMEKEY "+keyCount);
+    this.lastKey = keyCount - 1;
     if (trackedRW != null && reducerContext != null) {
       LOG.info("(bcho2) closing, trackedRW "+trackedRW+" reducerContext "+reducerContext);
       try {
         trackedRW.close(reducerContext);
+        committer.renamePartialData(reducerContext, firstKey, lastKey);
       } catch (InterruptedException e) {
         LOG.warn("(bcho2) could not close", e);
       } catch (IOException e) {
@@ -69,5 +78,17 @@ public class Suspender {
   
   public void log(String info) {
     LOG.info("(bcho2) "+info);
+  }
+  
+  public long getFirstKey() {
+    return firstKey;
+  }
+  
+  public long getLastKey() {
+    return lastKey;
+  }
+
+  public void setLastKeyCount(long keyCount) {
+    this.lastKey = keyCount-1;
   }
 }

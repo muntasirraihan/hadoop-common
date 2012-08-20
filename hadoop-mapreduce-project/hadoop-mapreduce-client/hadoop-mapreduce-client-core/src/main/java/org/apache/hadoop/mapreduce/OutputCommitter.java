@@ -96,6 +96,9 @@ public abstract class OutputCommitter {
   public void commitJob(JobContext jobContext) throws IOException {
     cleanupJob(jobContext);
   }
+  
+  public abstract void partialCommitJob(JobContext jobContext, int commitId)
+  throws IOException;
 
   
   /**
@@ -150,8 +153,16 @@ public abstract class OutputCommitter {
   public abstract void commitTask(TaskAttemptContext taskContext)
   throws IOException;
 
-  public abstract void commitTaskWithSuffix(TaskAttemptContext taskContext,
-      List<String> suspendedAttemptIds)
+  public abstract void commitTaskWithPartials(TaskAttemptContext taskContext,
+      List<String> partialAttemptIds)
+  throws IOException;
+  
+  public abstract void renamePartialData(TaskAttemptContext context,
+      long firstKey, long lastKey)
+  throws IOException;
+  
+  public abstract void partialCommitTask(TaskAttemptContext context,
+      String partialAttemptId)
   throws IOException;
   
   /**

@@ -27,6 +27,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -52,6 +53,7 @@ public class FileOutputCommitter extends OutputCommitter {
    */
   public static final String PENDING_DIR_NAME = "_temporary";
   public static final String SUCCEEDED_FILE_NAME = "_SUCCESS";
+  public static final String PARTIAL_COMMITS_NAME = "pc-";
   public static final String SUCCESSFUL_JOB_OUTPUT_DIR_MARKER = 
     "mapreduce.fileoutputcommitter.marksuccessfuljobs";
   private Path outputPath = null;
@@ -317,6 +319,49 @@ public class FileOutputCommitter extends OutputCommitter {
       LOG.warn("Output Path is null in commitJob()");
     }
   }
+  
+  private static class PartialCommittedTaskFilter implements PathFilter {
+    @Override
+    public boolean accept(Path path) {
+      return path.getName().substring(0, 3).equals("pc-");
+    }
+  }
+  
+  private static class NotPartialCommittedTaskFilter implements PathFilter {
+    @Override
+    public boolean accept(Path path) {
+      return !path.getName().substring(0, 3).equals("pc-");
+    }
+  }
+
+  @Override
+  public void partialCommitJob(JobContext context, int commitId)
+  throws IOException {
+    LOG.info("(bcho2) in partialCommitJob");
+    if (hasOutputPath()) {
+      Path finalOutput = getOutputPath();
+      FileSystem fs = finalOutput.getFileSystem(context.getConfiguration());
+      
+      Path partialOutput = new Path(
+          finalOutput, "pc-"+idFormat.format(commitId));
+      fs.mkdirs(partialOutput);
+      
+      for(FileStatus stat: fs.listStatus(
+          getPendingTaskAttemptsPath(context), new PartialCommittedTaskFilter())) {
+        if (stat.isDirectory()) {
+          LOG.info("(bcho2) called moveDirContents on "+stat+ " to "+partialOutput);
+          moveDirContents(fs, stat.getPath(), partialOutput, true);
+        }
+      }
+      if (context.getConfiguration().getBoolean(SUCCESSFUL_JOB_OUTPUT_DIR_MARKER, true)) {
+        Path markerPath = new Path(partialOutput, SUCCEEDED_FILE_NAME);
+        fs.create(markerPath).close();
+      }
+      
+    } else {
+      LOG.warn("Output Path is null in commitJob()");
+    }
+  }
 
   /**
    * Merge two paths together.  Anything in from will be moved into to, if there
@@ -365,7 +410,87 @@ public class FileOutputCommitter extends OutputCommitter {
        }
      }
   }
+  
+  /**
+   * Merge two paths together.  Anything in from will be moved into to, if there
+   * are any name conflicts while merging the files or directories in from win.
+   * @param fs the File System to use
+   * @param from the path data is coming from.
+   * @param to the path data is going to.
+   * @throws IOException on any error
+   */
+  private static void mergePathsAndSymlink(FileSystem fs, final FileStatus from,
+      final Path to)
+    throws IOException {
+     LOG.debug("Merging data from "+from+" to "+to);
+     if(from.isFile()) {
+       if(fs.exists(to)) {
+         if(!fs.delete(to, true)) {
+           throw new IOException("Failed to delete "+to);
+         }
+       }
 
+       if(!fs.rename(from.getPath(), to)) {
+         throw new IOException("Failed to rename "+from+" to "+to);
+       }
+     } else if(from.isDirectory()) {
+       if(fs.exists(to)) {
+         FileStatus toStat = fs.getFileStatus(to);
+         if(!toStat.isDirectory()) {
+           if(!fs.delete(to, true)) {
+             throw new IOException("Failed to delete "+to);
+           }
+           if(!fs.rename(from.getPath(), to)) {
+             throw new IOException("Failed to rename "+from+" to "+to);
+           }
+         } else {
+           //It is a directory so merge everything in the directories
+           for(FileStatus subFrom: fs.listStatus(from.getPath())) {
+             Path subTo = new Path(to, subFrom.getPath().getName());
+             mergePaths(fs, subFrom, subTo);
+           }
+         }
+       } else {
+         //it does not exist just rename
+         if(!fs.rename(from.getPath(), to)) {
+           throw new IOException("Failed to rename "+from+" to "+to);
+         }
+       }
+     }
+  }
+  
+  private static void softMergePaths(FileSystem fs, final FileStatus from,
+      final Path to)  
+  throws IOException {
+    FileContext fileContext = FileContext.getFileContext();
+    
+    LOG.info("(bcho2) Soft merging data from "+from+" to "+to);
+    if(from.isFile()) {
+      if(fs.exists(to)) {
+        if(!fs.delete(to, true)) {
+          throw new IOException("Failed to delete "+to);
+        }
+      }
+      LOG.info("(bcho2) creating symlink "+to);
+      fileContext.createSymlink(from.getPath(), to, true);
+    } else if(from.isDirectory()) {
+      FileStatus toStat = fs.getFileStatus(to);
+      if(!toStat.isDirectory()) {
+        if(!fs.delete(to, true)) {
+          throw new IOException("Failed to delete "+to);
+        }
+        LOG.info("(bcho2) creating symlink "+to);
+        fileContext.createSymlink(from.getPath(), to, true);
+      } else {
+        //It is a directory so merge everything in the directories
+        for(FileStatus subFrom: fs.listStatus(from.getPath())) {
+          Path subTo = new Path(to, subFrom.getPath().getName());
+          softMergePaths(fs, subFrom, subTo);
+        }
+      }
+    }
+ }
+  
   @Override
   @Deprecated
   public void cleanupJob(JobContext context) throws IOException {
@@ -432,30 +557,52 @@ public class FileOutputCommitter extends OutputCommitter {
   // While this seems to make more sense, it means that we must rename the files
   // beforehand, then call commitTask
   @Override
-  public void commitTaskWithSuffix(TaskAttemptContext context,
-      List<String> suspendedAttemptIds)
+  public void commitTaskWithPartials(TaskAttemptContext context,
+      List<String> partialAttemptIds)
   throws IOException {
     Path taskAttemptPath = getTaskAttemptPath(context);
-    Path[] paths = new Path[suspendedAttemptIds.size()+1];
-    for (int i = 0; i < suspendedAttemptIds.size(); i++) {
-      Path suspendedPath = new Path(taskAttemptPath.getParent(), suspendedAttemptIds.get(i));
-      LOG.info("(bcho2) suspended path "+suspendedPath);
-      paths[i] = suspendedPath;
-    }
-    paths[suspendedAttemptIds.size()] = taskAttemptPath;
-
-    for (int i = paths.length-1; i >= 0; i--) {
-      FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
-      if (fs.exists(paths[i])) {
-        String suffix = "-"+idFormat.format(i);
-        LOG.info("(bcho2) renaming files in path "+paths[i]+" with "+suffix);
-        renameFilesWithSuffix(fs, paths[i], suffix);
-        if (paths[i] != taskAttemptPath) {
-          moveDirContents(fs, paths[i], taskAttemptPath);
-        }
-      }
+    FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
+    
+    for (String partialAttemptId : partialAttemptIds) {
+      Path partialAttemptPath = new Path(taskAttemptPath.getParent(),
+                                         partialAttemptId);
+      LOG.info("(bcho2) moving back partial attempt "+partialAttemptPath
+          +" to "+taskAttemptPath);
+      mergePaths(fs, fs.getFileStatus(partialAttemptPath), taskAttemptPath);
     }
     commitTask(context, null);
+  }
+  
+  @Override
+  public void renamePartialData(TaskAttemptContext context, long firstKey, long lastKey)
+  throws IOException {
+    Path taskAttemptPath = getTaskAttemptPath(context);
+    FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
+    if (fs.exists(taskAttemptPath)) {
+      String suffix = "-"+firstKey+"-"+lastKey;
+      LOG.info("(bcho2) renaming files in path "+taskAttemptPath+" with "+suffix);
+      renameFilesWithSuffix(fs, taskAttemptPath, suffix);
+    } else {
+      LOG.error("(bcho2) taskAttemptPath "+taskAttemptPath+" did not exist.");
+    }    
+  }
+  
+  @Override
+  public void partialCommitTask(TaskAttemptContext context,
+      String partialAttemptId)
+  throws IOException {
+    Path taskAttemptPath = getTaskAttemptPath(context);
+    FileSystem fs = taskAttemptPath.getFileSystem(context.getConfiguration());
+    if (fs.exists(taskAttemptPath)) {
+      Path partialAttemptPath = new Path(taskAttemptPath, partialAttemptId);
+      LOG.info("(bcho2) partial commit files in path "+taskAttemptPath
+          +" to "+partialAttemptPath);
+      fs.mkdirs(partialAttemptPath);
+      moveDirContents(fs, taskAttemptPath, partialAttemptPath, false);
+      createSymlinks(fs, taskAttemptPath, partialAttemptId);
+    } else {
+      LOG.error("(bcho2) taskAttemptPath "+taskAttemptPath+" did not exist.");
+    }    
   }
   
   public void renameFileWithSuffix(TaskAttemptContext context, int i)
@@ -473,16 +620,24 @@ public class FileOutputCommitter extends OutputCommitter {
   
   private void renameFilesWithSuffix(FileSystem fs, Path taskOutput, String suffix)
   throws IOException {
-    if (fs.isFile(taskOutput)) {
+
+    LOG.info("(bcho2) renameFilesWithSuffix "+taskOutput);
+    
+    FileContext fileContext = FileContext.getFileContext();
+    FileStatus status = fileContext.getFileLinkStatus(taskOutput);
+   
+    if (status.isSymlink()) {
+      LOG.info("(bcho2) ignoring symlink "+status.getPath());
+    } else if (status.isFile()) {
       if (!fs.rename(taskOutput, taskOutput.suffix(suffix))) {
         throw new IOException("(bcho2) Failed to add suffix "+suffix+
             " to "+taskOutput);
       }
       LOG.info("(bcho2) Added suffix "+suffix+
             " to "+taskOutput);
-    } else if(fs.getFileStatus(taskOutput).isDirectory()) {
+    } else if(status.isDirectory()) {
       LOG.info("(bcho2) Taskoutput " + taskOutput + " is a dir");
-      FileStatus[] paths = fs.listStatus(taskOutput);
+      FileStatus[] paths = fs.listStatus(taskOutput, new NotPartialCommittedTaskFilter());
       if (paths != null) {
         for (FileStatus path : paths) {
           renameFilesWithSuffix(fs, path.getPath(), suffix);
@@ -491,14 +646,45 @@ public class FileOutputCommitter extends OutputCommitter {
     }
   }
   
-  private void moveDirContents(FileSystem fs, Path from, Path to)
+  private void createSymlinks(FileSystem fs, Path linkDir, String targetRelative)
+  throws IOException {
+    Path targetRelativePath = new Path(targetRelative);
+    LOG.info("(bcho2) createSymlinks relative path "+targetRelativePath);
+    Path target = new Path(linkDir, targetRelative);
+    if (fs.isDirectory(linkDir) && fs.isDirectory(target)) {
+      FileContext fileContext = FileContext.getFileContext();
+      FileStatus[] paths = fs.listStatus(target);
+      if (paths != null) {
+        for (FileStatus path : paths) {
+          Path targetFile = path.getPath();
+          if (path.isSymlink()) {
+            
+          } else if (path.isFile()) {
+            Path linkFile = new Path(linkDir, targetFile.getName());
+            LOG.info("(bcho2) creating symlink "+linkFile);
+            fileContext.createSymlink(new Path(targetRelative, targetFile.getName()), linkFile, false);
+          } else {
+            LOG.info("(bcho2) found "+targetFile+" but ignoring because not doing recursive move");
+          }
+        }
+      }         
+    } else {
+      LOG.info("(bcho2) target="+linkDir+" and src="+target+" should be directories!");
+    }
+  }
+  
+  private void moveDirContents(FileSystem fs, Path from, Path to, boolean includePartials)
   throws IOException {
     if (fs.isDirectory(from)) {
-      FileStatus[] paths = fs.listStatus(from);
+      FileStatus[] paths = includePartials ?
+          fs.listStatus(from) :
+          fs.listStatus(from, new NotPartialCommittedTaskFilter());
       if (paths != null) {
         for (FileStatus path : paths) {
           Path fromFile = path.getPath();
-          if (fs.isFile(fromFile)) {
+          if (path.isSymlink()) {
+            LOG.info("(bcho2) found "+fromFile+" but ignoring because not moving symlink");
+          } else if (path.isFile()) {
             Path toFile = new Path(to, fromFile.getName());
             LOG.info("(bcho2) renaming "+fromFile+" to "+toFile);
             fs.rename(fromFile, toFile);  
