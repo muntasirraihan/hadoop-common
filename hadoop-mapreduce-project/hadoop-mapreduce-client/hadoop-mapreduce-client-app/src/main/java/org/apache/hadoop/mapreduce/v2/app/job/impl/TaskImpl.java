@@ -25,6 +25,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -581,17 +582,17 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     }
   }
 
-  private void addAndResumeAttempt(String hostname, TaskAttemptId attemptId, ContainerId containerId) {
+  private void addAndResumeAttempt(String hostname, ContainerId containerId, List<TaskAttemptId> attemptIds) {
     TaskAttempt attempt = createAttempt(); // TODO: create new attempt, with containerId and hostname
     LOG.info("(bcho2) Created resume attempt "+attempt.getID()+
         ", suspended container "+containerId+
-        ", suspended TAID "+attemptId+
+        ", num suspended TAIDs "+attemptIds.size()+
         ", at host "+hostname);
     addAttempt(attempt);
 
     //schedule the nextAttemptNumber
     eventHandler.handle(new TaskAttemptResumeEvent(attempt.getID(),
-        hostname, attemptId, containerId));
+        hostname, containerId, attemptIds));
     // TODO: How does AppMaster recover on the same node? Will there be an analogous way to do this?
   }
 
@@ -1026,27 +1027,26 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
     @Override
     public void transition(TaskImpl task, TaskEvent event) {
       // (bcho2) Get the latest one!
-      TaskAttempt suspendedTaskAttempt = null;
+      TreeMap<TaskAttemptId, TaskAttempt> suspendedAttempts =
+        new TreeMap<TaskAttemptId, TaskAttempt>();
+      
       for (TaskAttempt attempt : task.attempts.values()) {
         if (attempt.getState().equals(TaskAttemptState.SUSPENDED)) {
           LOG.info("(bcho2) suspended found "+attempt.getID());
-          if (suspendedTaskAttempt == null
-              || suspendedTaskAttempt.getID().compareTo(attempt.getID()) < 0) {
-            suspendedTaskAttempt = attempt;
-            LOG.info("(bcho2) suspended updated "+attempt.getID());
-          }
+          suspendedAttempts.put(attempt.getID(), attempt);
         }
       }
-      if (suspendedTaskAttempt != null) {
+      if (suspendedAttempts.size() > 0) {
+        TaskAttempt lastAttempt =
+          suspendedAttempts.get(suspendedAttempts.descendingKeySet().first());
         LOG.info("(bcho2) Scheduling a resume attempt for task " + task.taskId
-            + " from task attempt " + suspendedTaskAttempt.getID());
+            + " from task attempt " + lastAttempt.getID());
         String hostname =
-          suspendedTaskAttempt.getAssignedContainerMgrAddress();
-        TaskAttemptId suspendedAttemptId = 
-          suspendedTaskAttempt.getID();
+          lastAttempt.getAssignedContainerMgrAddress();
         ContainerId suspendedContainerId = 
-          suspendedTaskAttempt.getAssignedContainerID();
-        task.addAndResumeAttempt(hostname, suspendedAttemptId, suspendedContainerId);
+          lastAttempt.getAssignedContainerID();
+        task.addAndResumeAttempt(hostname, suspendedContainerId,
+            new ArrayList<TaskAttemptId>(suspendedAttempts.keySet()));
       } else {
         LOG.info("(bcho2) There was no suspendedTaskAttempt, so ignoring resume");
       }

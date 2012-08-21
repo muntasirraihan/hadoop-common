@@ -191,8 +191,7 @@ abstract public class Task implements Writable, Configurable {
 
   // (bcho2)
   protected String suspendedContainerLogDirStr;
-  protected String suspendedAttemptStr;
-  protected final List<String> suspendedAttempts = new ArrayList<String>();
+  protected List<String> suspendedAttempts;
   protected Suspender suspender;
   
   ////////////////////////////////////////////
@@ -1137,7 +1136,7 @@ abstract public class Task implements Writable, Configurable {
     // task can Commit now  
     try {
       LOG.info("Task " + taskId + " is allowed to commit now");
-      if (suspendedAttemptStr != null) {
+      if (suspendedContainerLogDirStr != null) {
         // (bcho2) if a resumed task, then make sure to concat before commit
         committer.commitTaskWithSuffix(taskContext, suspendedAttempts);
       } else {

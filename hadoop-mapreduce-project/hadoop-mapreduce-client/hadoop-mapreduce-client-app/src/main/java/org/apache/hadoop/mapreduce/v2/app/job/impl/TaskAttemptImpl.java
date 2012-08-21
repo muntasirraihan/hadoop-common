@@ -508,7 +508,7 @@ public abstract class TaskAttemptImpl implements
   private ContainerToken containerToken;
   private Resource assignedCapability;
   private ContainerId suspendedContainerID;
-  private TaskAttemptId suspendedAttemptId;
+  private List<TaskAttemptId> suspendedAttemptIds;
   private String suspendedHostname;
   
   //this takes good amount of memory ~ 30KB. Instantiate it lazily
@@ -755,7 +755,7 @@ public abstract class TaskAttemptImpl implements
       TaskAttemptListener taskAttemptListener,
       Credentials credentials,
       ContainerId suspendedContainerID,
-      TaskAttemptId suspendedAttemptId) {
+      List<TaskAttemptId> suspendedAttempts) {
 
     synchronized (commonContainerSpecLock) {
       if (commonContainerSpec == null) {
@@ -773,11 +773,19 @@ public abstract class TaskAttemptImpl implements
     myEnv.putAll(env);
     MapReduceChildJVM.setVMEnv(myEnv, remoteTask);
 
+    // Translate TaskAttemptIds to Strings
+    List<String> suspendedAttemptStrs = new ArrayList<String>();
+    if (suspendedAttempts != null) {
+      for (TaskAttemptId suspendedAttempt : suspendedAttempts) {
+        suspendedAttemptStrs.add(suspendedAttempt.toString());
+      }
+    }
+    
     // Set up the launch command
     List<String> commands = MapReduceChildJVM.getVMCommand(
         taskAttemptListener.getAddress(), remoteTask, jvmID,
-        (suspendedContainerID == null) ? "" : suspendedContainerID.toString(),
-        (suspendedAttemptId == null) ? "" : suspendedAttemptId.toString());
+        (suspendedContainerID == null) ? null : suspendedContainerID.toString(),
+        suspendedAttemptStrs);
 
     // Duplicate the ByteBuffers for access by multiple containers.
     Map<String, ByteBuffer> myServiceData = new HashMap<String, ByteBuffer>();
@@ -1220,7 +1228,7 @@ public abstract class TaskAttemptImpl implements
     public void transition(TaskAttemptImpl taskAttempt, TaskAttemptEvent event) {
       TaskAttemptResumeEvent rEvent = (TaskAttemptResumeEvent)event;
       taskAttempt.suspendedHostname = rEvent.getSuspendedHostname();
-      taskAttempt.suspendedAttemptId = rEvent.getSuspendedAttemptId();
+      taskAttempt.suspendedAttemptIds = rEvent.getSuspendedAttemptIds();
       taskAttempt.suspendedContainerID = rEvent.getSuspendedContainerId();
       // Tell any speculator that we're requesting a container
       taskAttempt.eventHandler.handle(new SpeculatorEvent(taskAttempt.getID()
@@ -1281,7 +1289,7 @@ public abstract class TaskAttemptImpl implements
           taskAttempt.jvmID, taskAttempt.taskAttemptListener,
           taskAttempt.credentials,
           taskAttempt.suspendedContainerID,
-          taskAttempt.suspendedAttemptId);
+          taskAttempt.suspendedAttemptIds);
       taskAttempt.eventHandler.handle(new ContainerRemoteLaunchEvent(
           taskAttempt.attemptId, taskAttempt.containerID,
           taskAttempt.containerMgrAddress, taskAttempt.containerToken,

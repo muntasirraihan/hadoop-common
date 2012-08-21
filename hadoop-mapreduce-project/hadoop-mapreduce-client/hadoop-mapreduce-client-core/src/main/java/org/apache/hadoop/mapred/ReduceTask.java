@@ -151,15 +151,15 @@ public class ReduceTask extends Task {
   public String getSuspendedContainerLogDirStr() {
     return suspendedContainerLogDirStr;
   }
-
-  public void setSuspendedAttemptStr(String suspendedAttemptStr) {
-    this.suspendedAttemptStr = suspendedAttemptStr;
+  
+  public void setSuspendedAttempts(List<String> suspendedAttempts) {
+    this.suspendedAttempts = suspendedAttempts;
   }
 
-  public String getSuspendedAttemptStr() {
-    return suspendedAttemptStr;
+  public List<String> getSuspendedAttempts() {
+    return suspendedAttempts;
   }
-
+  
   private CompressionCodec initCodec() {
     // check if map-outputs are to be compressed
     if (conf.getCompressMapOutput()) {
@@ -486,8 +486,6 @@ public class ReduceTask extends Task {
         resumeKeyNumber = Long.parseLong(split[7]);
       } else if (split.length > 6 && "(bcho2)".equals(split[5]) && "STATEFUL".equals(split[6])) {
         resumeIsStateful = true;
-      } else if (split.length > 7 && "(bcho2)".equals(split[5]) && "SUSPENDED".equals(split[6])) {
-        suspendedAttempts.add(split[7]);
       }
     }
     if (resumePaths.size() == 0) {

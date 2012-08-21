@@ -27,10 +27,6 @@ public class Suspender {
   
   public void suspend(ReduceContext reducerContext,
       RecordWriter trackedRW, long keyCount) {
-    for (String idStr : suspendedTaskIds) {
-      LOG.info("(bcho2) SUSPENDED "+idStr);
-    }
-    LOG.info("(bcho2) SUSPENDED "+ taskId);
     LOG.info("(bcho2) RESUMEKEY "+keyCount);
     if (trackedRW != null && reducerContext != null) {
       LOG.info("(bcho2) closing, trackedRW "+trackedRW+" reducerContext "+reducerContext);
