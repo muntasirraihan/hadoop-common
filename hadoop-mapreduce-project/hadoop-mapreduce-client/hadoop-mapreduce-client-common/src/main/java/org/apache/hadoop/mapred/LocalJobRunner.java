@@ -601,7 +601,7 @@ public class LocalJobRunner implements ClientProtocol {
     }
 
     @Override
-    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+    public boolean doneSuspend(TaskAttemptID taskId, long keyNumber) throws IOException {
       // TODO Auto-generated method stub (bcho2)
       return true;
     }

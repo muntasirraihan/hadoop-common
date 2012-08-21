@@ -18,43 +18,19 @@
 
 package org.apache.hadoop.mapreduce.v2.app.job.event;
 
-import java.util.List;
-
 import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 
-public class TaskAttemptResumeEvent extends TaskAttemptEvent {
+public class TaskAttemptSuspendDoneEvent extends TaskAttemptEvent {
 
-  private final String suspendedHostname;
-  private final ContainerId suspendedContainerId;
-  private final long keyNumber;
-  private final List<TaskAttemptId> suspendedAttemptIds;
+  private long keyNumber;
 
-  public TaskAttemptResumeEvent(TaskAttemptId id,
-      String suspendedHostname,
-      ContainerId suspendedContainerId,
-      long keyNumber,
-      List<TaskAttemptId> suspendedTAIds) {
-    super(id, TaskAttemptEventType.TA_RESUME);
-    this.suspendedHostname = suspendedHostname;
-    this.suspendedContainerId = suspendedContainerId;
+  public TaskAttemptSuspendDoneEvent(TaskAttemptId id,
+      long keyNumber) {
+    super(id, TaskAttemptEventType.TA_SUSPEND_DONE);
     this.keyNumber = keyNumber;
-    this.suspendedAttemptIds = suspendedTAIds;
   }
-  
+
   public long getKeyNumber() {
     return keyNumber;
-  }
-
-  public ContainerId getSuspendedContainerId() {
-    return suspendedContainerId;
-  }
-  
-  public List<TaskAttemptId> getSuspendedAttemptIds() {
-    return suspendedAttemptIds;
-  }
-
-  public String getSuspendedHostname() {
-    return suspendedHostname;
   }
 }

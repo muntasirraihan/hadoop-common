@@ -44,6 +44,7 @@ public interface TaskAttempt {
    */
   boolean isFinished();
 
+  long getKeyNumber();
   /**
    * @return the container ID if a container is assigned, otherwise null.
    */

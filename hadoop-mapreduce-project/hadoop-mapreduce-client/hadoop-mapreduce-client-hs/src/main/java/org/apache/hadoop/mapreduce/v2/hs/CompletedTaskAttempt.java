@@ -56,6 +56,11 @@ public class CompletedTaskAttempt implements TaskAttempt {
       diagnostics.add(attemptInfo.getError());
     }
   }
+  
+  @Override
+  public long getKeyNumber() {
+    return 0;
+  }
 
   @Override
   public ContainerId getAssignedContainerID() {

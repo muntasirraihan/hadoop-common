@@ -88,14 +88,16 @@ class YarnChild {
     JVMId jvmId = new JVMId(firstTaskid.getJobID(),
         firstTaskid.getTaskType() == TaskType.MAP, jvmIdInt);
     // (bcho2)
-    String suspendedLogDirStr = null;;
-    if (args.length > 4) {
+    String suspendedLogDirStr = null;
+    long suspendedKeyNumber = 0;
+    if (args.length > 5) {
       suspendedLogDirStr = args[4];
+      suspendedKeyNumber = Long.parseLong(args[5]);
       LOG.info("(bcho2) suspended logdir "+suspendedLogDirStr+", was passed to YarnChild!");
     }
     List<String> suspendedAttempts = new ArrayList<String>();
-    if (args.length > 5) {
-      for (int i = 5; i < args.length; i++) {
+    if (args.length > 6) {
+      for (int i = 6; i < args.length; i++) {
         suspendedAttempts.add(args[i]);
       }
     }
@@ -145,6 +147,7 @@ class YarnChild {
       YarnChild.taskid = task.getTaskID();
       
       if (suspendedLogDirStr != null) {
+        ((ReduceTask)task).setResumeKeyNumber(suspendedKeyNumber);
         ((ReduceTask)task).setSuspendedAttempts(suspendedAttempts);
         ((ReduceTask)task).setSuspendedContainerLogDirStr(suspendedLogDirStr);
       }

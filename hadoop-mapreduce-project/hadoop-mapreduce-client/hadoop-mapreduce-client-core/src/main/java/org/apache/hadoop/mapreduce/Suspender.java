@@ -27,7 +27,6 @@ public class Suspender {
   
   public void suspend(ReduceContext reducerContext,
       RecordWriter trackedRW, long keyCount) {
-    LOG.info("(bcho2) RESUMEKEY "+keyCount);
     if (trackedRW != null && reducerContext != null) {
       LOG.info("(bcho2) closing, trackedRW "+trackedRW+" reducerContext "+reducerContext);
       try {
@@ -41,7 +40,7 @@ public class Suspender {
       LOG.info("(bcho2) could not close, trackedRW "+trackedRW+" reducerContext "+reducerContext);
     }
     try {
-      umbilical.doneSuspend(taskId);
+      umbilical.doneSuspend(taskId, keyCount);
     } catch (IOException e) {
       LOG.info("(bcho2) Suspend failed: ", e);
     }

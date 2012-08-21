@@ -700,6 +700,11 @@ public class TestRuntimeEstimators {
     }
 
     @Override
+    public long getKeyNumber() {
+      return 0;
+    }
+    
+    @Override
     public ContainerId getAssignedContainerID() {
       throw new UnsupportedOperationException("Not supported yet.");
     }

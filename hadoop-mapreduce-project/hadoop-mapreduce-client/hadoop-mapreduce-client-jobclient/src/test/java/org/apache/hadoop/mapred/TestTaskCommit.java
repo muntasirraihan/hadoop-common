@@ -163,7 +163,7 @@ public class TestTaskCommit extends HadoopTestCase {
     }
     
     @Override
-    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+    public boolean doneSuspend(TaskAttemptID taskId, long keyNumber) throws IOException {
       return false;
     }
     

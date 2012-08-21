@@ -159,6 +159,14 @@ public class ReduceTask extends Task {
   public List<String> getSuspendedAttempts() {
     return suspendedAttempts;
   }
+
+  public void setResumeKeyNumber(long resumeKeyNumber) {
+    this.resumeKeyNumber = resumeKeyNumber;
+  }
+
+  public long getResumeKeyNumber() {
+    return resumeKeyNumber;
+  }
   
   private CompressionCodec initCodec() {
     // check if map-outputs are to be compressed
@@ -353,7 +361,7 @@ public class ReduceTask extends Task {
       try {
         resumeParse();
       } catch (Exception e) {
-        LOG.error("(bcho2) exception", e);
+        LOG.error("(bcho2) resume key number "+resumeKeyNumber+", parse exception ", e);
       }
     }
     
@@ -482,8 +490,6 @@ public class ReduceTask extends Task {
         if (split.length > 9) {
           resumePaths.add(split[9]);
         }
-      } else if (split.length > 7 && "(bcho2)".equals(split[5]) && "RESUMEKEY".equals(split[6])) {
-        resumeKeyNumber = Long.parseLong(split[7]);
       } else if (split.length > 6 && "(bcho2)".equals(split[5]) && "STATEFUL".equals(split[6])) {
         resumeIsStateful = true;
       }

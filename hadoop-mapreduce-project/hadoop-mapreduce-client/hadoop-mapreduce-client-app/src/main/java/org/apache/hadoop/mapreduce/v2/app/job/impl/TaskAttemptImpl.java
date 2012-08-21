@@ -84,6 +84,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptResumeEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent.TaskAttemptStatus;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptSuspendDoneEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskTAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncher;
@@ -507,9 +508,13 @@ public abstract class TaskAttemptImpl implements
   private WrappedJvmID jvmID;
   private ContainerToken containerToken;
   private Resource assignedCapability;
+  // For resume
   private ContainerId suspendedContainerID;
   private List<TaskAttemptId> suspendedAttemptIds;
   private String suspendedHostname;
+  private long suspendedKeyNumber;
+  // On suspend
+  private long savedKeyNumber;
   
   //this takes good amount of memory ~ 30KB. Instantiate it lazily
   //and make it null once task is launched.
@@ -755,6 +760,7 @@ public abstract class TaskAttemptImpl implements
       TaskAttemptListener taskAttemptListener,
       Credentials credentials,
       ContainerId suspendedContainerID,
+      long suspendedKeyNumber,
       List<TaskAttemptId> suspendedAttempts) {
 
     synchronized (commonContainerSpecLock) {
@@ -785,6 +791,7 @@ public abstract class TaskAttemptImpl implements
     List<String> commands = MapReduceChildJVM.getVMCommand(
         taskAttemptListener.getAddress(), remoteTask, jvmID,
         (suspendedContainerID == null) ? null : suspendedContainerID.toString(),
+        suspendedKeyNumber,
         suspendedAttemptStrs);
 
     // Duplicate the ByteBuffers for access by multiple containers.
@@ -802,6 +809,11 @@ public abstract class TaskAttemptImpl implements
         applicationACLs);
 
     return container;
+  }
+  
+  @Override
+  public long getKeyNumber() {
+    return savedKeyNumber;
   }
   
   @Override
@@ -1230,6 +1242,7 @@ public abstract class TaskAttemptImpl implements
       taskAttempt.suspendedHostname = rEvent.getSuspendedHostname();
       taskAttempt.suspendedAttemptIds = rEvent.getSuspendedAttemptIds();
       taskAttempt.suspendedContainerID = rEvent.getSuspendedContainerId();
+      taskAttempt.suspendedKeyNumber = rEvent.getKeyNumber();
       // Tell any speculator that we're requesting a container
       taskAttempt.eventHandler.handle(new SpeculatorEvent(taskAttempt.getID()
           .getTaskId(), +1));
@@ -1289,6 +1302,7 @@ public abstract class TaskAttemptImpl implements
           taskAttempt.jvmID, taskAttempt.taskAttemptListener,
           taskAttempt.credentials,
           taskAttempt.suspendedContainerID,
+          taskAttempt.suspendedKeyNumber,
           taskAttempt.suspendedAttemptIds);
       taskAttempt.eventHandler.handle(new ContainerRemoteLaunchEvent(
           taskAttempt.attemptId, taskAttempt.containerID,
@@ -1445,6 +1459,9 @@ public abstract class TaskAttemptImpl implements
     public void transition(TaskAttemptImpl taskAttempt, 
         TaskAttemptEvent event) {
 
+      TaskAttemptSuspendDoneEvent tasde = (TaskAttemptSuspendDoneEvent)event;
+      taskAttempt.savedKeyNumber = tasde.getKeyNumber();
+      
       //set the finish time
       taskAttempt.setFinishTime();
       // TODO: talk to history

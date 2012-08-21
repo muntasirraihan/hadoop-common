@@ -44,12 +44,12 @@ import org.apache.hadoop.mapreduce.v2.app.TaskAttemptListener;
 import org.apache.hadoop.mapreduce.v2.app.TaskHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.job.Job;
 import org.apache.hadoop.mapreduce.v2.app.job.Task;
-import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptStatusUpdateEvent.TaskAttemptStatus;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptSuspendDoneEvent;
 import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.authorize.PolicyProvider;
@@ -515,16 +515,14 @@ public class TaskAttemptListenerImpl extends CompositeService
     return shouldSuspend;
   }
   
-  public boolean doneSuspend(TaskAttemptID taskAttemptID) throws IOException {
+  @Override
+  public boolean doneSuspend(TaskAttemptID taskAttemptID, long keyNumber) throws IOException {
     org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId attemptID =
       TypeConverter.toYarn(taskAttemptID);
     
     context.getEventHandler().handle(
-        new TaskAttemptEvent(attemptID, 
-            TaskAttemptEventType.TA_SUSPEND_DONE));    
+        new TaskAttemptSuspendDoneEvent(attemptID, keyNumber));
     
     return true;
   }
-  
-  
 }

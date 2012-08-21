@@ -131,7 +131,7 @@ public class TestMapProgress extends TestCase {
       return false;
     }
     
-    public boolean doneSuspend(TaskAttemptID taskId) throws IOException {
+    public boolean doneSuspend(TaskAttemptID taskId, long keyNumber) throws IOException {
       return false;
     }
 

@@ -286,6 +286,11 @@ public class MockJobs extends MockApps {
       }
 
       @Override
+      public long getKeyNumber() {
+        return 0;
+      }
+      
+      @Override
       public ContainerId getAssignedContainerID() {
         ContainerId id = Records.newRecord(ContainerId.class);
         ApplicationAttemptId appAttemptId = Records
