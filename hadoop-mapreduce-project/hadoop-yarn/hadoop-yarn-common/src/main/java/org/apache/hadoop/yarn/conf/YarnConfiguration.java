@@ -220,6 +220,9 @@ public class YarnConfiguration extends Configuration {
   public static final long    DELEGATION_TOKEN_MAX_LIFETIME_DEFAULT = 
     7*24*60*60*1000; // 7 days
   
+  public static final String  RESUME_LOCAL_ONLY =
+     RM_PREFIX + "resume-local-only";
+  public static final boolean DEFAULT_RESUME_LOCAL_ONLY = true;
   
   /** The class to use as the persistent store.*/
   public static final String RM_STORE = RM_PREFIX + "store.class";

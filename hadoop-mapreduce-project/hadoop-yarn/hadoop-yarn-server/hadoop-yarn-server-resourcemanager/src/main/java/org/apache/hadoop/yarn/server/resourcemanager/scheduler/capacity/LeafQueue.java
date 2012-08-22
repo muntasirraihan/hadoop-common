@@ -52,6 +52,7 @@ import org.apache.hadoop.yarn.api.records.QueueState;
 import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
@@ -117,6 +118,8 @@ public class LeafQueue implements CSQueue {
 
   private Map<QueueACL, AccessControlList> acls = 
     new HashMap<QueueACL, AccessControlList>();
+  
+  private boolean resumeLocalOnly;
 
   private final RecordFactory recordFactory = 
     RecordFactoryProvider.getRecordFactory(null);
@@ -188,6 +191,9 @@ public class LeafQueue implements CSQueue {
     Map<QueueACL, AccessControlList> acls = 
       cs.getConfiguration().getAcls(getQueuePath());
 
+    this.resumeLocalOnly = cs.getConfiguration().getBoolean(YarnConfiguration.RESUME_LOCAL_ONLY,
+                                                            YarnConfiguration.DEFAULT_RESUME_LOCAL_ONLY);
+    
     setupQueueConfigs(
         cs.getClusterResources(),
         capacity, absoluteCapacity, 
@@ -1115,12 +1121,15 @@ public class LeafQueue implements CSQueue {
         assignNodeLocalContainers(clusterResource, node, application, priority,
             reservedContainer); 
     if (Resources.greaterThan(assigned, Resources.none())) {
+      if (priority.getPriority() == 3) {
+        LOG.info("(bcho2) NODE_LOCAL node "+node+" app "+application+" resources "+assigned.getMemory());
+      }
       return new CSAssignment(assigned, NodeType.NODE_LOCAL);
     }
 
     // (bcho2) -- HACK
-    if (priority.getPriority() == 3) {
-      LOG.info("(bcho2) ignoring rack and off-switch, because resume task");
+    if (resumeLocalOnly && priority.getPriority() == 3) {
+      LOG.info("(bcho2) ignoring rack and off-switch, because resume local only");
       return null;
     }
     
@@ -1129,14 +1138,22 @@ public class LeafQueue implements CSQueue {
         assignRackLocalContainers(clusterResource, node, application, priority, 
             reservedContainer);
     if (Resources.greaterThan(assigned, Resources.none())) {
+      if (priority.getPriority() == 3) {
+        LOG.info("(bcho2) RACK_LOCAL node "+node+" app "+application+" resources "+assigned.getMemory());
+      }
       return new CSAssignment(assigned, NodeType.RACK_LOCAL);
     }
     
     // Off-switch
-    return new CSAssignment(
-        assignOffSwitchContainers(clusterResource, node, application, 
-            priority, reservedContainer), 
-        NodeType.OFF_SWITCH);
+    assigned =
+      assignOffSwitchContainers(clusterResource, node, application, 
+          priority, reservedContainer);
+    if (Resources.greaterThan(assigned, Resources.none())) {
+      if (priority.getPriority() == 3) {
+        LOG.info("(bcho2) OFF_SWITCH node "+node+" app "+application+" resources "+assigned.getMemory());
+      }
+    }
+    return new CSAssignment(assigned, NodeType.OFF_SWITCH);
   }
 
   private Resource assignNodeLocalContainers(Resource clusterResource, 
@@ -1178,6 +1195,9 @@ public class LeafQueue implements CSQueue {
     if (request != null) {
       if (canAssign(application, priority, node, NodeType.OFF_SWITCH, 
           reservedContainer)) {
+        if (priority.getPriority() == 3) {
+          LOG.info("(bcho2) OFF_SWITCH node "+node+" app "+application);
+        }
         return assignContainer(clusterResource, node, application, priority, request, 
             NodeType.OFF_SWITCH, reservedContainer);
       }

@@ -107,6 +107,8 @@ public class FifoScheduler implements ResourceScheduler {
   private boolean initialized;
   private Resource minimumAllocation;
   private Resource maximumAllocation;
+  
+  private boolean resumeLocalOnly;
 
   private Map<ApplicationAttemptId, SchedulerApp> applications
       = new TreeMap<ApplicationAttemptId, SchedulerApp>();
@@ -205,6 +207,9 @@ public class FifoScheduler implements ResourceScheduler {
             YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
             YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB));
       this.initialized = true;
+      this.resumeLocalOnly = conf.getBoolean(
+          YarnConfiguration.RESUME_LOCAL_ONLY,
+          YarnConfiguration.DEFAULT_RESUME_LOCAL_ONLY);
     } else {
       this.conf = conf;
     }
@@ -422,7 +427,7 @@ public class FifoScheduler implements ResourceScheduler {
 
     int rackLocalContainers = 0;
     int offSwitchContainers = 0;
-    if (priority.getPriority() == 3) { // TODO (bcho2) HACK -- shouldn't have knowledge of this here
+    if (resumeLocalOnly && priority.getPriority() == 3) { // TODO (bcho2) HACK -- shouldn't have knowledge of this here
       LOG.info("(bcho2) ignoring rack and off-switch, because priority "+priority);
     } else {
       // Rack-local

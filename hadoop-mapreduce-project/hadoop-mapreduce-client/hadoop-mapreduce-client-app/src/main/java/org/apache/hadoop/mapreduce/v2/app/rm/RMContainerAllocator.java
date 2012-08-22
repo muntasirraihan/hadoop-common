@@ -63,6 +63,7 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.util.RackResolver;
 
@@ -140,6 +141,8 @@ public class RMContainerAllocator extends RMContainerRequestor
   private float reduceSlowStart = 0;
   private long retryInterval;
   private long retrystartTime;
+  
+  private boolean resumeLocalOnly = true;
 
   BlockingQueue<ContainerAllocatorEvent> eventQueue
     = new LinkedBlockingQueue<ContainerAllocatorEvent>();
@@ -166,6 +169,8 @@ public class RMContainerAllocator extends RMContainerRequestor
     // Init startTime to current time. If all goes well, it will be reset after
     // first attempt to contact RM.
     retrystartTime = System.currentTimeMillis();
+    resumeLocalOnly = conf.getBoolean(YarnConfiguration.RESUME_LOCAL_ONLY,
+                              YarnConfiguration.DEFAULT_RESUME_LOCAL_ONLY);
   }
 
   @Override
@@ -1063,7 +1068,7 @@ public class RMContainerAllocator extends RMContainerRequestor
           LOG.info("(bcho2) reduce resume assigned, ta "+tId
               +" assigned "+assigned
               +" host "+host);
-          break;
+          return assigned;
         } else {
           LOG.warn("(bcho2) reduce resume not assigned,"
               +" because not in reduces, ta "+tId
@@ -1071,6 +1076,35 @@ public class RMContainerAllocator extends RMContainerRequestor
               +" host "+host);
         }
       }
+
+      if (resumeLocalOnly) {
+        LOG.info("(bcho2) returning because resumeLocalOnly");
+        return assigned;
+      }
+      
+      LOG.info("(bcho2) reduce resume no local node, assigning to any node.");
+      for (String node :reducesHostMapping.keySet()) {
+        LinkedList<TaskAttemptId> lst = reducesHostMapping.get(node);
+        LOG.info("(bcho2) node "+node+" lst "+ (lst == null ? "null" : lst.size()));
+        while (lst != null && lst.size() > 0) {
+          TaskAttemptId tId = lst.removeFirst();
+          if (reduces.containsKey(tId)) {
+            assigned = reduces.remove(tId);
+            LOG.info("(bcho2) reduce resume any node assigned, ta "+tId
+                +" assigned "+assigned
+                +" host "+host
+                +" node "+node);
+            return assigned;
+          } else {
+            LOG.warn("(bcho2) reduce resume any node not assigned,"
+                +" because not in reduces, ta "+tId
+                +" assigned "+assigned
+                +" host "+host
+                +" node "+node);
+          }
+        }          
+      }
+        
       return assigned;
     }
     
