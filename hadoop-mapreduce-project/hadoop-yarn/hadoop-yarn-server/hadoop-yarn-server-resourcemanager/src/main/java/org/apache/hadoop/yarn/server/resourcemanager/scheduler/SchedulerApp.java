@@ -44,6 +44,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstant
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.ApplicationsStore.ApplicationStore;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEvent;
@@ -103,6 +104,7 @@ public class SchedulerApp {
       .newRecordInstance(Resource.class);
 
   private final RMContext rmContext;
+  private final RMApp rmApp;
   public SchedulerApp(ApplicationAttemptId applicationAttemptId, 
       String user, Queue queue, ActiveUsersManager activeUsersManager,
       RMContext rmContext, ApplicationStore store) {
@@ -111,6 +113,7 @@ public class SchedulerApp {
         new AppSchedulingInfo(applicationAttemptId, user, queue,  
             activeUsersManager, store);
     this.queue = queue;
+    this.rmApp = rmContext.getRMApps().get(applicationAttemptId.getApplicationId());
   }
 
   public ApplicationId getApplicationId() {
@@ -123,6 +126,10 @@ public class SchedulerApp {
 
   public String getUser() {
     return this.appSchedulingInfo.getUser();
+  }
+
+  public RMApp getRMApp() {
+    return rmApp;
   }
 
   public synchronized void updateResourceRequests(

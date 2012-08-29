@@ -93,7 +93,7 @@ public class DefaultSpeculator extends AbstractService implements
   private Thread speculationBackgroundThread = null;
   private BlockingQueue<SpeculatorEvent> eventQueue
       = new LinkedBlockingQueue<SpeculatorEvent>();
-  private TaskRuntimeEstimator estimator;
+  private final TaskRuntimeEstimator estimator;
 
   private BlockingQueue<Object> scanControl = new LinkedBlockingQueue<Object>();
 
@@ -101,47 +101,18 @@ public class DefaultSpeculator extends AbstractService implements
 
   private final EventHandler<TaskEvent> eventHandler;
 
+  public DefaultSpeculator(Configuration conf, AppContext context,
+      TaskRuntimeEstimator estimator) {
+    this(conf, context, estimator, context.getClock());
+  }
+/*
   public DefaultSpeculator(Configuration conf, AppContext context) {
     this(conf, context, context.getClock());
   }
-
   public DefaultSpeculator(Configuration conf, AppContext context, Clock clock) {
     this(conf, context, getEstimator(conf, context), clock);
   }
-  
-  static private TaskRuntimeEstimator getEstimator
-      (Configuration conf, AppContext context) {
-    TaskRuntimeEstimator estimator;
-    
-    try {
-      // "yarn.mapreduce.job.task.runtime.estimator.class"
-      Class<? extends TaskRuntimeEstimator> estimatorClass
-          = conf.getClass(MRJobConfig.MR_AM_TASK_ESTIMATOR,
-                          LegacyTaskRuntimeEstimator.class,
-                          TaskRuntimeEstimator.class);
-
-      Constructor<? extends TaskRuntimeEstimator> estimatorConstructor
-          = estimatorClass.getConstructor();
-
-      estimator = estimatorConstructor.newInstance();
-
-      estimator.contextualize(conf, context);
-    } catch (InstantiationException ex) {
-      LOG.error("Can't make a speculation runtime extimator", ex);
-      throw new YarnException(ex);
-    } catch (IllegalAccessException ex) {
-      LOG.error("Can't make a speculation runtime extimator", ex);
-      throw new YarnException(ex);
-    } catch (InvocationTargetException ex) {
-      LOG.error("Can't make a speculation runtime extimator", ex);
-      throw new YarnException(ex);
-    } catch (NoSuchMethodException ex) {
-      LOG.error("Can't make a speculation runtime extimator", ex);
-      throw new YarnException(ex);
-    }
-    
-  return estimator;
-  }
+*/
 
   // This constructor is designed to be called by other constructors.
   //  However, it's public because we do use it in the test cases.

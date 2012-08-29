@@ -1,12 +1,16 @@
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
+import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.Clock;
@@ -45,13 +49,21 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     CapacitySchedulerConfiguration.PREEMPT_PREFIX + "utilization-tolerance";
   private static final String SUSPEND =
     CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend";
+  private static final String SUSPEND_STRATEGY =
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend.strategy";
+  private static final String SUSPEND_UNIT =
+    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend.unit-mb";
   
   private static final long DEFAULT_INTERVAL_MS = 1000;
   private static final long DEFAULT_KILL_MS = 3000;
   private static final long DEFAULT_EXPIRE_MS = 6000;
   private static final float DEFAULT_UTILIZATION_TOL = 0.1f;
+  private static final String DEFAULT_SUSPEND_STRATEGY = "random";
+  private static final int DEFAULT_SUSPEND_UNIT = 512;
 
   private boolean suspend = false;
+  private String suspendStrategy = DEFAULT_SUSPEND_STRATEGY;
+  private int suspendUnit = DEFAULT_SUSPEND_UNIT;
   private boolean stopReclaim = false;
   private Clock clock = new SystemClock();
   
@@ -97,8 +109,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     this.expireInterval = conf.getLong(EXPIRE_MS, DEFAULT_EXPIRE_MS);
     this.utilizationTolerance = conf.getFloat(UTILIZATION_TOL, DEFAULT_UTILIZATION_TOL);
     this.suspend = conf.getBoolean(SUSPEND, false);
+    this.suspendStrategy = conf.get(SUSPEND_STRATEGY, DEFAULT_SUSPEND_STRATEGY);
+    this.suspendUnit = conf.getInt(SUSPEND_UNIT, DEFAULT_SUSPEND_UNIT);
     
     LOG.info("(bcho2) kill interval "+killInterval);
+    LOG.info("(bcho2) suspend strategy "+suspendStrategy);
   }
   
   public void run() {
@@ -292,20 +307,131 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
   }
 
+  static class ResourcesComparator
+  implements Comparator<SchedulerApp> {
+
+    @Override
+    public int compare(SchedulerApp o1, SchedulerApp o2) {
+      return o1.getCurrentConsumption().compareTo(o2.getCurrentConsumption());
+    }
+  }
+  
   private void releaseContainers(int releaseAmount, List<CSQueue> overCapList) {
+    LOG.info("(bcho2) release containers: amount "+releaseAmount);
     for (CSQueue queue : overCapList) {
-      for (SchedulerApp app : ((LeafQueue)queue).getActiveApplications()) {
+      List<SchedulerApp> releasableApplications =
+        new ArrayList<SchedulerApp>(((LeafQueue)queue).getActiveApplications());
+      if ("random".equals(suspendStrategy)) {
+        releaseAmount =
+          releaseContainersRandom(releaseAmount, releasableApplications);
+      } else if ("probabilistic".equals(suspendStrategy)) {
+        releaseAmount =
+          releaseContainersProbabilistic(releaseAmount, releasableApplications);
+      } else { // Use some kind of Comparator
+        Comparator<SchedulerApp> comparator = null;
+        if ("least-resources".equals(suspendStrategy)) {
+          comparator = new ResourcesComparator();
+        } else if ("most-resources".equals(suspendStrategy)) {
+          comparator = Collections.reverseOrder(new ResourcesComparator());
+        }
+        Collections.sort(releasableApplications, comparator);
+        releaseAmount = 
+          releaseContainersOrdered(releaseAmount, releasableApplications);
+      }
+    }
+    LOG.info("(bcho2) unassigned releaseAmount "+releaseAmount);
+  }
+  
+  private int releaseContainersOrdered(int releaseAmount, List<SchedulerApp> releasableApplications) {
+    for (SchedulerApp app : releasableApplications) {
+      Resource consumption = app.getCurrentConsumption();
+      int releasableMemory =
+        consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
+                                      getMasterContainer().getResource().getMemory();
+      // LOG.info("(bcho2) release containers: current consumption "+consumption+
+      //     " app progress "+app.getRMApp().getProgress()+
+      //     " app Master consumption "+app.getRMApp().getCurrentAppAttempt().getMasterContainer().getResource());
+      // for (Priority prio : app.getPriorities()) {
+      //   LOG.info("(bcho2) release containers: prio "+prio.getPriority()+
+      //       " required resources "+app.getTotalRequiredResources(prio));
+      // }
+      if (releasableMemory >= releaseAmount) {
+        app.addReleaseMemory(releaseAmount);
+        return 0;
+      } else {
+        app.addReleaseMemory(releasableMemory);
+        releaseAmount -= releasableMemory;
+      }
+    }
+    return releaseAmount;
+  }
+  
+  private int releaseContainersRandom(int releaseAmount, List<SchedulerApp> releasableApplications) {
+    while(releasableApplications.size() > 0 && releaseAmount > 0) {
+      Collections.shuffle(releasableApplications);
+      Iterator<SchedulerApp> it = releasableApplications.iterator();
+      while (it.hasNext()) {
+        SchedulerApp app = it.next();
         Resource consumption = app.getCurrentConsumption();
-        LOG.info("(bcho2) release containers: current consumption "+consumption);
-        if (consumption.getMemory() >= releaseAmount) {
-          app.addReleaseMemory(releaseAmount);
-          return;
+        int releasableMemory =
+          consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
+                                        getMasterContainer().getResource().getMemory();
+        if (releasableMemory >= suspendUnit) {
+          app.addReleaseMemory(suspendUnit);
+          releaseAmount -= suspendUnit;
         } else {
-          app.addReleaseMemory(consumption.getMemory());
-          releaseAmount -= consumption.getMemory();
+          it.remove();
         }
       }
     }
+    return releaseAmount;
+  }
+
+  Random random = new Random();
+  private int releaseContainersProbabilistic(int releaseAmount, List<SchedulerApp> releasableApplications) {
+    int totalReleasable = 0;
+    LinkedHashMap<SchedulerApp, Integer> releasable =
+      new LinkedHashMap<SchedulerApp, Integer>(releasableApplications.size());
+    
+    for (SchedulerApp app : releasableApplications) {
+      Resource consumption = app.getCurrentConsumption();
+      int releasableMemory = consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
+                             getMasterContainer().getResource().getMemory(); 
+      releasable.put(app, releasableMemory);
+      totalReleasable += releasableMemory;
+    }
+
+    while(totalReleasable > 0) {
+      double rand = random.nextDouble();
+      double lo;
+      double hi = 0.0;
+      Entry<SchedulerApp, Integer> entry = null;
+      
+      for (Entry<SchedulerApp, Integer> e : releasable.entrySet()) {
+        lo = hi;
+        hi += ((double)e.getValue())/totalReleasable;
+        if (rand >= lo && rand < hi) { // Found our entry
+          entry = e;
+          break;
+        }
+      }
+      if (entry == null) {
+        LOG.error("(bcho2) no app chosen probabilistically!!");
+        break;
+      }
+      
+      SchedulerApp app = entry.getKey();
+      int releasableMemory = entry.getValue();
+      if (releasableMemory >= suspendUnit) {
+        app.addReleaseMemory(suspendUnit);
+        releaseAmount -= suspendUnit;
+        totalReleasable -= suspendUnit;
+      } else {
+        entry.setValue(0);
+        totalReleasable -= releasableMemory;
+      }
+    }
+    return releaseAmount;
   }
   
   // TODO: sort this list, or otherwise evenly distribute the kills

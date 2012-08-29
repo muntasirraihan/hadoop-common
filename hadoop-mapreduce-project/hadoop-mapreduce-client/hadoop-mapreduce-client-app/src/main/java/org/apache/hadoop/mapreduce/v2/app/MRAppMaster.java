@@ -80,8 +80,10 @@ import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocatorEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.RMCommunicator;
 import org.apache.hadoop.mapreduce.v2.app.rm.RMContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator;
+import org.apache.hadoop.mapreduce.v2.app.speculate.LegacyTaskRuntimeEstimator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.Speculator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.SpeculatorEvent;
+import org.apache.hadoop.mapreduce.v2.app.speculate.TaskRuntimeEstimator;
 import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleaner;
 import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleanerImpl;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
@@ -158,6 +160,7 @@ public class MRAppMaster extends CompositeService {
   private ContainerLauncher containerLauncher;
   private TaskCleaner taskCleaner;
   private Speculator speculator;
+  private Releaser releaser;
   private TaskAttemptListener taskAttemptListener;
   private JobTokenSecretManager jobTokenSecretManager =
       new JobTokenSecretManager();
@@ -271,16 +274,19 @@ public class MRAppMaster extends CompositeService {
     dispatcher.register(TaskAttemptEventType.class, 
         new TaskAttemptEventDispatcher());
     dispatcher.register(TaskCleaner.EventType.class, taskCleaner);
-   
-    Releaser releaser = new Releaser(conf, context);
-    dispatcher.register(Releaser.EventType.class, releaser);
-    
+
+    TaskRuntimeEstimator estimator = createEstimator(conf, context);
+
     if (conf.getBoolean(MRJobConfig.MAP_SPECULATIVE, false)
         || conf.getBoolean(MRJobConfig.REDUCE_SPECULATIVE, false)) {
       //optional service to speculate on task attempts' progress
-      speculator = createSpeculator(conf, context);
+      speculator = createSpeculator(conf, context, estimator);
       addIfService(speculator);
     }
+
+    releaser = new Releaser(conf, context, estimator);
+    addIfService(releaser);
+    dispatcher.register(Releaser.EventType.class, releaser);
 
     speculatorEventDispatcher = new SpeculatorEventDispatcher(conf);
     dispatcher.register(Speculator.EventType.class,
@@ -524,8 +530,44 @@ public class MRAppMaster extends CompositeService {
   protected AbstractService createStagingDirCleaningService() {
     return new StagingDirCleaningService();
   }
+  
+  
+  protected TaskRuntimeEstimator createEstimator
+      (Configuration conf, AppContext context) {
+    TaskRuntimeEstimator estimator;
+    
+    try {
+      // "yarn.mapreduce.job.task.runtime.estimator.class"
+      Class<? extends TaskRuntimeEstimator> estimatorClass
+          = conf.getClass(MRJobConfig.MR_AM_TASK_ESTIMATOR,
+                          LegacyTaskRuntimeEstimator.class,
+                          TaskRuntimeEstimator.class);
 
-  protected Speculator createSpeculator(Configuration conf, AppContext context) {
+      Constructor<? extends TaskRuntimeEstimator> estimatorConstructor
+          = estimatorClass.getConstructor();
+
+      estimator = estimatorConstructor.newInstance();
+
+      estimator.contextualize(conf, context);
+    } catch (InstantiationException ex) {
+      LOG.error("Can't make a speculation runtime extimator", ex);
+      throw new YarnException(ex);
+    } catch (IllegalAccessException ex) {
+      LOG.error("Can't make a speculation runtime extimator", ex);
+      throw new YarnException(ex);
+    } catch (InvocationTargetException ex) {
+      LOG.error("Can't make a speculation runtime extimator", ex);
+      throw new YarnException(ex);
+    } catch (NoSuchMethodException ex) {
+      LOG.error("Can't make a speculation runtime extimator", ex);
+      throw new YarnException(ex);
+    }
+    
+    return estimator;
+  }
+
+  protected Speculator createSpeculator(Configuration conf, AppContext context,
+      TaskRuntimeEstimator estimator) {
     Class<? extends Speculator> speculatorClass;
 
     try {
@@ -536,8 +578,9 @@ public class MRAppMaster extends CompositeService {
                           Speculator.class);
       Constructor<? extends Speculator> speculatorConstructor
           = speculatorClass.getConstructor
-               (Configuration.class, AppContext.class);
-      Speculator result = speculatorConstructor.newInstance(conf, context);
+               (Configuration.class, AppContext.class, TaskRuntimeEstimator.class);
+      Speculator result =
+        speculatorConstructor.newInstance(conf, context, estimator);
 
       return result;
     } catch (InstantiationException ex) {

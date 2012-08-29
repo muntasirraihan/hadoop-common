@@ -114,6 +114,10 @@ public interface MRJobConfig {
 
   public static final String CACHE_ARCHIVES_VISIBILITIES = "mapreduce.job.cache.archives.visibilities";
 
+  public static final String SUSPEND_STRATEGY = "mapreduce.job.suspend.strategy";
+
+  public static final String SUSPEND_INTERVAL = "mapreduce.job.suspend.interval";
+
   /**
    * @deprecated Symlinks are always on and cannot be disabled.
    */
