@@ -210,7 +210,7 @@ message AMResponseProto {
   repeated ContainerProto allocated_containers = 3;
   repeated ContainerStatusProto completed_container_statuses = 4;
   optional ResourceProto limit = 5;
-  optional ResourceProto release = 6;
+  repeated ResourceRequestProto release_requests = 6;
 }
 
 

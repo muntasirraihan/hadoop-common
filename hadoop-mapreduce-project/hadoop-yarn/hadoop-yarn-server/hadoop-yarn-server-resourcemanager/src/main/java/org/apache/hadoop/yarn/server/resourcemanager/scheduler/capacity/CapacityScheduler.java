@@ -493,6 +493,11 @@ implements ResourceScheduler, CapacitySchedulerContext {
         }
         application.showRequests();
   
+        for (ResourceRequest req : ask) {
+          LOG.info("(bcho2) ask memory "+req.getCapability().getMemory()+
+              " containers "+req.getNumContainers());
+        }
+        
         // Update application requests
         application.updateResourceRequests(ask);
   
@@ -506,17 +511,19 @@ implements ResourceScheduler, CapacitySchedulerContext {
           " #ask=" + ask.size());
       }
 
-      Resource releaseResource = application.pullReleaseResources();
-      int releaseMemory = releaseResource.getMemory();
-      if (releaseMemory > 0) {
-        LOG.info("(bcho2) mock:"
-            +" release memory "+releaseMemory);
+      List<ResourceRequest> releaseResources = application.pullReleaseRequests();
+      for (ResourceRequest releaseResource : releaseResources) {
+        int numContainers = releaseResource.getNumContainers();
+        if (numContainers > 0) {
+          LOG.info("(bcho2) release memory "+releaseResource.getCapability().getMemory()+
+              " containers "+numContainers);
+        }
       }
       
       return new Allocation(
           application.pullNewlyAllocatedContainers(), 
           application.getHeadroom(),
-          releaseResource);
+          releaseResources);
     }
   }
 

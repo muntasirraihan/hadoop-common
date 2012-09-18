@@ -504,6 +504,7 @@ public abstract class TaskAttemptImpl implements
   private NodeId containerNodeId;
   private String containerMgrAddress;
   private String nodeHttpAddress;
+  private String nodeHostName;
   private String nodeRackName;
   private WrappedJvmID jvmID;
   private ContainerToken containerToken;
@@ -897,7 +898,20 @@ public abstract class TaskAttemptImpl implements
       readLock.unlock();
     }
   }
-  
+
+  /**
+   * If container Assigned then return the node's hostname, otherwise null.
+   */
+  @Override
+  public String getNodeHostName() {
+    this.readLock.lock();
+    try {
+      return this.nodeHostName;
+    } finally {
+      this.readLock.unlock();
+    }
+  }
+
   /**
    * If container Assigned then return the node's rackname, otherwise null.
    */
@@ -1006,6 +1020,11 @@ public abstract class TaskAttemptImpl implements
     } finally {
       readLock.unlock();
     }
+  }
+  
+  @Override
+  public Resource getResourceCapability() {
+    return resourceCapability;
   }
 
   @SuppressWarnings("unchecked")
@@ -1281,8 +1300,8 @@ public abstract class TaskAttemptImpl implements
         LOG.error("(bcho2) Suspended Hostname and Container Hostname do not match!");
       }
       taskAttempt.nodeHttpAddress = cEvent.getContainer().getNodeHttpAddress();
-      taskAttempt.nodeRackName = RackResolver.resolve(
-          taskAttempt.containerNodeId.getHost()).getNetworkLocation();
+      taskAttempt.nodeHostName = cEvent.getContainer().getNodeId().getHost();
+      taskAttempt.nodeRackName = RackResolver.resolve(taskAttempt.nodeHostName).getNetworkLocation();
       taskAttempt.containerToken = cEvent.getContainer().getContainerToken();
       taskAttempt.assignedCapability = cEvent.getContainer().getResource();
       // this is a _real_ Task (classic Hadoop mapred flavor):

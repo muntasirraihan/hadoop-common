@@ -18,11 +18,17 @@ import org.apache.hadoop.yarn.SystemClock;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.factories.RecordFactory;
+import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerApp;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
+import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.util.Records;
 
 // Bring back preemption. Based on what was stripped out with
 //   HADOOP-5726 cs-without-preemption-23-1-2009.patch
@@ -51,37 +57,49 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend";
   private static final String SUSPEND_STRATEGY =
     CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend.strategy";
-  private static final String SUSPEND_UNIT =
-    CapacitySchedulerConfiguration.PREEMPT_PREFIX + "suspend.unit-mb";
   
   private static final long DEFAULT_INTERVAL_MS = 1000;
   private static final long DEFAULT_KILL_MS = 3000;
   private static final long DEFAULT_EXPIRE_MS = 6000;
   private static final float DEFAULT_UTILIZATION_TOL = 0.1f;
   private static final String DEFAULT_SUSPEND_STRATEGY = "random";
-  private static final int DEFAULT_SUSPEND_UNIT = 512;
 
   private boolean suspend = false;
   private String suspendStrategy = DEFAULT_SUSPEND_STRATEGY;
-  private int suspendUnit = DEFAULT_SUSPEND_UNIT;
   private boolean stopReclaim = false;
   private Clock clock = new SystemClock();
   
   protected CSQueue root;
   protected CapacitySchedulerContext scheduler;
 
-  protected Map<CSQueue, Integer> reclaimingAmounts = 
+  protected Map<CSQueue, Integer> reclaimingMemory = 
     new HashMap<CSQueue, Integer>();
+  private void addReclaimingMemory(CSQueue queue, int memory) {
+    int prev = 0;
+    if (reclaimingMemory.containsKey(queue))
+      prev = reclaimingMemory.get(queue);
+    reclaimingMemory.put(queue, prev + memory);
+  }
+  private void subtractReclaimingMemory(CSQueue queue, int memory) {
+    if (reclaimingMemory.containsKey(queue)) {
+      int prev = reclaimingMemory.get(queue);
+      int current = prev < memory ? 0 : prev - memory;
+      reclaimingMemory.put(queue, current);
+    }
+  }
+  
   protected Map<CSQueue, List<ReclaimedResource>> reclaimLists = 
     new HashMap<CSQueue, List<ReclaimedResource>>();
   protected Map<CSQueue, List<ReclaimedResource>> reclaimExpireLists = 
     new HashMap<CSQueue, List<ReclaimedResource>>();
   
+  private final RecordFactory recordFactory =
+    RecordFactoryProvider.getRecordFactory(null);
+  
   private static class ReclaimedResource {
-    // how much resource to reclaim
-    public int originalAmount;
-    // how much is to be reclaimed currently
-    public int currentAmount;
+    // how much resources still to reclaim
+    private ResourceRequest currentResources;
+    public final int originalContainers;
     // the time, in millisecs, when this object expires.
     // This time is equal to the time when the object was created, plus
     // the reclaim-time SLA for the queue.
@@ -90,12 +108,24 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     // fraction of 'whenToExpire', but we store it here so we don't
     // recompute it every time.
     public long whenToKill;
-
-    public ReclaimedResource(int amount, long expiryTime, long whenToKill) {
-      this.originalAmount = amount;
-      this.currentAmount = amount;
+    
+    public ReclaimedResource(ResourceRequest resources, long expiryTime, long whenToKill) {
+      this.currentResources = resources;
+      this.originalContainers = resources.getNumContainers();
       this.whenToExpire = expiryTime;
       this.whenToKill = whenToKill;
+    }
+    
+    public Resource getResource() {
+      return currentResources.getCapability();
+    }
+    
+    public void setNumContainers(int numContainers) {
+      currentResources.setNumContainers(numContainers);
+    }
+    
+    public int getNumContainers() {
+      return currentResources.getNumContainers();
     }
   }
   
@@ -110,7 +140,6 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     this.utilizationTolerance = conf.getFloat(UTILIZATION_TOL, DEFAULT_UTILIZATION_TOL);
     this.suspend = conf.getBoolean(SUSPEND, false);
     this.suspendStrategy = conf.get(SUSPEND_STRATEGY, DEFAULT_SUSPEND_STRATEGY);
-    this.suspendUnit = conf.getInt(SUSPEND_UNIT, DEFAULT_SUSPEND_UNIT);
     
     LOG.info("(bcho2) kill interval "+killInterval);
     LOG.info("(bcho2) suspend strategy "+suspendStrategy);
@@ -138,42 +167,46 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
    * e.g. when container is assigned in LeafQueue.assignContainers
    */
   public synchronized void updatePreemptor(LeafQueue leafQueue, Resource assigned) {
+    LOG.info("(bcho2) updatePreemptor resource "+assigned);
     List<ReclaimedResource> reclaimList = reclaimLists.get(leafQueue);
-    int reclaimAmount = assigned.getMemory();
-    LOG.info("(bcho2) updatedPreemptor: before reclaim amount "+reclaimAmount);
-    if (reclaimingAmounts.containsKey(leafQueue)) {
-      int amount = reclaimingAmounts.get(leafQueue);
-      int updatedAmount = amount - reclaimAmount;
-      LOG.info("(bcho2) after update preemptor updatedAmount "+updatedAmount);
-      if (updatedAmount <= 0) {
-        reclaimingAmounts.remove(leafQueue);
-      } else {
-        reclaimingAmounts.put(leafQueue, updatedAmount);
-      }
+    if (reclaimList == null) {
+      LOG.info("(bcho2) updatePreemptor reclaimList null, return");
+      return;
     }
-    if (reclaimList != null && !reclaimList.isEmpty()) {
-      Iterator<ReclaimedResource> it = reclaimList.iterator();
-      while(reclaimAmount > 0 && it.hasNext()) {
-        ReclaimedResource reclaimedResource = it.next();
-        if (reclaimAmount >= reclaimedResource.currentAmount) {
-          reclaimAmount -= reclaimedResource.currentAmount;
-          reclaimedResource.currentAmount = 0;
-          // move to reclaimExpireLists -- doing it right?
+    ReclaimedResource reclaimed = null;
+    Iterator<ReclaimedResource> it = reclaimList.iterator();
+    while (it.hasNext()) {
+      ReclaimedResource rec = it.next();
+      if (rec.getResource().equals(assigned)) {
+        if (rec.getNumContainers() <= 0) {
+          addReclaimExpire(leafQueue, rec);
           it.remove();
-          addReclaimExpire(leafQueue, reclaimedResource);
         } else {
-          reclaimedResource.currentAmount -= reclaimAmount;
-          reclaimAmount = 0;
+          reclaimed = rec;
+          break;
         }
       }
     }
-    LOG.info("(bcho2) updatedPreemptor: after reclaim amount "+reclaimAmount);
+    if (reclaimed == null) {
+      LOG.info("(bcho2) updatePreemptor reclaimed null, return");
+      return;
+    }
+
+    int numContainers = reclaimed.getNumContainers();
+    // TODO: maybe go back to addReclaimExpire, with more reasonable timeouts
+    // subtractReclaimingMemory(leafQueue, assigned.getMemory());
+    numContainers--;
+    reclaimed.setNumContainers(numContainers);
+    LOG.info("(bcho2) updatePreemptor"+
+        " reclaimed memory "+reclaimed.getResource().getMemory()+
+    		" containers "+numContainers);
   }
   
   public void reclaimCapacity() {
     // * Update lists:
     long currentTime = clock.getTime();
     // reclaim -> reclaimExpire
+    List<ReclaimedResource> killList = new ArrayList<ReclaimedResource>();
     int killAmount = 0;
     for (Entry<CSQueue, List<ReclaimedResource>> entry : reclaimLists.entrySet()) {
       Iterator<ReclaimedResource> it = entry.getValue().iterator();
@@ -183,13 +216,15 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
             +" whenToKill "+reclaimedResource.whenToKill
             +" currentTime "+currentTime);
         if (reclaimedResource.whenToKill < currentTime) {
+          int memory = reclaimedResource.getNumContainers() * reclaimedResource.getResource().getMemory();
           LOG.info("(bcho2) move to expire list, and add kill amount!"
               +" queue "+entry.getKey().getQueuePath()
-              +" amount "+reclaimedResource.currentAmount);
+              +" memory "+memory);
           it.remove();
           addReclaimExpire(entry.getKey(), reclaimedResource);
 
-          killAmount += reclaimedResource.currentAmount;
+          killAmount += memory;
+          killList.add(reclaimedResource);
         }
       }
     }
@@ -203,21 +238,12 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
             +" whenToExpire "+reclaimedResource.whenToExpire
             +" currentTime "+currentTime);
         if (reclaimedResource.whenToExpire < currentTime) {
+          int memory = reclaimedResource.originalContainers * reclaimedResource.getResource().getMemory();
           LOG.info("(bcho2) remove from expire list"
               +" queue "+queue.getQueuePath()
-              +" amount "+reclaimedResource.currentAmount);
+              +" memory "+memory);
           it.remove();
-          
-          if (reclaimingAmounts.containsKey(queue)) {
-            int amount = reclaimingAmounts.get(queue);
-            int updatedAmount = amount - reclaimedResource.currentAmount;
-            LOG.info("(bcho2) after remove from expire list updatedAmount "+updatedAmount);
-            if (updatedAmount <= 0) {
-              reclaimingAmounts.remove(queue);
-            } else {
-              reclaimingAmounts.put(queue, updatedAmount);
-            }
-          }
+          subtractReclaimingMemory(queue, memory);
         }
       }
     }
@@ -244,65 +270,89 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       metrics.getAllocatedMB();
     
     // 2. Check if anything to reclaim
-    Map<CSQueue, List<Resource>> needMap =
-      findQueueNeedResources(root, new HashMap<CSQueue, List<Resource>>());
+    Map<CSQueue, List<ResourceRequest>> needMap =
+      findQueueNeedResources(root, new HashMap<CSQueue, List<ResourceRequest>>());
     // Remove queues that are already over cap
     for (CSQueue queue : overCapList) {
       needMap.remove(queue);
     }
     if (needMap.isEmpty()) {
       LOG.debug("(bcho2) no queues need resources");
-      return;      
+      return;
     }
-    int releaseAmount = 0;
-    for (Entry<CSQueue, List<Resource>> needEntry : needMap.entrySet()) {
-      int memNeeded = 0;
+    for (Entry<CSQueue, List<ResourceRequest>> needEntry : needMap.entrySet()) {
       CSQueue queue = needEntry.getKey();
-      for (Resource resource : needEntry.getValue()) {
-        memNeeded += resource.getMemory();
-        LOG.info("(bcho2) queue "+queue.getQueuePath()+
-          " needs resource "+resource.getMemory());
-      }
-      if (memNeeded == 0)
-        continue;
-      int memReclaiming = 0;
-      float memReclaimingRatio = 0.0f;
-      
-      if (reclaimingAmounts.containsKey(queue)) {
-        memReclaiming = reclaimingAmounts.get(queue);
-        memReclaimingRatio = (float)memReclaiming / rootMB;
-      }
-      LOG.info("(bcho2) addIF"
-          + " memNeeded " + memNeeded
-          + " memReclaiming " + memReclaiming
-          + " queueUsed " + queue.getAbsoluteUsedCapacity()
-          + " memReclaimingRatio " + memReclaimingRatio
-          + " queueCap " + queue.getAbsoluteCapacity());
-      // If (need memory) && (not given capacity of memory), including what has been reclaimed
-      if ((memNeeded - memReclaiming) > 0 &&
-              (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)
-                < queue.getAbsoluteCapacity()) {
-        // TODO while adding to the queue, also alert the AM's that some more resources are wanted
-        addReclaim(queue,
-            new ReclaimedResource(memNeeded-memReclaiming,
-                currentTime+expireInterval,
-                currentTime+killInterval));
-        releaseAmount += (memNeeded-memReclaiming);
+      for (ResourceRequest request : needEntry.getValue()) {
+        int memNeeded = request.getCapability().getMemory() * request.getNumContainers();
+        int memReclaiming = 0;
+        float memReclaimingRatio = 0.0f;
+        if (reclaimingMemory.containsKey(queue)) {
+          memReclaiming = reclaimingMemory.get(queue);
+          memReclaimingRatio = (float)memReclaiming / rootMB;
+        }
+        
+        LOG.info("(bcho2) addIF"
+            + " memNeeded " + memNeeded
+            + " memReclaiming " + memReclaiming
+            + " queue "+queue.getQueueName()
+            + " queueUsed " + queue.getAbsoluteUsedCapacity()
+            + " memReclaimingRatio " + memReclaimingRatio
+            + " queueCap " + queue.getAbsoluteCapacity());
+
+        // If (need memory) && (not given capacity of memory), including what has been reclaimed
+        if ((memNeeded - memReclaiming) > 0 &&
+                (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)
+                  < queue.getAbsoluteCapacity()) {
+          // TODO while adding to the queue, also alert the AM's that some more resources are wanted
+          addReclaim(queue,
+              new ReclaimedResource(request,
+                  currentTime+expireInterval,
+                  currentTime+killInterval));
+          releaseContainers(request, overCapList);
+        }
       }
     }
     
     // * Go through queues, tell AM to release resources
-    if (suspend && releaseAmount > 0) {
-      LOG.info("(bcho2) release amount "+releaseAmount);
-      if (overCapList.size() > 0) {
-        releaseContainers(releaseAmount, overCapList);
-      }
-    }
-    // * Go through queues, kill containers (through NM)
+    // This is now done above
+//    if (suspend && releaseAmount > 0) {
+//      LOG.info("(bcho2) release amount "+releaseAmount);
+//      if (overCapList.size() > 0) {
+//        releaseContainers(releaseAmount, overCapList);
+//      }
+//    }
+    // * Go through queues, kill containers (through NM)    
     if (killAmount > 0) {
-      LOG.info("(bcho2) kill amount "+killAmount);
+      LOG.info("(bcho2) kill amount "+killAmount+" but not killing!");
+      
       if (overCapList.size() > 0) {
-        killContainers(killAmount, overCapList);
+        for (ReclaimedResource rec : killList) {
+          LOG.info("(bcho2) ignoring one last time "+rec.currentResources.getNumContainers()+
+              "");
+          if (needMap.size() == 0) {
+            LOG.info("(bcho2) ignoring, needMap empty");
+          }
+          for (CSQueue need : needMap.keySet()) {
+            LOG.info("(bcho2) ignoring, needMap: "+need.getQueueName()+
+                " queueUsed " + need.getAbsoluteUsedCapacity()+
+                " queueCap " + need.getAbsoluteCapacity()+
+                " tolerance " + utilizationTolerance);
+          }
+          for (Entry<CSQueue, List<ReclaimedResource>> entry : reclaimLists.entrySet()) {
+            List<ReclaimedResource> list = entry.getValue();
+            if (list != null && list.size() > 0) {
+              for (ReclaimedResource reclaim : list) {
+                LOG.info("(bcho2) ignoring, reclaim: "+entry.getKey()+
+                    " memory "+reclaim.currentResources.getCapability().getMemory()+
+                    " containers "+reclaim.currentResources.getNumContainers());
+              }
+            }
+          }
+          
+          // LOG.info("(bcho2) try release one last time "+rec.currentResources.getNumContainers());
+          // releaseContainers(rec.currentResources, overCapList); 
+        }
+        // killContainers(killAmount, overCapList);
       }
     }
   }
@@ -310,23 +360,50 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   static class ResourcesComparator
   implements Comparator<SchedulerApp> {
 
+    private Map<SchedulerApp, Resource> releasingConsumption = 
+      new HashMap<SchedulerApp, Resource>();
+    
+    public void releaseConsumption(SchedulerApp app, int memory) {
+      Resource release = Resources.createResource(memory);
+      if (!releasingConsumption.containsKey(app)) {
+        releasingConsumption.put(app, release);
+      } else {
+        releasingConsumption.put(app,
+            Resources.addTo(releasingConsumption.get(app), release));
+      }
+    }
+    
     @Override
     public int compare(SchedulerApp o1, SchedulerApp o2) {
-      return o1.getCurrentConsumption().compareTo(o2.getCurrentConsumption());
+      if (!releasingConsumption.containsKey(o1)) {
+        releasingConsumption.put(o1, Resources.createResource(0));
+      }
+      if (!releasingConsumption.containsKey(o2)) {
+        releasingConsumption.put(o2, Resources.createResource(0));
+      }
+      
+      Resource o1r = Resources.subtract(o1.getCurrentConsumption(),
+          releasingConsumption.get(o1));
+      Resource o2r = Resources.subtract(o2.getCurrentConsumption(),
+          releasingConsumption.get(o2));
+      
+      return o1r.compareTo(o2r);
     }
   }
   
-  private void releaseContainers(int releaseAmount, List<CSQueue> overCapList) {
-    LOG.info("(bcho2) release containers: amount "+releaseAmount);
+  private void releaseContainers(ResourceRequest releaseRequest, List<CSQueue> overCapList) {
+    LOG.info("(bcho2) release containers: memory "+releaseRequest.getCapability()+
+        " num containers "+releaseRequest.getNumContainers());
+    int releasedContainers = 0;
     for (CSQueue queue : overCapList) {
       List<SchedulerApp> releasableApplications =
         new ArrayList<SchedulerApp>(((LeafQueue)queue).getActiveApplications());
       if ("random".equals(suspendStrategy)) {
-        releaseAmount =
-          releaseContainersRandom(releaseAmount, releasableApplications);
+        releasedContainers =
+          releaseContainersRandom(releaseRequest, releasableApplications);
       } else if ("probabilistic".equals(suspendStrategy)) {
-        releaseAmount =
-          releaseContainersProbabilistic(releaseAmount, releasableApplications);
+        releasedContainers =
+          releaseContainersProbabilistic(releaseRequest, releasableApplications);
       } else { // Use some kind of Comparator
         Comparator<SchedulerApp> comparator = null;
         if ("least-resources".equals(suspendStrategy)) {
@@ -334,40 +411,124 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         } else if ("most-resources".equals(suspendStrategy)) {
           comparator = Collections.reverseOrder(new ResourcesComparator());
         }
-        Collections.sort(releasableApplications, comparator);
-        releaseAmount = 
-          releaseContainersOrdered(releaseAmount, releasableApplications);
+        releasedContainers = 
+          releaseContainersOrderedIncremental(releaseRequest, releasableApplications, comparator);
+        // TODO: A lot of repeated code here. Combine w/ probabilistic, by passing along the function (as an interface) that gets the next entry.
       }
     }
-    LOG.info("(bcho2) unassigned releaseAmount "+releaseAmount);
+    LOG.info("(bcho2) number released "+releasedContainers);
   }
   
-  private int releaseContainersOrdered(int releaseAmount, List<SchedulerApp> releasableApplications) {
+  private ResourceRequest createReleaseRequest(ResourceRequest baseRequest, int numContainers) {
+    ResourceRequest request = BuilderUtils.newResourceRequest(baseRequest);
+    request.setNumContainers(numContainers);
+    return request;
+  }
+
+  private int releaseContainersOrdered(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
+    final int memoryPerContainer = releaseRequest.getCapability().getMemory();
+    final int totalContainersToRelease = releaseRequest.getNumContainers();
+    int totalContainersReleased = 0;
     for (SchedulerApp app : releasableApplications) {
+      if (totalContainersReleased >= totalContainersToRelease)
+        break;
+      
       Resource consumption = app.getCurrentConsumption();
       int releasableMemory =
         consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
                                       getMasterContainer().getResource().getMemory();
-      // LOG.info("(bcho2) release containers: current consumption "+consumption+
-      //     " app progress "+app.getRMApp().getProgress()+
-      //     " app Master consumption "+app.getRMApp().getCurrentAppAttempt().getMasterContainer().getResource());
-      // for (Priority prio : app.getPriorities()) {
-      //   LOG.info("(bcho2) release containers: prio "+prio.getPriority()+
-      //       " required resources "+app.getTotalRequiredResources(prio));
-      // }
-      if (releasableMemory >= releaseAmount) {
-        app.addReleaseMemory(releaseAmount);
-        return 0;
-      } else {
-        app.addReleaseMemory(releasableMemory);
-        releaseAmount -= releasableMemory;
+      
+      int containersToRelease = (releasableMemory / memoryPerContainer) + (releasableMemory % memoryPerContainer == 0 ? 0 : 1);
+      if (containersToRelease == 0) {
+        continue;
+      } else if (containersToRelease > totalContainersToRelease) {
+        containersToRelease = totalContainersToRelease;
+      }
+
+      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
+      app.addReleaseRequests(appRequest);
+      
+      totalContainersReleased += containersToRelease;
+    }
+    return totalContainersReleased;
+  }
+
+  private int releaseContainersOrderedIncremental(ResourceRequest releaseRequest,
+      List<SchedulerApp> releasableApplications, Comparator<SchedulerApp> comparator) {
+    final int memoryPerContainer = releaseRequest.getCapability().getMemory();
+    final int totalContainersToRelease = releaseRequest.getNumContainers();
+    int totalContainersReleased = 0;
+    Map<SchedulerApp, Integer> containersMap =
+      new HashMap<SchedulerApp, Integer>(releasableApplications.size());
+
+    int totalReleasableContainers = 0;
+    LinkedHashMap<SchedulerApp, Integer> releasable =
+      new LinkedHashMap<SchedulerApp, Integer>(releasableApplications.size());
+    
+    for (SchedulerApp app : releasableApplications) {
+      containersMap.put(app, 0);
+      Resource consumption = app.getCurrentConsumption();
+      int releasableMemory = consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
+                             getMasterContainer().getResource().getMemory();
+      int releasableContainers = releasableMemory/memoryPerContainer;
+      if (releasableContainers > 0) {
+        releasable.put(app, releasableContainers);
+        totalReleasableContainers += releasableContainers;
       }
     }
-    return releaseAmount;
+
+    while(totalContainersToRelease > totalContainersReleased &&
+        totalReleasableContainers > 0) {
+      if (releasableApplications.isEmpty()) {
+        break;
+      }
+      Collections.sort(releasableApplications, comparator); // shouldn't be too much of a bottleneck, right?
+      // But, just sorting on current consumption doesn't work...
+      
+      SchedulerApp app = releasableApplications.get(0);
+      int releasableContainers = releasable.get(app);
+      
+      if (releasableContainers > 0) {
+        containersMap.put(app, containersMap.get(app)+1);
+        totalContainersReleased++;
+        totalReleasableContainers--;
+        
+        ((ResourcesComparator)comparator).releaseConsumption(app, memoryPerContainer);
+        
+        LOG.info("(bcho2) releaseContainersOrderedIncremental app "+app+
+            " containers "+containersMap.get(app));
+        if (releasableContainers <= 1) {
+          releasable.remove(app);
+          releasableApplications.remove(0);
+        } else {
+          releasableContainers--;
+          releasable.put(app, releasableContainers);
+        }
+      } else {
+        LOG.error("(bcho2) releasableContainers "+releasableContainers+
+            " for "+app);
+      }
+    }
+
+    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
+      SchedulerApp app = entry.getKey();
+      int containersToRelease = entry.getValue();
+      LOG.info("(bcho2) containersMap app "+app+
+          " containersToRelease "+containersToRelease);
+      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
+      app.addReleaseRequests(appRequest);
+    }
+    return totalContainersReleased;
   }
-  
-  private int releaseContainersRandom(int releaseAmount, List<SchedulerApp> releasableApplications) {
-    while(releasableApplications.size() > 0 && releaseAmount > 0) {
+
+  private int releaseContainersRandom(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
+    final int memoryPerContainer = releaseRequest.getCapability().getMemory();
+    final int totalContainersToRelease = releaseRequest.getNumContainers();
+    int totalContainersReleased = 0;
+    Map<SchedulerApp, Integer> containersMap =
+      new HashMap<SchedulerApp, Integer>(releasableApplications.size());
+    
+    while(releasableApplications.size() > 0 && totalContainersReleased < totalContainersToRelease) {
       Collections.shuffle(releasableApplications);
       Iterator<SchedulerApp> it = releasableApplications.iterator();
       while (it.hasNext()) {
@@ -376,32 +537,50 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         int releasableMemory =
           consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
                                         getMasterContainer().getResource().getMemory();
-        if (releasableMemory >= suspendUnit) {
-          app.addReleaseMemory(suspendUnit);
-          releaseAmount -= suspendUnit;
+        if (releasableMemory >= memoryPerContainer) {
+          containersMap.put(app, containersMap.get(app)+1);
+          totalContainersReleased++;
         } else {
           it.remove();
         }
       }
     }
-    return releaseAmount;
+    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
+      SchedulerApp app = entry.getKey();
+      int containersToRelease = entry.getValue();
+      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
+      app.addReleaseRequests(appRequest);
+    }
+    
+    return totalContainersReleased;
   }
 
   Random random = new Random();
-  private int releaseContainersProbabilistic(int releaseAmount, List<SchedulerApp> releasableApplications) {
-    int totalReleasable = 0;
+  private int releaseContainersProbabilistic(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
+    final int memoryPerContainer = releaseRequest.getCapability().getMemory();
+    final int totalContainersToRelease = releaseRequest.getNumContainers();
+    int totalContainersReleased = 0;
+    Map<SchedulerApp, Integer> containersMap =
+      new HashMap<SchedulerApp, Integer>(releasableApplications.size());
+    
+    int totalReleasableContainers = 0;
     LinkedHashMap<SchedulerApp, Integer> releasable =
       new LinkedHashMap<SchedulerApp, Integer>(releasableApplications.size());
     
     for (SchedulerApp app : releasableApplications) {
+      containersMap.put(app, 0);
       Resource consumption = app.getCurrentConsumption();
       int releasableMemory = consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
-                             getMasterContainer().getResource().getMemory(); 
-      releasable.put(app, releasableMemory);
-      totalReleasable += releasableMemory;
+                             getMasterContainer().getResource().getMemory();
+      int releasableContainers = releasableMemory/memoryPerContainer;
+      if (releasableContainers > 0) {
+        releasable.put(app, releasableContainers);
+        totalReleasableContainers += releasableContainers;
+      }
     }
 
-    while(totalReleasable > 0) {
+    while(totalContainersToRelease > totalContainersReleased &&
+        totalReleasableContainers > 0) {
       double rand = random.nextDouble();
       double lo;
       double hi = 0.0;
@@ -409,7 +588,9 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       
       for (Entry<SchedulerApp, Integer> e : releasable.entrySet()) {
         lo = hi;
-        hi += ((double)e.getValue())/totalReleasable;
+        hi += ((double)e.getValue())/totalReleasableContainers;
+        LOG.info("(bcho2) probabilistic app "+e.getKey().getApplicationId()+
+            " lo "+lo+" hi "+hi+" rand "+rand);
         if (rand >= lo && rand < hi) { // Found our entry
           entry = e;
           break;
@@ -421,17 +602,30 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       }
       
       SchedulerApp app = entry.getKey();
-      int releasableMemory = entry.getValue();
-      if (releasableMemory >= suspendUnit) {
-        app.addReleaseMemory(suspendUnit);
-        releaseAmount -= suspendUnit;
-        totalReleasable -= suspendUnit;
+      int releasableContainers = entry.getValue();
+      
+      if (releasableContainers > 0) {
+        containersMap.put(app, containersMap.get(app)+1);
+        totalContainersReleased++;
+        totalReleasableContainers--;
+        if (releasableContainers <= 1) {
+          releasable.remove(app);
+        } else {
+          releasableContainers--;
+          entry.setValue(releasableContainers);
+        }
       } else {
-        entry.setValue(0);
-        totalReleasable -= releasableMemory;
+        LOG.error("(bcho2) releasableContainers "+releasableContainers+
+            " for "+app);
       }
     }
-    return releaseAmount;
+    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
+      SchedulerApp app = entry.getKey();
+      int containersToRelease = entry.getValue();
+      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
+      app.addReleaseRequests(appRequest);
+    }
+    return totalContainersReleased;
   }
   
   // TODO: sort this list, or otherwise evenly distribute the kills
@@ -441,6 +635,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     for (CSQueue queue : overCapList) {
       for (SchedulerApp app : ((LeafQueue)queue).getActiveApplications()) {
         Resource consumption = app.getCurrentConsumption();
+        
         LOG.info("(bcho2) kill containers: current consumption "+consumption);
         for (RMContainer container : app.getLiveContainers()) {
           if (killAmount <= 0) {
@@ -469,11 +664,12 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   
   private synchronized void addReclaim(CSQueue queue,
       ReclaimedResource reclaimedResource) {
-    int memAmount = reclaimedResource.originalAmount;
-    int previousAmount = 0;
-    if (reclaimingAmounts.containsKey(queue))
-      previousAmount = reclaimingAmounts.get(queue);
-    reclaimingAmounts.put(queue, previousAmount + memAmount);
+    int numContainers = reclaimedResource.getNumContainers();
+    if (numContainers < 0) {
+      LOG.warn("(bcho2) Should NOT be less than zero. Just leaving.");
+      return;
+    }
+    addReclaimingMemory(queue, numContainers * reclaimedResource.getResource().getMemory());
     
     List<ReclaimedResource> reclaimList = reclaimLists.get(queue);
     if (reclaimList == null) {
@@ -483,11 +679,12 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     reclaimList.add(reclaimedResource);
 
     LOG.info("(bcho2) add reclaimed resource, queue "+queue.getQueuePath()
-        +" amount "+memAmount+" total amount "+(memAmount+previousAmount));
+        +" amount "+numContainers+" total amount "+reclaimingMemory.get(queue));
   }
   
   private synchronized void addReclaimExpire(CSQueue queue,
       ReclaimedResource reclaimedResource) {
+    int numContainers = reclaimedResource.getNumContainers();
     List<ReclaimedResource> reclaimExpireList = reclaimExpireLists.get(queue);
     if (reclaimExpireList == null) {
       reclaimExpireList = new LinkedList<ReclaimedResource>();
@@ -495,7 +692,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
     reclaimExpireList.add(reclaimedResource);
 
-    LOG.info("(bcho2) add reclaimed expired resource, queue "+queue.getQueuePath());
+    LOG.info("(bcho2) add reclaimed expired resource, queue "+queue.getQueuePath()
+        +" amount "+numContainers+" total amount "+reclaimingMemory.get(queue));
   }
 
   // Recursive function
@@ -516,11 +714,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   }
 
   // Recursive function
-  private Map<CSQueue,List<Resource>> findQueueNeedResources(CSQueue queue,
-      Map<CSQueue, List<Resource>> needMap) {
+  private Map<CSQueue,List<ResourceRequest>> findQueueNeedResources(CSQueue queue,
+      Map<CSQueue, List<ResourceRequest>> needMap) {
     List<CSQueue> children = queue.getChildQueues();
     if (children == null) { // LeafQueue
-      List<Resource> needList = ((LeafQueue)queue).needResources();
+      List<ResourceRequest> needList = ((LeafQueue)queue).needResources();
       if (!needList.isEmpty()) {
         needMap.put(queue, needList);
       }

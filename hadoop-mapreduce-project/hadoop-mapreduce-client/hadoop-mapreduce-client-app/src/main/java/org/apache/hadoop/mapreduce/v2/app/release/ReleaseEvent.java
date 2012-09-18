@@ -19,17 +19,17 @@
 package org.apache.hadoop.mapreduce.v2.app.release;
 
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
-import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.event.AbstractEvent;
 
 public class ReleaseEvent extends AbstractEvent<Releaser.EventType> {
 
-  private Resource releaseResource;
+  private ResourceRequest releaseRequest;
   private TaskId taskId;
   
-  public ReleaseEvent(Resource releaseResource) {
+  public ReleaseEvent(ResourceRequest releaseRequest) {
     super(Releaser.EventType.RELEASE_RESOURCES);
-    this.releaseResource = releaseResource;
+    this.releaseRequest = releaseRequest;
   }
   
   public ReleaseEvent(TaskId taskId) {
@@ -37,8 +37,8 @@ public class ReleaseEvent extends AbstractEvent<Releaser.EventType> {
     this.taskId = taskId;
   }
 
-  public Resource getReleaseResource() {
-    return releaseResource;
+  public ResourceRequest getReleaseRequest() {
+    return releaseRequest;
   }
   
   public TaskId getTaskId() {

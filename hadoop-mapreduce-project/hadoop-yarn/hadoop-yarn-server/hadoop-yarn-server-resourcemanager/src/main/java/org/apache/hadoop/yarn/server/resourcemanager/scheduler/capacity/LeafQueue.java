@@ -777,14 +777,15 @@ public class LeafQueue implements CSQueue {
                                 // for reserved containers
     }
     
+    LOG.debug("(bcho2) activeApplication.size "+activeApplications.size());
     // Try to assign containers to applications in order
     for (SchedulerApp application : activeApplications) {
       
-      if(LOG.isDebugEnabled()) {
-        LOG.debug("pre-assignContainers for application "
+      //if(LOG.isDebugEnabled()) {
+        LOG.info("pre-assignContainers for application "
         + application.getApplicationId());
         application.showRequests();
-      }
+      //}
 
       synchronized (application) {
         // Schedule in priority order
@@ -795,13 +796,13 @@ public class LeafQueue implements CSQueue {
 
           // Do we need containers at this 'priority'?
           if (!needContainers(application, priority, required)) {
-            if (priority.getPriority() == 3) {
+            // if (priority.getPriority() == 3) {
               LOG.info("(bcho2) assignment unneeded,"
                   +" node="+node
                   +" application="+application.getApplicationId()
                   +" priority="+priority
                   +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
-            }
+            // }
             continue;
           }
 
@@ -883,7 +884,7 @@ public class LeafQueue implements CSQueue {
       application.showRequests();
     }
 
-    LOG.info("(bcho2) assignment returning null,"
+    LOG.debug("(bcho2) assignment returning null,"
       +" node="+node);
     return NULL_ASSIGNMENT;
 
@@ -1076,34 +1077,54 @@ public class LeafQueue implements CSQueue {
                 (1.0f - (Math.min(nodeFactor, getMinimumAllocationFactor())))
                );
       
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("needsContainers:" +
+      // if (LOG.isDebugEnabled()) {
+        LOG.info("needsContainers:" +
             " app.#re-reserve=" + application.getReReservations(priority) + 
             " reserved=" + reservedContainers + 
             " nodeFactor=" + nodeFactor + 
             " minAllocFactor=" + minimumAllocationFactor +
-            " starvation=" + starvation);
-      }
+            " starvation=" + starvation +
+            " finalvalue=" + ((starvation + requiredContainers) - reservedContainers) );
+      // }
+    } else {
+      LOG.info("(bcho2) application "+application+
+          " priority "+priority+
+          " required "+required+
+          " starvation "+starvation+
+          " requiredContainers "+requiredContainers+
+          " reservedContainers "+reservedContainers);
     }
     return (((starvation + requiredContainers) - reservedContainers) > 0);
   }
   
-  public List<Resource> needResources() {
-    List<Resource> needList = new LinkedList<Resource>();
+  public List<ResourceRequest> needResources() {
+    List<ResourceRequest> needList = new LinkedList<ResourceRequest>();
     for (SchedulerApp application : activeApplications) {
       synchronized (application) {
         for (Priority priority : application.getPriorities()) {
           // Required resource
-          Resource required = 
-              application.getResourceRequest(priority, RMNode.ANY).getCapability();
+          ResourceRequest request =
+            application.getSavedRequest(priority, RMNode.ANY);
+          Resource required = request.getCapability();
+
+          if (request.getNumContainers() > 0) {
+            LOG.info("(bcho2) NEED resource "+required.getMemory()+
+                " containers "+request.getNumContainers()+
+                " queue "+queueName+
+                " app "+application.getApplicationId().toString()+
+                " prio "+priority.getPriority());
+            needList.add(request);
+          }
+          /*
           // Do we need containers at this 'priority'?
           if (needContainers(application, priority, required)) {
-            LOG.info("(bcho2) need containers at " +
+            LOG.info("(bcho2) need containers " +request.getNumContainers()+
               " app "+application.getApplicationId().toString()+
               " prio "+priority.getPriority()+
               " resource "+required.getMemory());
-            needList.add(required);
+            needList.add(request);
           }
+          */
         }
       }
     }
@@ -1346,6 +1367,11 @@ public class LeafQueue implements CSQueue {
 
       return container.getResource();
     } else {
+      if (priority.getPriority() == 0) { // HACK!!
+        LOG.warn("(bcho2) NEVER reserve an AM slot, this could lead to never starting job; doing it anyway");
+        // return Resources.none();
+      }
+      
       // Reserve by 'charging' in advance...
       reserve(application, priority, node, rmContainer, container);
 

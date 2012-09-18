@@ -25,6 +25,8 @@ import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptReport;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptState;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.Resource;
 
 
 /**
@@ -59,7 +61,12 @@ public interface TaskAttempt {
    * @return node's http address if a container is assigned, otherwise null.
    */
   String getNodeHttpAddress();
-  
+
+  /**
+   * @return node's host name if a container is assigned, otherwise null.
+   */
+  String getNodeHostName();
+
   /**
    * @return node's rack name if a container is assigned, otherwise null.
    */
@@ -93,4 +100,6 @@ public interface TaskAttempt {
    * @return the port shuffle is on.
    */
   public int getShufflePort();
+  
+  public Resource getResourceCapability();
 }

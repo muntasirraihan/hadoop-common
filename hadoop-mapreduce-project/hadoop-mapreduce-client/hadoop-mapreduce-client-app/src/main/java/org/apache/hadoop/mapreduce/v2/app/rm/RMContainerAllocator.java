@@ -63,6 +63,7 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.util.RackResolver;
@@ -592,19 +593,15 @@ public class RMContainerAllocator extends RMContainerRequestor
                                this.getContext().getApplicationID());
     }
     
-    Resource releaseResource = response.getReleaseResources(); 
-    int releaseMemory =
-      releaseResource != null ? releaseResource.getMemory() : 0;
-    if (releaseMemory > 0) {
-      // TODO: send some kind of event to the correct (a new one?) handler
-      LOG.info("(bcho2) mock:"
-          +" release memory "+releaseMemory);
-      // TODO (bcho2) Eventually, call TaskAttempt handlers,
-      // but likely, using a class that has its own handle(),
-      // that will find out what taskAttempts it wants to suspend
-      // SEE: MRAppMaster.dispatcher.register(...)
-      getContext().getEventHandler().handle(                                                                                                                  
-          new ReleaseEvent(releaseResource));
+    List<ResourceRequest> releaseResources = response.getReleaseRequests();
+    for (ResourceRequest releaseResource : releaseResources) {
+      int numContainers = releaseResource.getNumContainers();
+      if (numContainers > 0) {
+        LOG.info("(bcho2) release containers "+numContainers
+            +" with memory "+releaseResource.getCapability().getMemory());
+        getContext().getEventHandler().handle(
+            new ReleaseEvent(releaseResource));
+      }
     }
     
     int newHeadRoom = getAvailableResources() != null ? getAvailableResources().getMemory() : 0;

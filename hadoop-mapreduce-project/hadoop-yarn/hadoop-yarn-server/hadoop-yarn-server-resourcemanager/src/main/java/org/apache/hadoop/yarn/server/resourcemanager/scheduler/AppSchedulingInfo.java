@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,6 +42,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
+import org.apache.hadoop.yarn.util.BuilderUtils;
 
 /**
  * This class keeps track of all the consumption of an application. This also
@@ -62,7 +64,7 @@ public class AppSchedulingInfo {
       new org.apache.hadoop.yarn.server.resourcemanager.resource.Priority.Comparator());
   final Map<Priority, Map<String, ResourceRequest>> requests = 
     new HashMap<Priority, Map<String, ResourceRequest>>();
-
+  
   //private final ApplicationStore store;
   private final ActiveUsersManager activeUsersManager;
   
@@ -189,6 +191,16 @@ public class AppSchedulingInfo {
   synchronized public Map<String, ResourceRequest> getResourceRequests(
       Priority priority) {
     return requests.get(priority);
+  }
+
+  synchronized public ResourceRequest getSavedRequest(Priority priority,
+      String nodeAddress) {
+    ResourceRequest request = getResourceRequest(priority, nodeAddress);
+    if (request == null) {
+      return null;
+    } else {
+      return BuilderUtils.newResourceRequest(request);
+    }
   }
 
   synchronized public ResourceRequest getResourceRequest(Priority priority,

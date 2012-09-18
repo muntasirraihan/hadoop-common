@@ -78,8 +78,10 @@ public class SchedulerApp {
       .newRecordInstance(Resource.class);
   private Resource resourceLimit = recordFactory
       .newRecordInstance(Resource.class);
-  private Resource releaseResources = recordFactory
-      .newRecordInstance(Resource.class);
+  // private Resource releaseResources = recordFactory
+  //     .newRecordInstance(Resource.class);
+  private List<ResourceRequest> releaseRequests =
+      new ArrayList<ResourceRequest>();
 
   private Map<ContainerId, RMContainer> liveContainers
   = new HashMap<ContainerId, RMContainer>();
@@ -147,6 +149,10 @@ public class SchedulerApp {
   
   public Collection<Priority> getPriorities() {
     return this.appSchedulingInfo.getPriorities();
+  }
+  
+  public ResourceRequest getSavedRequest(Priority priority, String nodeAddress) {
+    return this.appSchedulingInfo.getSavedRequest(priority, nodeAddress);
   }
 
   public ResourceRequest getResourceRequest(Priority priority, String nodeAddress) {
@@ -468,7 +474,7 @@ public class SchedulerApp {
     
     return resourceLimit;
   }
-  
+  /*
   public synchronized void addReleaseMemory(int memory) {
     releaseResources.setMemory(releaseResources.getMemory() + memory);
   }
@@ -478,6 +484,19 @@ public class SchedulerApp {
     this.releaseResources = recordFactory
       .newRecordInstance(Resource.class); // reset
     return resource;
+  }
+  */
+
+  public synchronized void addReleaseRequests(ResourceRequest releaseRequest) {
+    LOG.info("(bcho2) release request memory "+releaseRequest.getCapability().getMemory()+
+        " containers "+releaseRequest.getNumContainers());
+    releaseRequests.add(releaseRequest);
+  }
+
+  public synchronized List<ResourceRequest> pullReleaseRequests() {
+    List<ResourceRequest> resources = this.releaseRequests;
+    this.releaseRequests = new ArrayList<ResourceRequest>();
+    return resources;
   }
 
   public Queue getQueue() {

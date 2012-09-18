@@ -1,14 +1,13 @@
 package org.apache.hadoop.mapreduce.v2.app.release;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.SortedMap;
+import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,8 +23,8 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
-import org.apache.hadoop.mapreduce.v2.app.speculate.ExponentiallySmoothedTaskRuntimeEstimator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.TaskRuntimeEstimator;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.service.AbstractService;
 
@@ -42,21 +41,18 @@ public class Releaser extends AbstractService implements
   private final Configuration conf;
   private final AppContext context;
   private Thread releaserBackgroundThread = null;
-  private final int memory;
   private final EventHandler eventHandler;
   private final TaskRuntimeEstimator estimator;
   private final String releaseStrategy;
   private final int releaserPollInterval;
   
-  private SortedMap<Long, TaskAttempt> suspendableTaskAttempts;
+  private List<EstimatedAttempt> suspendableTaskAttempts;
   
   public Releaser(Configuration conf, AppContext context, TaskRuntimeEstimator estimator) {
     super(Releaser.class.getName());
     this.conf = conf;
     this.context = context;
     
-    this.memory = conf.getInt(MRJobConfig.REDUCE_MEMORY_MB,
-                              MRJobConfig.DEFAULT_REDUCE_MEMORY_MB);
     this.eventHandler = context.getEventHandler();
     this.estimator = estimator;
     this.releaseStrategy = conf.get(
@@ -107,10 +103,33 @@ public class Releaser extends AbstractService implements
     super.stop();
   }
 
+  static class EstimatedAttempt implements Comparable<EstimatedAttempt> {
+    private final long estimate;
+    private final TaskAttempt attempt;
+
+    public EstimatedAttempt(long estimate, TaskAttempt attempt) {
+      this.estimate = estimate;
+      this.attempt = attempt;
+    }
+
+    public long getEstimate() {
+      return estimate;
+    }
+
+    public TaskAttempt getAttempt() {
+      return attempt;
+    }
+    
+    @Override
+    public int compareTo(EstimatedAttempt that) {
+      return Long.valueOf(this.estimate).compareTo(that.estimate);
+    }
+  }
+  
   private void updateSuspendableTaskAttempts() {
     LOG.info("(bcho2) updating suspendable task attempts start");
-    SortedMap<Long, TaskAttempt> newSuspendableTaskAttempts =
-      new TreeMap<Long, TaskAttempt>();
+    List<EstimatedAttempt> newSuspendableTaskAttempts =
+      new ArrayList<EstimatedAttempt>();
     for (Job job : context.getAllJobs().values()) {
       for (Task task : job.getTasks(TaskType.REDUCE).values()) {
         for (TaskAttempt ta : task.getAttempts().values()) {
@@ -118,7 +137,7 @@ public class Releaser extends AbstractService implements
             long estimatedRuntime = estimator.estimatedRuntime(ta.getID());
             long estimatedEndtime = (estimatedRuntime > 0) ? 
                 estimator.attemptEnrolledTime(ta.getID()) + estimatedRuntime : Long.MAX_VALUE;
-            newSuspendableTaskAttempts.put(estimatedEndtime, ta);
+            newSuspendableTaskAttempts.add(new EstimatedAttempt(estimatedEndtime, ta));
           }
         }
       }
@@ -128,15 +147,116 @@ public class Releaser extends AbstractService implements
     this.suspendableTaskAttempts = newSuspendableTaskAttempts;
   }
   
+  private int tasMemory(List<TaskAttempt> taskAttempts) {
+    int total = 0;
+    for (TaskAttempt ta : taskAttempts) {
+      total += ta.getResourceCapability().getMemory();
+    }
+    return total;
+  }
+
+  private int suspendTasksRandom(ResourceRequest request) {
+    List<EstimatedAttempt> estimatedAttempts =
+      new ArrayList<EstimatedAttempt>(this.suspendableTaskAttempts);
+    Collections.shuffle(estimatedAttempts);
+    return suspendTasks(request, estimatedAttempts);
+  }
+
+  private int suspendTasksSRT(ResourceRequest request) {
+    List<EstimatedAttempt> estimatedAttempts =
+      new ArrayList<EstimatedAttempt>(this.suspendableTaskAttempts);
+    Collections.sort(estimatedAttempts);
+    return suspendTasks(request, estimatedAttempts);
+  }
+
+  private int suspendTasksLRT(ResourceRequest request) {
+    List<EstimatedAttempt> estimatedAttempts =
+      new ArrayList<EstimatedAttempt>(this.suspendableTaskAttempts);
+    Collections.sort(estimatedAttempts, Collections.reverseOrder());
+    return suspendTasks(request, estimatedAttempts);
+  }
+
+  @SuppressWarnings("unchecked")
+  private int suspendTasks(ResourceRequest request, List<EstimatedAttempt> estimatedAttempts) {
+    Map<String, List<TaskAttempt>> hostTAs = new HashMap<String, List<TaskAttempt>>();
+    int memory = request.getCapability().getMemory();
+    int numContainers = request.getNumContainers();
+    
+    LOG.info("(bcho2) memory "+memory+
+        " container "+numContainers+
+        " taskAttempts.size "+estimatedAttempts.size());
+    
+    for (EstimatedAttempt eta : estimatedAttempts) {
+      if (numContainers <= 0) break;
+      
+      TaskAttempt ta = eta.getAttempt();
+      if (ta.getState() != TaskAttemptState.RUNNING) {
+        LOG.warn("(bcho2) suspendable task attempt not running!");
+        continue;
+      }
+      
+      String taHost = ta.getNodeHostName();
+      int taMemory = ta.getResourceCapability().getMemory();
+      if (!hostTAs.containsKey(taHost) && taMemory >= memory) { // bypass map completely
+        LOG.info("(bcho2) release ta "+ta.getID()
+            +" host "+taHost
+            +" memory "+taMemory
+            +" containers remaining "+numContainers);
+        eventHandler.handle(
+            new TaskAttemptEvent(ta.getID(),
+                TaskAttemptEventType.TA_SUSPEND));        
+        numContainers--;
+      } else {
+        List<TaskAttempt> taList = hostTAs.get(taHost);
+        if (taList == null) {
+          taList = new ArrayList<TaskAttempt>();
+          hostTAs.put(taHost, taList);
+        }
+        taList.add(ta);
+        
+        if (tasMemory(taList) >= memory) {
+          for (TaskAttempt suspendTa : taList) {
+            LOG.info("(bcho2) release ta "+suspendTa.getID()
+                +" host "+suspendTa.getNodeHostName()
+                +" memory "+suspendTa.getResourceCapability().getMemory()
+                +" containers remaining "+numContainers);
+            eventHandler.handle(
+                new TaskAttemptEvent(suspendTa.getID(),
+                    TaskAttemptEventType.TA_SUSPEND));
+            numContainers--;            
+          }
+          hostTAs.remove(taHost); // or, taList.clear()?
+        }
+      }
+    }
+    
+    return 0;
+  }
+  
   @SuppressWarnings("unchecked")
   @Override
   public void handle(ReleaseEvent event) {
     switch (event.getType()) {
       case RELEASE_RESOURCES:
       {
-        SortedMap<Long, TaskAttempt> taskAttempts = this.suspendableTaskAttempts; // Does making this reference actually help deal with concurrency?
+        // TODO: When you have a request with large container sizes, releasing may be challenging.
+        // TODO: Somehow, we need to make sure the multiple tasks that make up the container size are on the same node.
+        // TODO: Implemented for SRT, need for other variants as well.
+        if ("shortest".equals(releaseStrategy)) {
+          suspendTasksSRT(event.getReleaseRequest());
+        } else if ("longest".equals(releaseStrategy)) {
+          suspendTasksLRT(event.getReleaseRequest());
+        } else {
+          suspendTasksRandom(event.getReleaseRequest());
+        }
+
         
-        int memToRelease = event.getReleaseResource().getMemory();
+        // TODO: In fact, the way this is currently implemented, jobs with Map tasks running will have trouble too,
+        // TODO: because when checking releasable memory on RM-side we don't take Map vs Reduce into account.
+        // TODO: Pretty sad...
+        
+/*        
+        int memToRelease = event.getReleaseRequest().getMemory();
         int tasksToRelease = memToRelease/memory + (memToRelease%memory == 0 ? 0 : 1);
         
         int fastForward = 0;
@@ -187,7 +307,7 @@ public class Releaser extends AbstractService implements
             }
           }
         }
-        
+*/      
         break;
       }
       case RELEASED:

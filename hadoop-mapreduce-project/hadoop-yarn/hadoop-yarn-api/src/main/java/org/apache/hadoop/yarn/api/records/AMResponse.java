@@ -116,11 +116,11 @@ public interface AMResponse {
    */  
   @Public
   @Stable
-  public Resource getReleaseResources();
+  public List<ResourceRequest> getReleaseRequests();
 
   @Private
   @Unstable
-  public void setReleaseResources(Resource release);
+  public void setReleaseRequests(List<ResourceRequest> releaseRequests);
   
   /**
    * Get the list of <em>completed containers' statuses</em>.

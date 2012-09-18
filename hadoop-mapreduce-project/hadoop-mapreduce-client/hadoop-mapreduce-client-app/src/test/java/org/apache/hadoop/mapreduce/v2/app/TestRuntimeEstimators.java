@@ -66,6 +66,7 @@ import org.apache.hadoop.yarn.SystemClock;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factories.RecordFactory;
@@ -713,7 +714,12 @@ public class TestRuntimeEstimators {
     public String getNodeHttpAddress() {
       throw new UnsupportedOperationException("Not supported yet.");
     }
-    
+
+    @Override
+    public String getNodeHostName() {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
     @Override
     public String getNodeRackName() {
       throw new UnsupportedOperationException("Not supported yet.");
@@ -741,6 +747,11 @@ public class TestRuntimeEstimators {
 
     @Override
     public String getAssignedContainerMgrAddress() {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Resource getResourceCapability() {
       throw new UnsupportedOperationException("Not supported yet.");
     }
   }

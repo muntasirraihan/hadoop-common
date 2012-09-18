@@ -64,6 +64,7 @@ import org.apache.hadoop.yarn.MockApps;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 
@@ -307,6 +308,11 @@ public class MockJobs extends MockApps {
       }
 
       @Override
+      public String getNodeHostName() {
+        return "localhost";
+      }
+
+      @Override
       public List<String> getDiagnostics() {
         return diags;
       }
@@ -329,6 +335,11 @@ public class MockJobs extends MockApps {
       @Override
       public String getNodeRackName() {
         return "/default-rack";
+      }
+      
+      @Override
+      public Resource getResourceCapability() {
+        return Records.newRecord(Resource.class);
       }
     };
   }

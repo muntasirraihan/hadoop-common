@@ -18,28 +18,29 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 
 public class Allocation {
   final List<Container> containers;
   final Resource resourceLimit;
-  final Resource resourceRelease;
+  final List<ResourceRequest> releaseRequests;
   
   public Allocation(List<Container> containers, Resource resourceLimit) {
     this.containers = containers;
     this.resourceLimit = resourceLimit;
-    this.resourceRelease = Resources.createResource(0);
+    this.releaseRequests = new ArrayList<ResourceRequest>();
   }
 
   public Allocation(List<Container> containers, Resource resourceLimit,
-      Resource resourceRelease) {
+      List<ResourceRequest> releaseRequests) {
     this.containers = containers;
     this.resourceLimit = resourceLimit;
-    this.resourceRelease = resourceRelease;
+    this.releaseRequests = releaseRequests;
   }
   
   public List<Container> getContainers() {
@@ -50,8 +51,7 @@ public class Allocation {
     return resourceLimit;
   }
   
-  public Resource getResourceRelease() {
-    return resourceRelease;
+  public List<ResourceRequest> getReleaseRequests() {
+    return releaseRequests;
   }
-  
 }

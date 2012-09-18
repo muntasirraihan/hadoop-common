@@ -28,11 +28,13 @@ import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.ProtoBase;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.proto.YarnProtos.AMResponseProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.AMResponseProtoOrBuilder;
 import org.apache.hadoop.yarn.proto.YarnProtos.ContainerProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ContainerStatusProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ResourceProto;
+import org.apache.hadoop.yarn.proto.YarnProtos.ResourceRequestProto;
 
 
     
@@ -42,10 +44,10 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
   boolean viaProto = false;
   
   Resource limit;
-  Resource release;
 
   private List<Container> allocatedContainers = null;
   private List<ContainerStatus> completedContainersStatuses = null;
+  private List<ResourceRequest> releaseRequests = null;
 //  private boolean hasLocalContainerList = false;
   
   
@@ -69,7 +71,7 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     if (this.allocatedContainers != null) {
       builder.clearAllocatedContainers();
       Iterable<ContainerProto> iterable = 
-          getProtoIterable(this.allocatedContainers);
+          getContainerProtoIterable(this.allocatedContainers);
       builder.addAllAllocatedContainers(iterable);
     }
     if (this.completedContainersStatuses != null) {
@@ -78,11 +80,14 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
           getContainerStatusProtoIterable(this.completedContainersStatuses);
       builder.addAllCompletedContainerStatuses(iterable);
     }
+    if (this.releaseRequests != null) {
+      builder.clearReleaseRequests();
+      Iterable<ResourceRequestProto> iterable = 
+          getResourceRequestProtoIterable(this.releaseRequests);
+      builder.addAllReleaseRequests(iterable);
+    }
     if (this.limit != null) {
       builder.setLimit(convertToProtoFormat(this.limit));
-    }
-    if (this.release != null) {
-      builder.setRelease(convertToProtoFormat(this.release));
     }
   }
   
@@ -147,25 +152,31 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
   }
 
   @Override
-  public synchronized Resource getReleaseResources() {
-    if (this.release != null) {
-      return this.release;
+  public synchronized List<ResourceRequest> getReleaseRequests() {
+    initLocalNewRequestList();
+    return this.releaseRequests;
+  }
+  
+  //Once this is called. containerList will never be null - untill a getProto is called.
+  private synchronized void initLocalNewRequestList() {
+    if (this.releaseRequests != null) {
+      return;
     }
-
     AMResponseProtoOrBuilder p = viaProto ? proto : builder;
-    if (!p.hasRelease()) {
-      return null;
+    List<ResourceRequestProto> list = p.getReleaseRequestsList();
+    releaseRequests = new ArrayList<ResourceRequest>();
+
+    for (ResourceRequestProto c : list) {
+      releaseRequests.add(convertFromProtoFormat(c));
     }
-    this.release = convertFromProtoFormat(p.getRelease());
-    return this.release;
   }
 
   @Override
-  public synchronized void setReleaseResources(Resource release) {
-    maybeInitBuilder();
-    if (release == null)
-      builder.clearRelease();
-    this.release = release;
+  public synchronized void setReleaseRequests(final List<ResourceRequest> requests) {
+    if (requests == null) 
+      return;
+    initLocalNewRequestList();
+    releaseRequests.addAll(requests);
   }
   
   @Override
@@ -196,7 +207,7 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     allocatedContainers.addAll(containers);
   }
 
-  private synchronized Iterable<ContainerProto> getProtoIterable(
+  private synchronized Iterable<ContainerProto> getContainerProtoIterable(
       final List<Container> newContainersList) {
     maybeInitBuilder();
     return new Iterable<ContainerProto>() {
@@ -259,6 +270,37 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
     };
   }
 
+  private synchronized Iterable<ResourceRequestProto> getResourceRequestProtoIterable(
+      final List<ResourceRequest> newResourceRequestsList) {
+    maybeInitBuilder();
+    return new Iterable<ResourceRequestProto>() {
+      @Override
+      public synchronized Iterator<ResourceRequestProto> iterator() {
+        return new Iterator<ResourceRequestProto>() {
+
+          Iterator<ResourceRequest> iter = newResourceRequestsList.iterator();
+
+          @Override
+          public synchronized boolean hasNext() {
+            return iter.hasNext();
+          }
+
+          @Override
+          public synchronized ResourceRequestProto next() {
+            return convertToProtoFormat(iter.next());
+          }
+
+          @Override
+          public synchronized void remove() {
+            throw new UnsupportedOperationException();
+
+          }
+        };
+
+      }
+    };
+  }
+  
   //// Finished containers
   @Override
   public synchronized List<ContainerStatus> getCompletedContainersStatuses() {
@@ -313,6 +355,14 @@ public class AMResponsePBImpl extends ProtoBase<AMResponseProto> implements AMRe
 
   private synchronized ResourceProto convertToProtoFormat(Resource r) {
     return ((ResourcePBImpl) r).getProto();
+  }
+
+  private synchronized ResourceRequestPBImpl convertFromProtoFormat(ResourceRequestProto p) {
+    return new ResourceRequestPBImpl(p);
+  }
+
+  private synchronized ResourceRequestProto convertToProtoFormat(ResourceRequest r) {
+    return ((ResourceRequestPBImpl) r).getProto();
   }
 
 }  

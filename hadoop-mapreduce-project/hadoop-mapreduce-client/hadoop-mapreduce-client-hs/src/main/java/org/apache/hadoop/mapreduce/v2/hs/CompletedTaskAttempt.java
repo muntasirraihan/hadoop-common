@@ -30,6 +30,7 @@ import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptState;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
 import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.util.Records;
 
 public class CompletedTaskAttempt implements TaskAttempt {
@@ -76,7 +77,12 @@ public class CompletedTaskAttempt implements TaskAttempt {
   public String getNodeHttpAddress() {
     return attemptInfo.getTrackerName() + ":" + attemptInfo.getHttpPort();
   }
-  
+
+  @Override
+  public String getNodeHostName() {
+    return attemptInfo.getHostname();
+  }
+
   @Override
   public String getNodeRackName() {
     return attemptInfo.getRackname();
@@ -143,6 +149,12 @@ public class CompletedTaskAttempt implements TaskAttempt {
   @Override
   public int getShufflePort() {
     return attemptInfo.getShufflePort();
+  }
+  
+  @Override
+  public Resource getResourceCapability() {
+    // TODO: stub; get this from info?
+    return Records.newRecord(Resource.class);
   }
 
   private void constructTaskAttemptReport() {
