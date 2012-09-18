@@ -284,6 +284,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       CSQueue queue = needEntry.getKey();
       for (ResourceRequest request : needEntry.getValue()) {
         int memNeeded = request.getCapability().getMemory() * request.getNumContainers();
+        float memNeededRatio = (float)memNeeded / rootMB;
         int memReclaiming = 0;
         float memReclaimingRatio = 0.0f;
         if (reclaimingMemory.containsKey(queue)) {
@@ -291,19 +292,32 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           memReclaimingRatio = (float)memReclaiming / rootMB;
         }
         
+        float ratioToReclaim = (queue.getAbsoluteUsedCapacity() + memNeededRatio)
+          - (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)));
+        int containersToReclaim = (int)Math.ceil(ratioToReclaim * rootMB / request.getCapability().getMemory());
+        
         LOG.info("(bcho2) addIF"
             + " memNeeded " + memNeeded
             + " memReclaiming " + memReclaiming
             + " queue "+queue.getQueueName()
             + " queueUsed " + queue.getAbsoluteUsedCapacity()
             + " memReclaimingRatio " + memReclaimingRatio
-            + " queueCap " + queue.getAbsoluteCapacity());
+            + " queueCap " + queue.getAbsoluteCapacity()
+            + " lhs " + (queue.getAbsoluteUsedCapacity() + memNeededRatio)
+            + " rhs " + (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)))
+            + " containersRequested "+request.getNumContainers()
+            + " containersToReclaim "+containersToReclaim);
 
         // If (need memory) && (not given capacity of memory), including what has been reclaimed
-        if ((memNeeded - memReclaiming) > 0 &&
-                (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)
-                  < queue.getAbsoluteCapacity()) {
-          // TODO while adding to the queue, also alert the AM's that some more resources are wanted
+           // if ((memNeeded - memReclaiming) > 0 &&
+        // If (I'm under my capacity) && (other queues will prevent me from getting my memory) 
+        // if ((queue.getAbsoluteUsedCapacity() + memReclaimingRatio)
+        //        < queue.getAbsoluteCapacity() &&
+        //     (queue.getAbsoluteUsedCapacity() + memNeededRatio)
+        //        > (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)))) {
+        if (containersToReclaim > 0) {
+          // TODO what if need to reclaim, but only for part of the request?
+          // request.setNumContainers(containersToReclaim);
           addReclaim(queue,
               new ReclaimedResource(request,
                   currentTime+expireInterval,

@@ -1110,9 +1110,9 @@ public class LeafQueue implements CSQueue {
           if (request.getNumContainers() > 0) {
             LOG.info("(bcho2) NEED resource "+required.getMemory()+
                 " containers "+request.getNumContainers()+
-                " queue "+queueName+
                 " app "+application.getApplicationId().toString()+
-                " prio "+priority.getPriority());
+                " prio "+priority.getPriority()+
+                " queue "+toString());
             needList.add(request);
           }
           /*
