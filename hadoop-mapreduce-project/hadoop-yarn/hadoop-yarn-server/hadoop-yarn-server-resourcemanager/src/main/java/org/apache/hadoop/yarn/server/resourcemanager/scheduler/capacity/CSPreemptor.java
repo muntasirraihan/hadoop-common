@@ -179,6 +179,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       ReclaimedResource rec = it.next();
       if (rec.getResource().equals(assigned)) {
         if (rec.getNumContainers() <= 0) {
+          LOG.warn("(bcho2) num containers "+rec.getNumContainers());
           addReclaimExpire(leafQueue, rec);
           it.remove();
         } else {
@@ -197,6 +198,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     // subtractReclaimingMemory(leafQueue, assigned.getMemory());
     numContainers--;
     reclaimed.setNumContainers(numContainers);
+    if (numContainers <= 0) {
+      addReclaimExpire(leafQueue, reclaimed);
+      it.remove();
+    }
+    
     LOG.info("(bcho2) updatePreemptor"+
         " reclaimed memory "+reclaimed.getResource().getMemory()+
     		" containers "+numContainers);

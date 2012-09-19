@@ -3,10 +3,12 @@ package org.apache.hadoop.mapreduce.v2.app.release;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.TreeMap;
 
 import org.apache.commons.logging.Log;
@@ -47,6 +49,7 @@ public class Releaser extends AbstractService implements
   private final int releaserPollInterval;
   
   private List<EstimatedAttempt> suspendableTaskAttempts;
+  private Set<TaskAttempt> suspendedTaskAttempts = new HashSet<TaskAttempt>();
   
   public Releaser(Configuration conf, AppContext context, TaskRuntimeEstimator estimator) {
     super(Releaser.class.getName());
@@ -187,9 +190,10 @@ public class Releaser extends AbstractService implements
         " taskAttempts.size "+estimatedAttempts.size());
     
     for (EstimatedAttempt eta : estimatedAttempts) {
-      if (numContainers <= 0) break;
-      
+      if (numContainers <= 0) break;     
       TaskAttempt ta = eta.getAttempt();
+      if (suspendedTaskAttempts.contains(ta)) continue;
+      
       if (ta.getState() != TaskAttemptState.RUNNING) {
         LOG.warn("(bcho2) suspendable task attempt not running!");
         continue;
@@ -204,7 +208,8 @@ public class Releaser extends AbstractService implements
             +" containers remaining "+numContainers);
         eventHandler.handle(
             new TaskAttemptEvent(ta.getID(),
-                TaskAttemptEventType.TA_SUSPEND));        
+                TaskAttemptEventType.TA_SUSPEND));
+        suspendedTaskAttempts.add(ta);
         numContainers--;
       } else {
         List<TaskAttempt> taList = hostTAs.get(taHost);
@@ -223,6 +228,7 @@ public class Releaser extends AbstractService implements
             eventHandler.handle(
                 new TaskAttemptEvent(suspendTa.getID(),
                     TaskAttemptEventType.TA_SUSPEND));
+            suspendedTaskAttempts.add(ta);
             numContainers--;            
           }
           hostTAs.remove(taHost); // or, taList.clear()?
