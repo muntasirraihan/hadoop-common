@@ -167,10 +167,10 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
    * e.g. when container is assigned in LeafQueue.assignContainers
    */
   public synchronized void updatePreemptor(LeafQueue leafQueue, Resource assigned) {
-    LOG.info("(bcho2) updatePreemptor resource "+assigned);
+    LOG.debug("(bcho2) updatePreemptor resource "+assigned);
     List<ReclaimedResource> reclaimList = reclaimLists.get(leafQueue);
     if (reclaimList == null) {
-      LOG.info("(bcho2) updatePreemptor reclaimList null, return");
+      LOG.debug("(bcho2) updatePreemptor reclaimList null, return");
       return;
     }
     ReclaimedResource reclaimed = null;
@@ -189,7 +189,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       }
     }
     if (reclaimed == null) {
-      LOG.info("(bcho2) updatePreemptor reclaimed null, return");
+      LOG.debug("(bcho2) updatePreemptor reclaimed null, return");
       return;
     }
 
@@ -203,9 +203,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       it.remove();
     }
     
-    LOG.info("(bcho2) updatePreemptor"+
-        " reclaimed memory "+reclaimed.getResource().getMemory()+
-    		" containers "+numContainers);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("(bcho2) updatePreemptor"+
+          " reclaimed memory "+reclaimed.getResource().getMemory()+
+      		" containers "+numContainers);
+    }
   }
   
   public void reclaimCapacity() {
@@ -263,9 +265,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       LOG.debug("(bcho2) no queues over cap");
       return;
     }
-    for (CSQueue queue : overCapList) {
-      LOG.info("(bcho2) queue "+queue.getQueuePath()+
-          " over cap "+queue.getAbsoluteUsedCapacity());
+    if (LOG.isDebugEnabled()) {
+      for (CSQueue queue : overCapList) {
+        LOG.debug("(bcho2) queue "+queue.getQueuePath()+
+            " over cap "+queue.getAbsoluteUsedCapacity());
+      }
     }
     
     // TODO: is there a better way?

@@ -781,11 +781,11 @@ public class LeafQueue implements CSQueue {
     // Try to assign containers to applications in order
     for (SchedulerApp application : activeApplications) {
       
-      //if(LOG.isDebugEnabled()) {
-        LOG.info("pre-assignContainers for application "
+      if(LOG.isDebugEnabled()) {
+        LOG.debug("pre-assignContainers for application "
         + application.getApplicationId());
         application.showRequests();
-      //}
+      }
 
       synchronized (application) {
         // Schedule in priority order
@@ -797,11 +797,13 @@ public class LeafQueue implements CSQueue {
           // Do we need containers at this 'priority'?
           if (!needContainers(application, priority, required)) {
             // if (priority.getPriority() == 3) {
-              LOG.info("(bcho2) assignment unneeded,"
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("(bcho2) assignment unneeded,"
                   +" node="+node
                   +" application="+application.getApplicationId()
                   +" priority="+priority
                   +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
+            }
             // }
             continue;
           }
@@ -1077,22 +1079,24 @@ public class LeafQueue implements CSQueue {
                 (1.0f - (Math.min(nodeFactor, getMinimumAllocationFactor())))
                );
       
-      // if (LOG.isDebugEnabled()) {
-        LOG.info("needsContainers:" +
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("needsContainers:" +
             " app.#re-reserve=" + application.getReReservations(priority) + 
             " reserved=" + reservedContainers + 
             " nodeFactor=" + nodeFactor + 
             " minAllocFactor=" + minimumAllocationFactor +
             " starvation=" + starvation +
             " finalvalue=" + ((starvation + requiredContainers) - reservedContainers) );
-      // }
+      }
     } else {
-      LOG.info("(bcho2) application "+application+
-          " priority "+priority+
-          " required "+required+
-          " starvation "+starvation+
-          " requiredContainers "+requiredContainers+
-          " reservedContainers "+reservedContainers);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("(bcho2) application "+application+
+            " priority "+priority+
+            " required "+required+
+            " starvation "+starvation+
+            " requiredContainers "+requiredContainers+
+            " reservedContainers "+reservedContainers);
+      }
     }
     return (((starvation + requiredContainers) - reservedContainers) > 0);
   }
@@ -1108,11 +1112,13 @@ public class LeafQueue implements CSQueue {
           Resource required = request.getCapability();
 
           if (request.getNumContainers() > 0) {
-            LOG.info("(bcho2) NEED resource "+required.getMemory()+
-                " containers "+request.getNumContainers()+
-                " app "+application.getApplicationId().toString()+
-                " prio "+priority.getPriority()+
-                " queue "+toString());
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("(bcho2) NEED resource "+required.getMemory()+
+                  " containers "+request.getNumContainers()+
+                  " app "+application.getApplicationId().toString()+
+                  " prio "+priority.getPriority()+
+                  " queue "+toString());
+              }
             needList.add(request);
           }
           /*
