@@ -15,6 +15,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.SystemClock;
+import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -332,11 +333,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
               new ReclaimedResource(request,
                   currentTime+expireInterval,
                   currentTime+killInterval));
-          releaseContainers(request, overCapList);
+          releaseContainers(request, overCapList, suspend);
         }
       }
     }
-    
+
     // * Go through queues, tell AM to release resources
     // This is now done above
 //    if (suspend && releaseAmount > 0) {
@@ -376,7 +377,9 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           // LOG.info("(bcho2) try release one last time "+rec.currentResources.getNumContainers());
           // releaseContainers(rec.currentResources, overCapList); 
         }
-        // killContainers(killAmount, overCapList);
+//        if (!suspend) {
+//          killContainers(killAmount, overCapList);
+//        }
       }
     }
   }
@@ -415,18 +418,18 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
   }
   
-  private void releaseContainers(ResourceRequest releaseRequest, List<CSQueue> overCapList) {
+  private void releaseContainers(ResourceRequest releaseRequest, List<CSQueue> overCapList, boolean suspend) {
     LOG.info("(bcho2) release containers: memory "+releaseRequest.getCapability()+
         " num containers "+releaseRequest.getNumContainers());
-    int releasedContainers = 0;
+    Map<SchedulerApp, Integer> containersMap = null;
     for (CSQueue queue : overCapList) {
       List<SchedulerApp> releasableApplications =
         new ArrayList<SchedulerApp>(((LeafQueue)queue).getActiveApplications());
       if ("random".equals(suspendStrategy)) {
-        releasedContainers =
+        containersMap =
           releaseContainersRandom(releaseRequest, releasableApplications);
       } else if ("probabilistic".equals(suspendStrategy)) {
-        releasedContainers =
+        containersMap =
           releaseContainersProbabilistic(releaseRequest, releasableApplications);
       } else { // Use some kind of Comparator
         Comparator<SchedulerApp> comparator = null;
@@ -435,11 +438,43 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         } else if ("most-resources".equals(suspendStrategy)) {
           comparator = Collections.reverseOrder(new ResourcesComparator());
         }
-        releasedContainers = 
+        containersMap = 
           releaseContainersOrderedIncremental(releaseRequest, releasableApplications, comparator);
         // TODO: A lot of repeated code here. Combine w/ probabilistic, by passing along the function (as an interface) that gets the next entry.
       }
     }
+
+    int releasedContainers = 0;
+    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
+      SchedulerApp app = entry.getKey();
+      int containersToRelease = entry.getValue();
+      if (suspend) {
+        LOG.info("(bcho2) containersMap app "+app+
+            " containersToRelease "+containersToRelease);
+        ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
+        app.addReleaseRequests(appRequest);
+        releasedContainers += containersToRelease;
+      } else {
+        LOG.warn("(bcho2) killing");
+        
+        Container master = app.getRMApp().getCurrentAppAttempt().getMasterContainer();
+        for (RMContainer container : app.getLiveContainers()) {
+          if (containersToRelease <= 0)
+            break;
+          // TODO: should not be using magic variable! (bcho2)
+          if (master != null && container.getContainer() == master) {
+            LOG.info("(bcho2) skipping master");
+            continue;
+          }
+          ContainerStatus status = 
+            SchedulerUtils.createAbnormalContainerStatus(
+                container.getContainerId(), SchedulerUtils.PREEMPT_KILLED_CONTAINER);
+          scheduler.completedContainer(container, status, RMContainerEventType.KILL);
+          containersToRelease--;
+          releasedContainers++;
+        }
+      }
+    }    
     LOG.info("(bcho2) number released "+releasedContainers);
   }
   
@@ -448,7 +483,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     request.setNumContainers(numContainers);
     return request;
   }
-
+  /*
   private int releaseContainersOrdered(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
     final int memoryPerContainer = releaseRequest.getCapability().getMemory();
     final int totalContainersToRelease = releaseRequest.getNumContainers();
@@ -476,8 +511,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
     return totalContainersReleased;
   }
-
-  private int releaseContainersOrderedIncremental(ResourceRequest releaseRequest,
+  */
+  private Map<SchedulerApp, Integer> releaseContainersOrderedIncremental(ResourceRequest releaseRequest,
       List<SchedulerApp> releasableApplications, Comparator<SchedulerApp> comparator) {
     final int memoryPerContainer = releaseRequest.getCapability().getMemory();
     final int totalContainersToRelease = releaseRequest.getNumContainers();
@@ -534,18 +569,10 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       }
     }
 
-    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
-      SchedulerApp app = entry.getKey();
-      int containersToRelease = entry.getValue();
-      LOG.info("(bcho2) containersMap app "+app+
-          " containersToRelease "+containersToRelease);
-      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
-      app.addReleaseRequests(appRequest);
-    }
-    return totalContainersReleased;
+    return containersMap;
   }
 
-  private int releaseContainersRandom(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
+  private Map<SchedulerApp, Integer> releaseContainersRandom(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
     final int memoryPerContainer = releaseRequest.getCapability().getMemory();
     final int totalContainersToRelease = releaseRequest.getNumContainers();
     int totalContainersReleased = 0;
@@ -569,18 +596,12 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         }
       }
     }
-    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
-      SchedulerApp app = entry.getKey();
-      int containersToRelease = entry.getValue();
-      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
-      app.addReleaseRequests(appRequest);
-    }
     
-    return totalContainersReleased;
+    return containersMap;
   }
 
   Random random = new Random();
-  private int releaseContainersProbabilistic(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
+  private Map<SchedulerApp, Integer> releaseContainersProbabilistic(ResourceRequest releaseRequest, List<SchedulerApp> releasableApplications) {
     final int memoryPerContainer = releaseRequest.getCapability().getMemory();
     final int totalContainersToRelease = releaseRequest.getNumContainers();
     int totalContainersReleased = 0;
@@ -594,8 +615,15 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     for (SchedulerApp app : releasableApplications) {
       containersMap.put(app, 0);
       Resource consumption = app.getCurrentConsumption();
-      int releasableMemory = consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
-                             getMasterContainer().getResource().getMemory();
+
+
+      Container master = app.getRMApp().getCurrentAppAttempt().getMasterContainer(); // TODO: use this idiom other places, too
+      int masterMemory = master == null ? 0 : master.getResource().getMemory();
+      int releasableMemory = consumption.getMemory() - masterMemory;
+      
+      LOG.info("(bcho2) NPE consumption.getMemory() "+consumption.getMemory()+
+          " masterMemory "+masterMemory+" releasableMemory "+releasableMemory+" master "+master);
+      
       int releasableContainers = releasableMemory/memoryPerContainer;
       if (releasableContainers > 0) {
         releasable.put(app, releasableContainers);
@@ -643,13 +671,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
             " for "+app);
       }
     }
-    for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
-      SchedulerApp app = entry.getKey();
-      int containersToRelease = entry.getValue();
-      ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
-      app.addReleaseRequests(appRequest);
-    }
-    return totalContainersReleased;
+    return containersMap;
   }
   
   // TODO: sort this list, or otherwise evenly distribute the kills
