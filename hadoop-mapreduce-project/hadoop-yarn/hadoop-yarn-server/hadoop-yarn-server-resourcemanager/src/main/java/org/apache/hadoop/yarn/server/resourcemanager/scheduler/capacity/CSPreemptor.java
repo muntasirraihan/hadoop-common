@@ -454,7 +454,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
         app.addReleaseRequests(appRequest);
         releasedContainers += containersToRelease;
-      } else {
+      } else { // kill
         LOG.warn("(bcho2) killing");
         
         Container master = app.getRMApp().getCurrentAppAttempt().getMasterContainer();

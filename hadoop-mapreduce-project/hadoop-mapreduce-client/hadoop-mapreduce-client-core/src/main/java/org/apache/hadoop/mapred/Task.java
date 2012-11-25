@@ -721,7 +721,7 @@ abstract public class Task implements Writable, Configurable {
             System.exit(66);
           }
 
-          if (!isMapTask() && umbilical.shouldSuspend(taskId)) {
+          if (!isMapTask() && suspender != null && umbilical.shouldSuspend(taskId)) {
             suspender.setDoSuspend(true);
           }
           
