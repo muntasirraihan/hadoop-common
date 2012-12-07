@@ -18,6 +18,10 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
 
+/*
+ * A struct that contains a list of containers and how much resources they have.
+ */
+
 import java.util.List;
 
 import org.apache.hadoop.yarn.api.records.Container;

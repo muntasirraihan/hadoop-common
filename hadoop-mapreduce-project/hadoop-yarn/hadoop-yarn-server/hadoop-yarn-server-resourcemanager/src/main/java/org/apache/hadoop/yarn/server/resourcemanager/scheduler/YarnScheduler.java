@@ -18,6 +18,17 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
 
+/**
+ * This specifies an interface that scheduler plug-ins satisfy in order to give
+ * the ResourceManager a scheduler. The CapacityScheduler is one example that
+ * uses hierarchical queues, while the fair scheduler is another that does
+ * something else. This scheduler is how components ask for resources.
+ * 
+ * The inheritance hierarchy is CapacityScheduler < ResourceScheduler <
+ * YarnScheduler, Recoverable; ResourceScheduler just adds a reinitialize method
+ * and pulls in Recoverable.
+ */
+
 import java.io.IOException;
 import java.util.List;
 
@@ -82,7 +93,7 @@ public interface YarnScheduler extends EventHandler<SchedulerEvent> {
   /**
    * The main api between the ApplicationMaster and the Scheduler.
    * The ApplicationMaster is updating his future resource requirements
-   * and may release containers he doens't need.
+   * and may release containers he doesn't need.
    * 
    * @param appAttemptId
    * @param ask

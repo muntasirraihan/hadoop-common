@@ -291,6 +291,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
           }
 
           try {
+    	    // Hand over the event to the scheduler.
             scheduler.handle(event);
           } catch (Throwable t) {
             LOG.error("Error in handling event type " + event.getType()

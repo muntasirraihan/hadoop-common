@@ -173,6 +173,10 @@ implements ResourceScheduler, CapacitySchedulerContext {
     return clusterResource;
   }
   
+  
+  /**
+   * Initialize the scheduler or re-initialize it if it's already initialized.
+   */
   @Override
   public synchronized void reinitialize(Configuration conf,
       ContainerTokenSecretManager containerTokenSecretManager, RMContext rmContext) 
@@ -275,6 +279,9 @@ implements ResourceScheduler, CapacitySchedulerContext {
     }
   }
   
+  /**
+   * Construct the queue data structure from a configuration and a queue name.
+   */
   @Lock(CapacityScheduler.class)
   static CSQueue parseQueue(
       CapacitySchedulerContext csContext, 
@@ -326,6 +333,9 @@ implements ResourceScheduler, CapacitySchedulerContext {
     return queues.get(queueName);
   }
   
+  /**
+   * Add an application to a specific queue.
+   */
   private synchronized void
       addApplication(ApplicationAttemptId applicationAttemptId,
           String queueName, String user) {
@@ -590,6 +600,9 @@ implements ResourceScheduler, CapacitySchedulerContext {
     application.containerLaunchedOnNode(containerId);
   }
 
+  /*
+   * Handle an event that comes from the ResourceManager.
+   */
   @Override
   public void handle(SchedulerEvent event) {
     switch(event.getType()) {
