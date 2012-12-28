@@ -671,6 +671,10 @@ public class LeafQueue implements CSQueue {
     return applicationsMap.get(applicationAttemptId);
   }
 
+  /**
+   * Assigns containers (of resources). One big piece of the CapacityScheduler
+   * logic.
+   */
   @Override
   public synchronized Resource 
   assignContainers(Resource clusterResource, SchedulerNode node) {

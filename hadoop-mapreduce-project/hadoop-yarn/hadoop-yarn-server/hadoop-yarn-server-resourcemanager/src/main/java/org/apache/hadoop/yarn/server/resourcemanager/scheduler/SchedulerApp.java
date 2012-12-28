@@ -256,6 +256,9 @@ public class SchedulerApp {
     return this.currentConsumption;
   }
 
+  /**
+   * Logs current resource requests for this application.
+   */
   synchronized public void showRequests() {
     if (LOG.isDebugEnabled()) {
       for (Priority priority : getPriorities()) {
