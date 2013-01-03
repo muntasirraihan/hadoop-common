@@ -106,16 +106,16 @@ public class EdfScheduler implements ResourceScheduler {
 
   private static final int MINIMUM_MEMORY = 1024;
 
-  private static final String FIFO_PREFIX =  "yarn.scheduler.fifo.";
+  private static final String EDF_PREFIX =  "yarn.scheduler.edf.";
   @Private
   public static final String MINIMUM_ALLOCATION = 
-    FIFO_PREFIX + "minimum-allocation-mb";
+    EDF_PREFIX + "minimum-allocation-mb";
 
   private static final int MAXIMUM_MEMORY = 10240;
 
   @Private
   public static final String MAXIMUM_ALLOCATION = 
-    FIFO_PREFIX + "maximum-allocation-mb";
+    EDF_PREFIX + "maximum-allocation-mb";
 
   private boolean initialized;
   private Resource minimumAllocation;
@@ -252,7 +252,7 @@ public class EdfScheduler implements ResourceScheduler {
       if (rmContainer == null) {
          RMAuditLogger.logFailure(application.getUser(),
              AuditConstants.RELEASE_CONTAINER, 
-             "Unauthorized access or invalid container", "FifoScheduler", 
+             "Unauthorized access or invalid container", "EdfScheduler", 
              "Trying to release container not owned by app or with invalid id",
              application.getApplicationId(), releasedContainer);
       }
