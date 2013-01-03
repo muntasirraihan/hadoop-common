@@ -223,6 +223,8 @@ message ApplicationSubmissionContextProto {
   optional string user = 3;
   optional string queue = 4 [default = "default"];
   optional PriorityProto priority = 5;
+	// a date very far in the future (2^63-1)
+	optional int64 deadline = 8 [default = 9223372036854775807];
   optional ContainerLaunchContextProto am_container_spec = 6;
   optional bool cancel_tokens_when_complete = 7 [default = true];
 }

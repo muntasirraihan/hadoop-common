@@ -53,6 +53,8 @@ public interface MRJobConfig {
   public static final String USER_NAME = "mapreduce.job.user.name";
 
   public static final String PRIORITY = "mapreduce.job.priority";
+  
+  public static final String DEADLINE = "mapreduce.job.deadline";
 
   public static final String QUEUE_NAME = "mapreduce.job.queuename";
 

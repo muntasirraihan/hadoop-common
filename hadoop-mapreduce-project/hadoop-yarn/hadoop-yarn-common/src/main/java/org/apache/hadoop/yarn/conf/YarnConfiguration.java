@@ -253,6 +253,9 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_RM_APP_TOKEN_MASTER_KEY_ROLLING_INTERVAL_SECS =
       24 * 60 * 60;
 
+  /** Default deadline (very far in the future, 2^63-1 */
+  public static final long DEFAULT_DEADLINE = Long.MAX_VALUE;
+  
   ////////////////////////////////
   // Node Manager Configs
   ////////////////////////////////

@@ -129,6 +129,20 @@ public interface ApplicationSubmissionContext {
   @Public
   @Stable
   public void setUser(String user);
+  
+  /**
+   * Get the deadline of the application
+   * @return deadline of the application, as a UNIX timestamp
+   */
+  @Public
+  public long getDeadline();
+  
+  /**
+   * Set the deadline of the application.
+   * @param deadline deadline of the application, as a UNIX timestamp
+   */
+  @Public
+  public void setDeadline(long deadline);
 
   /**
    * Get the <code>ContainerLaunchContext</code> to describe the 

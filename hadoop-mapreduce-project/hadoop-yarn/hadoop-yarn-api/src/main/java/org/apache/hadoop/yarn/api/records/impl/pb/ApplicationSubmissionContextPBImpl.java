@@ -184,6 +184,18 @@ implements ApplicationSubmissionContext {
     }
     builder.setUser((user));
   }
+  
+  @Override
+  public long getDeadline() {
+	  ApplicationSubmissionContextProtoOrBuilder p = viaProto ? proto : builder;
+	  return p.getDeadline();
+  }
+  
+  @Override
+  public void setDeadline(long deadline) {
+	  maybeInitBuilder();
+	  builder.setDeadline(deadline);
+  }
 
   @Override
   public ContainerLaunchContext getAMContainerSpec() {
