@@ -56,6 +56,7 @@ public class AppSchedulingInfo {
   private final ApplicationAttemptId applicationAttemptId;
   final ApplicationId applicationId;
   private final String queueName;
+  private final long deadline;
   Queue queue;
   final String user;
   private final AtomicInteger containerIdCounter = new AtomicInteger(0);
@@ -72,7 +73,7 @@ public class AppSchedulingInfo {
   boolean pending = true; // for app metrics
 
   public AppSchedulingInfo(ApplicationAttemptId appAttemptId,
-      String user, Queue queue, ActiveUsersManager activeUsersManager,
+      String user, Queue queue, long deadline, ActiveUsersManager activeUsersManager,
       ApplicationStore store) {
     this.applicationAttemptId = appAttemptId;
     this.applicationId = appAttemptId.getApplicationId();
@@ -81,6 +82,8 @@ public class AppSchedulingInfo {
     this.user = user;
     //this.store = store;
     this.activeUsersManager = activeUsersManager;
+    this.deadline = deadline;
+    this.store = store;
   }
 
   public ApplicationId getApplicationId() {

@@ -37,6 +37,7 @@ import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
@@ -108,14 +109,20 @@ public class SchedulerApp {
   private final RMContext rmContext;
   private final RMApp rmApp;
   public SchedulerApp(ApplicationAttemptId applicationAttemptId, 
-      String user, Queue queue, ActiveUsersManager activeUsersManager,
+      String user, Queue queue, long deadline, ActiveUsersManager activeUsersManager,
       RMContext rmContext, ApplicationStore store) {
     this.rmContext = rmContext;
     this.appSchedulingInfo = 
-        new AppSchedulingInfo(applicationAttemptId, user, queue,  
+        new AppSchedulingInfo(applicationAttemptId, user, queue, deadline
             activeUsersManager, store);
     this.queue = queue;
     this.rmApp = rmContext.getRMApps().get(applicationAttemptId.getApplicationId());
+  }
+  
+  public SchedulerApp(ApplicationAttemptId applicationAttemptId, 
+	      String user, Queue queue, 
+	      RMContext rmContext, ApplicationStore store) {
+	  this(applicationAttemptId, user, queue, YarnConfiguration.DEFAULT_DEADLINE, rmContext, store);
   }
 
   public ApplicationId getApplicationId() {

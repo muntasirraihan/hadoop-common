@@ -25,13 +25,15 @@ public class AppAddedSchedulerEvent extends SchedulerEvent {
   private final ApplicationAttemptId applicationAttemptId;
   private final String queue;
   private final String user;
+  private final long deadline;
 
   public AppAddedSchedulerEvent(ApplicationAttemptId applicationAttemptId,
-      String queue, String user) {
+      String queue, String user, long deadline) {
     super(SchedulerEventType.APP_ADDED);
     this.applicationAttemptId = applicationAttemptId;
     this.queue = queue;
     this.user = user;
+    this.deadline = deadline;
   }
 
   public ApplicationAttemptId getApplicationAttemptId() {
@@ -44,6 +46,10 @@ public class AppAddedSchedulerEvent extends SchedulerEvent {
 
   public String getUser() {
     return user;
+  }
+  
+  public long getDeadline() {
+	  return deadline;
   }
 
 }

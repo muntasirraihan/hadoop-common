@@ -349,7 +349,7 @@ implements ResourceScheduler, CapacitySchedulerContext {
   
   private synchronized void
       addApplication(ApplicationAttemptId applicationAttemptId,
-          String queueName, String user) {
+          String queueName, String user, long deadline) {
 
     // Sanity checks
     CSQueue queue = getQueue(queueName);
@@ -370,7 +370,7 @@ implements ResourceScheduler, CapacitySchedulerContext {
 
     // TODO: Fix store
     SchedulerApp SchedulerApp = 
-        new SchedulerApp(applicationAttemptId, user, queue, 
+        new SchedulerApp(applicationAttemptId, user, queue, deadline,
             queue.getActiveUsersManager(), rmContext, null);
 
     // Submit to the queue
@@ -658,7 +658,7 @@ implements ResourceScheduler, CapacitySchedulerContext {
     {
       AppAddedSchedulerEvent appAddedEvent = (AppAddedSchedulerEvent)event;
       addApplication(appAddedEvent.getApplicationAttemptId(), appAddedEvent
-          .getQueue(), appAddedEvent.getUser());
+          .getQueue(), appAddedEvent.getUser(), appAddedEvent.getDeadline());
     }
     break;
     case APP_REMOVED:

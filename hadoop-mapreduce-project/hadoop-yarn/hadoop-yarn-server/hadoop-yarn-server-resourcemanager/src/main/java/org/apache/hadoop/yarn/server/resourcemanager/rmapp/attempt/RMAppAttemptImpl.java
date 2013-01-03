@@ -554,7 +554,8 @@ public class RMAppAttemptImpl implements RMAppAttempt {
       appAttempt.eventHandler.handle(
           new AppAddedSchedulerEvent(appAttempt.applicationAttemptId,
               appAttempt.submissionContext.getQueue(),
-              appAttempt.submissionContext.getUser()));
+              appAttempt.submissionContext.getUser(),
+              appAttempt.submissionContext.getDeadline()));
     }
   }
 
