@@ -110,7 +110,13 @@ public class FifoScheduler implements ResourceScheduler {
   
   private boolean resumeLocalOnly;
 
-  private Map<ApplicationAttemptId, SchedulerApp> applications
+  /**
+   *  The use of a TreeMap (impl is a red-black tree) makes map operations
+   *  log(n) but ensures keys are traversed in sorted order. This makes this
+   *  structure a FIFO queue when traversed.
+   *  -tej
+   */
+  private Map<ApplicationAttemptId, SchedulerApp> applicationQueue
       = new TreeMap<ApplicationAttemptId, SchedulerApp>();
   
   private final ActiveUsersManager activeUsersManager;
@@ -276,7 +282,7 @@ public class FifoScheduler implements ResourceScheduler {
 
   private SchedulerApp getApplication(
       ApplicationAttemptId applicationAttemptId) {
-    return applications.get(applicationAttemptId);
+    return applicationQueue.get(applicationAttemptId);
   }
 
   @Override
@@ -291,15 +297,15 @@ public class FifoScheduler implements ResourceScheduler {
   }
   
   private synchronized void addApplication(ApplicationAttemptId appAttemptId,
-      String user) {
+      String user, long deadline) {
     // TODO: Fix store
     SchedulerApp schedulerApp = 
         new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, activeUsersManager,
             this.rmContext, null);
-    applications.put(appAttemptId, schedulerApp);
+    applicationsQueue.put(appAttemptId, schedulerApp);
     metrics.submitApp(user, appAttemptId.getAttemptId());
     LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
-        " from " + user + ", currently active: " + applications.size());
+        " from " + user + ", currently active: " + applicationQueue.size());
     rmContext.getDispatcher().getEventHandler().handle(
         new RMAppAttemptEvent(appAttemptId,
             RMAppAttemptEventType.APP_ACCEPTED));
@@ -334,7 +340,7 @@ public class FifoScheduler implements ResourceScheduler {
     application.stop(rmAppAttemptFinalState);
 
     // Remove the application
-    applications.remove(applicationAttemptId);
+    applicationQueue.remove(applicationAttemptId);
   }
   
   /**
@@ -345,10 +351,10 @@ public class FifoScheduler implements ResourceScheduler {
   private void assignContainers(SchedulerNode node) {
     LOG.debug("assignContainers:" +
         " node=" + node.getRMNode().getHostName() +
-        " #applications=" + applications.size());
+        " #applications=" + applicationQueue.size());
 
     // Try to assign containers to applications in fifo order
-    for (Map.Entry<ApplicationAttemptId, SchedulerApp> e : applications
+    for (Map.Entry<ApplicationAttemptId, SchedulerApp> e : applicationQueue
         .entrySet()) {
       SchedulerApp application = e.getValue();
       LOG.debug("pre-assignContainers");
@@ -641,8 +647,9 @@ public class FifoScheduler implements ResourceScheduler {
     case APP_ADDED:
     {
       AppAddedSchedulerEvent appAddedEvent = (AppAddedSchedulerEvent) event;
-      addApplication(appAddedEvent.getApplicationAttemptId(), appAddedEvent
-          .getUser());
+      addApplication(appAddedEvent.getApplicationAttemptId(),
+    		  appAddedEvent.getUser(),
+    		  appAddedEvent.getDeadline());
     }
     break;
     case APP_REMOVED:
