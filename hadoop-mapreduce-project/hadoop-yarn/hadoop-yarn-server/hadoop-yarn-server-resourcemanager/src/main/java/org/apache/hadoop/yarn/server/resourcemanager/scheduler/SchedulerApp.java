@@ -185,6 +185,10 @@ public class SchedulerApp {
   public String getQueueName() {
     return this.appSchedulingInfo.getQueueName();
   }
+  
+  public long getDeadline() {
+	  return this.appSchedulingInfo.getDeadline();
+  }
 
   /**
    * Get the list of live containers

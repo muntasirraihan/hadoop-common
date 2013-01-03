@@ -101,6 +101,10 @@ public class AppSchedulingInfo {
   public String getUser() {
     return user;
   }
+  
+  public long getDeadline() {
+    return deadline;
+  }
 
   public synchronized boolean isPending() {
     return pending;
