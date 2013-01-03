@@ -126,7 +126,8 @@ public class EdfScheduler implements ResourceScheduler {
   /**
    * The compare method should return < 0 if a1 < a2; this indicates that a1
    * should be scheduled earlier since the minimum app has the soonest
-   * deadline.
+   * deadline. In the case of ties, revert to Fifo ordering since otherwise ties
+   * will be broken arbitrarily by the PriorityQueue.
    * @param a1 the left app of the comparison
    * @param a2 the right app of the comparison
    * @return a number < 0 if a1 is due before a2, == 0 if a1 and a2 have the
@@ -143,7 +144,8 @@ public class EdfScheduler implements ResourceScheduler {
       } else if (diff < 0L) {
         return -1;
       }
-      return 0;
+      // fallback to application attempt id for Fifo ordering
+      return a1.getApplicationAttemptId().compareTo(a2.getApplicationAttemptId());
 	  }
   };
 		  
