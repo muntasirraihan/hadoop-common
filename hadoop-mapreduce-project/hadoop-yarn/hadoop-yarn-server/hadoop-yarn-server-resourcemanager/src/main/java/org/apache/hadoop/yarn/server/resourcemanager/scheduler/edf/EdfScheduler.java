@@ -27,7 +27,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
@@ -149,8 +148,9 @@ public class EdfScheduler implements ResourceScheduler {
 	  }
   };
 		  
-  private java.util.Queue<SchedulerApp> applicationQueue =
-		  new PriorityQueue<SchedulerApp>(1, deadlineComparator);
+  private java.util.SortedSet<SchedulerApp> applications =
+		  Collections.synchronizedSortedSet(
+		      new java.util.TreeSet<SchedulerApp>(deadlineComparator));
 
   private static final String DEFAULT_QUEUE_NAME = "default";
   private final QueueMetrics metrics =
@@ -311,7 +311,7 @@ public class EdfScheduler implements ResourceScheduler {
         new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, 
             this.rmContext, null);
     applicationMap.put(appAttemptId, schedulerApp);
-    applicationQueue.offer(schedulerApp);
+    applications.add(schedulerApp);
     metrics.submitApp(user);
     LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
         " from " + user + ", currently active: " + applicationMap.size());
@@ -344,7 +344,7 @@ public class EdfScheduler implements ResourceScheduler {
 
     // Remove the application
     applicationMap.remove(applicationAttemptId);
-    applicationQueue.remove(application);
+    applications.remove(application);
   }
   
   /**
@@ -359,7 +359,7 @@ public class EdfScheduler implements ResourceScheduler {
 
     // Try to assign containers to applications in the deadline order of the
     // queue.
-    for (SchedulerApp application : applicationQueue) {
+    for (SchedulerApp application : applications) {
       LOG.debug("pre-assignContainers");
       application.showRequests();
       synchronized (application) {
