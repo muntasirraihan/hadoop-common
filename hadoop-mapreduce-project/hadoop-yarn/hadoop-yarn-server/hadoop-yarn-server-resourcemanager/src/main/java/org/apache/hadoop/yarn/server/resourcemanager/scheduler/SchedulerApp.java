@@ -112,17 +112,18 @@ public class SchedulerApp {
       String user, Queue queue, long deadline, ActiveUsersManager activeUsersManager,
       RMContext rmContext, ApplicationStore store) {
     this.rmContext = rmContext;
-    this.appSchedulingInfo = 
-        new AppSchedulingInfo(applicationAttemptId, user, queue, deadline
-            activeUsersManager, store);
+    this.appSchedulingInfo =
+    		new AppSchedulingInfo(applicationAttemptId, user, queue, deadline,
+    				activeUsersManager, store);
     this.queue = queue;
     this.rmApp = rmContext.getRMApps().get(applicationAttemptId.getApplicationId());
   }
   
   public SchedulerApp(ApplicationAttemptId applicationAttemptId, 
-	      String user, Queue queue, 
+	      String user, Queue queue, ActiveUsersManager activeUsersManager, 
 	      RMContext rmContext, ApplicationStore store) {
-	  this(applicationAttemptId, user, queue, YarnConfiguration.DEFAULT_DEADLINE, rmContext, store);
+	  this(applicationAttemptId, user, queue, YarnConfiguration.DEFAULT_DEADLINE,
+			  activeUsersManager, rmContext, store);
   }
 
   public ApplicationId getApplicationId() {

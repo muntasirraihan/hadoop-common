@@ -299,10 +299,10 @@ public class FifoScheduler implements ResourceScheduler {
   private synchronized void addApplication(ApplicationAttemptId appAttemptId,
       String user, long deadline) {
     // TODO: Fix store
-    SchedulerApp schedulerApp = 
-        new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, activeUsersManager,
-            this.rmContext, null);
-    applicationsQueue.put(appAttemptId, schedulerApp);
+    SchedulerApp schedulerApp =
+    		new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, deadline,
+    				activeUsersManager, this.rmContext, null);
+    applicationQueue.put(appAttemptId, schedulerApp);
     metrics.submitApp(user, appAttemptId.getAttemptId());
     LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
         " from " + user + ", currently active: " + applicationQueue.size());
@@ -387,7 +387,7 @@ public class FifoScheduler implements ResourceScheduler {
 
     // Update the applications' headroom to correctly take into
     // account the containers assigned in this update.
-    for (SchedulerApp application : applications.values()) {
+    for (SchedulerApp application : applicationQueue.values()) {
       application.setHeadroom(Resources.subtract(clusterResource, usedResource));
     }
   }
