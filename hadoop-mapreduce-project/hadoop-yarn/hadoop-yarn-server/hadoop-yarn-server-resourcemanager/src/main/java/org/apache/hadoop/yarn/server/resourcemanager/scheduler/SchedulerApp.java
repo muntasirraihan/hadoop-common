@@ -114,7 +114,7 @@ public class SchedulerApp {
     this.rmContext = rmContext;
     this.appSchedulingInfo =
     		new AppSchedulingInfo(applicationAttemptId, user, queue, deadline,
-    				activeUsersManager, store);
+    				activeUsersManager);
     this.queue = queue;
     this.rmApp = rmContext.getRMApps().get(applicationAttemptId.getApplicationId());
   }

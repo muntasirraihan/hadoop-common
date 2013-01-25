@@ -31,6 +31,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.server.resourcemanager.Application;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
@@ -96,12 +97,13 @@ public class TestFifoScheduler {
         appId, 1);
 
     SchedulerEvent event = new AppAddedSchedulerEvent(appAttemptId, "queue",
-        "user");
+        "user", YarnConfiguration.DEFAULT_DEADLINE);
     schedular.handle(event);
 
     appAttemptId = BuilderUtils.newApplicationAttemptId(appId, 2);
 
-    event = new AppAddedSchedulerEvent(appAttemptId, "queue", "user");
+    event = new AppAddedSchedulerEvent(appAttemptId, "queue",
+    		"user", YarnConfiguration.DEFAULT_DEADLINE);
     schedular.handle(event);
 
     QueueMetrics metrics = schedular.getRootQueueMetrics();

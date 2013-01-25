@@ -73,8 +73,7 @@ public class AppSchedulingInfo {
   boolean pending = true; // for app metrics
 
   public AppSchedulingInfo(ApplicationAttemptId appAttemptId,
-      String user, Queue queue, long deadline, ActiveUsersManager activeUsersManager,
-      ApplicationStore store) {
+      String user, Queue queue, long deadline, ActiveUsersManager activeUsersManager) {
     this.applicationAttemptId = appAttemptId;
     this.applicationId = appAttemptId.getApplicationId();
     this.queue = queue;
@@ -83,7 +82,6 @@ public class AppSchedulingInfo {
     //this.store = store;
     this.activeUsersManager = activeUsersManager;
     this.deadline = deadline;
-    this.store = store;
   }
 
   public ApplicationId getApplicationId() {

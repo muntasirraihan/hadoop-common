@@ -65,6 +65,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptS
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeCleanContainerEvent;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Allocation;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Queue;
@@ -155,6 +157,8 @@ public class EdfScheduler implements ResourceScheduler {
   private static final String DEFAULT_QUEUE_NAME = "default";
   private final QueueMetrics metrics =
     QueueMetrics.forQueue(DEFAULT_QUEUE_NAME, null, false);
+  private final ActiveUsersManager activeUsersManager =
+		  new ActiveUsersManager(metrics);
 
   private final Queue DEFAULT_QUEUE = new Queue() {
     @Override
@@ -203,6 +207,11 @@ public class EdfScheduler implements ResourceScheduler {
   @Override
   public Resource getMinimumResourceCapability() {
     return minimumAllocation;
+  }
+  
+  @Override
+  public int getNumClusterNodes() {
+    return nodes.size();
   }
 
   @Override
@@ -305,20 +314,20 @@ public class EdfScheduler implements ResourceScheduler {
   
   @SuppressWarnings("unchecked")
   private synchronized void addApplication(ApplicationAttemptId appAttemptId,
-      String user, long deadline) {
-    // TODO: Fix store
-    SchedulerApp schedulerApp = 
-        new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, 
-            this.rmContext, null);
-    applicationMap.put(appAttemptId, schedulerApp);
-    applications.add(schedulerApp);
-    metrics.submitApp(user);
-    LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
-        " from " + user + ", currently active: " + applicationMap.size());
-    rmContext.getDispatcher().getEventHandler().handle(
-        new RMAppAttemptEvent(appAttemptId,
-            RMAppAttemptEventType.APP_ACCEPTED));
-  }
+	      String user, long deadline) {
+	    // TODO: Fix store
+	    SchedulerApp schedulerApp =
+	    		new SchedulerApp(appAttemptId, user, DEFAULT_QUEUE, deadline,
+	    				activeUsersManager, this.rmContext, null);
+	    applicationMap.put(appAttemptId, schedulerApp);
+	    applications.add(schedulerApp);
+	    metrics.submitApp(user, appAttemptId.getAttemptId());
+	    LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
+	        " from " + user + ", currently active: " + applicationMap.size());
+	    rmContext.getDispatcher().getEventHandler().handle(
+	        new RMAppAttemptEvent(appAttemptId,
+	            RMAppAttemptEventType.APP_ACCEPTED));
+	  }
 
   private synchronized void doneApplication(
       ApplicationAttemptId applicationAttemptId,
@@ -378,8 +387,6 @@ public class EdfScheduler implements ResourceScheduler {
           }
         }
       }
-      
-      application.setAvailableResourceLimit(clusterResource);
       
       LOG.debug("post-assignContainers");
       application.showRequests();
@@ -524,66 +531,67 @@ public class EdfScheduler implements ResourceScheduler {
   }
 
   private int assignContainer(SchedulerNode node, SchedulerApp application, 
-      Priority priority, int assignableContainers, 
-      ResourceRequest request, NodeType type) {
-    LOG.debug("assignContainers:" +
-        " node=" + node.getRMNode().getHostName() +
-        " application=" + application.getApplicationId().getId() + 
-        " priority=" + priority.getPriority() + 
-        " assignableContainers=" + assignableContainers +
-        " request=" + request + " type=" + type);
-    Resource capability = request.getCapability();
+	      Priority priority, int assignableContainers, 
+	      ResourceRequest request, NodeType type) {
+	    LOG.debug("assignContainers:" +
+	        " node=" + node.getRMNode().getHostName() +
+	        " application=" + application.getApplicationId().getId() + 
+	        " priority=" + priority.getPriority() + 
+	        " assignableContainers=" + assignableContainers +
+	        " request=" + request + " type=" + type);
+	    Resource capability = request.getCapability();
 
-    int availableContainers = 
-      node.getAvailableResource().getMemory() / capability.getMemory(); // TODO: A buggy
-                                                                        // application
-                                                                        // with this
-                                                                        // zero would
-                                                                        // crash the
-                                                                        // scheduler.
-    int assignedContainers = 
-      Math.min(assignableContainers, availableContainers);
+	    int availableContainers = 
+	      node.getAvailableResource().getMemory() / capability.getMemory(); // TODO: A buggy
+	                                                                        // application
+	                                                                        // with this
+	                                                                        // zero would
+	                                                                        // crash the
+	                                                                        // scheduler.
+	    int assignedContainers = 
+	      Math.min(assignableContainers, availableContainers);
 
-    if (assignedContainers > 0) {
-      for (int i=0; i < assignedContainers; ++i) {
+	    if (assignedContainers > 0) {
+	      for (int i=0; i < assignedContainers; ++i) {
 
-        NodeId nodeId = node.getRMNode().getNodeID();
-        ContainerId containerId = BuilderUtils.newContainerId(application
-            .getApplicationAttemptId(), application.getNewContainerId());
-        ContainerToken containerToken = null;
+	        NodeId nodeId = node.getRMNode().getNodeID();
+	        ContainerId containerId = BuilderUtils.newContainerId(application
+	            .getApplicationAttemptId(), application.getNewContainerId());
+	        ContainerToken containerToken = null;
 
-        // If security is enabled, send the container-tokens too.
-        if (UserGroupInformation.isSecurityEnabled()) {
-          ContainerTokenIdentifier tokenIdentifier = new ContainerTokenIdentifier(
-              containerId, nodeId.toString(), capability);
-          containerToken = BuilderUtils.newContainerToken(nodeId, ByteBuffer
-              .wrap(containerTokenSecretManager
-                  .createPassword(tokenIdentifier)), tokenIdentifier);
-        }
+	        // If security is enabled, send the container-tokens too.
+	        if (UserGroupInformation.isSecurityEnabled()) {
+	          containerToken =
+	              containerTokenSecretManager.createContainerToken(containerId,
+	                nodeId, capability);
+	          if (containerToken == null) {
+	            return i; // Try again later.
+	          }
+	        }
 
-        // Create the container
-        Container container = BuilderUtils.newContainer(containerId, nodeId,
-            node.getRMNode().getHttpAddress(), capability, priority,
-            containerToken);
-        
-        // Allocate!
-        
-        // Inform the application
-        RMContainer rmContainer =
-            application.allocate(type, node, priority, request, container);
-        
-        // Inform the node
-        node.allocateContainer(application.getApplicationId(), 
-            rmContainer);
-      }
-      
-      // Update total usage
-      Resources.addTo(usedResource,
-          Resources.multiply(capability, assignedContainers));
-    }
-    
-    return assignedContainers;
-  }
+	        // Create the container
+	        Container container = BuilderUtils.newContainer(containerId, nodeId,
+	            node.getRMNode().getHttpAddress(), capability, priority,
+	            containerToken);
+	        
+	        // Allocate!
+	        
+	        // Inform the application
+	        RMContainer rmContainer =
+	            application.allocate(type, node, priority, request, container);
+	        
+	        // Inform the node
+	        node.allocateContainer(application.getApplicationId(), 
+	            rmContainer);
+
+	        // Update usage for this container
+	        Resources.addTo(usedResource, capability);
+	      }
+
+	    }
+	    
+	    return assignedContainers;
+	  }
 
   private synchronized void nodeUpdate(RMNode rmNode, 
       List<ContainerStatus> newlyLaunchedContainers,
@@ -680,18 +688,22 @@ public class EdfScheduler implements ResourceScheduler {
   }
 
   private void containerLaunchedOnNode(ContainerId containerId, SchedulerNode node) {
-    // Get the application for the finished container
-    ApplicationAttemptId applicationAttemptId = containerId.getApplicationAttemptId();
-    SchedulerApp application = getApplication(applicationAttemptId);
-    if (application == null) {
-      LOG.info("Unknown application: " + applicationAttemptId + 
-          " launched container " + containerId +
-          " on node: " + node);
-      return;
-    }
-    
-    application.containerLaunchedOnNode(containerId);
-  }
+	    // Get the application for the finished container
+	    ApplicationAttemptId applicationAttemptId = containerId.getApplicationAttemptId();
+	    SchedulerApp application = getApplication(applicationAttemptId);
+	    if (application == null) {
+	      LOG.info("Unknown application: " + applicationAttemptId + 
+	          " launched container " + containerId +
+	          " on node: " + node);
+	      // Some unknown container sneaked into the system. Kill it.
+	      this.rmContext.getDispatcher().getEventHandler()
+	        .handle(new RMNodeCleanContainerEvent(node.getNodeID(), containerId));
+
+	      return;
+	    }
+	    
+	    application.containerLaunchedOnNode(containerId, node.getNodeID());
+	    }
 
   @Lock(EdfScheduler.class)
   private synchronized void containerCompleted(RMContainer rmContainer,

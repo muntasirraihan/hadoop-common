@@ -240,14 +240,14 @@ public class TestFifoScheduler {
     ApplicationAttemptId appAttemptId1 = BuilderUtils.newApplicationAttemptId(
         appId1, 1);
     SchedulerEvent event1 = new AppAddedSchedulerEvent(appAttemptId1, "queue",
-        "user");
+    		"user", YarnConfiguration.DEFAULT_DEADLINE);
     fs.handle(event1);
 
     ApplicationId appId2 = BuilderUtils.newApplicationId(200, 2);
     ApplicationAttemptId appAttemptId2 = BuilderUtils.newApplicationAttemptId(
         appId2, 1);
     SchedulerEvent event2 = new AppAddedSchedulerEvent(appAttemptId2, "queue",
-        "user");
+        "user", YarnConfiguration.DEFAULT_DEADLINE);
     fs.handle(event2);
 
     List<ContainerStatus> emptyStatus = new ArrayList<ContainerStatus>();
