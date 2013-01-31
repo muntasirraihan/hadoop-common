@@ -190,6 +190,20 @@ public class SchedulerApp {
   public long getDeadline() {
 	  return this.appSchedulingInfo.getDeadline();
   }
+  
+  public long getEstimatedFinish() {
+    //now + (now - start)/progress * (1-progress)
+    long now = System.currentTimeMillis()/1000;
+    long start = this.getRMApp().getStartTime();
+    float progress = this.getRMApp().getProgress();
+    float executionTime = (float) (now - start);
+    float remainingTime = executionTime * (1 - progress) / progress;
+    return now + (long) remainingTime;
+  }
+  
+  public long getLaxity() {
+    return this.getDeadline() - this.getEstimatedFinish();
+  }
 
   /**
    * Get the list of live containers

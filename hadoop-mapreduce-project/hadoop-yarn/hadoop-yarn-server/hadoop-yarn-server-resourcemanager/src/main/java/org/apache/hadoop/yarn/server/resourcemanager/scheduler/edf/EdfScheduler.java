@@ -149,6 +149,20 @@ public class EdfScheduler implements ResourceScheduler {
       return a1.getApplicationAttemptId().compareTo(a2.getApplicationAttemptId());
 	  }
   };
+  
+  // order in increasing laxity order
+  private static final Comparator<SchedulerApp> laxityComparator = new Comparator<SchedulerApp>() {
+    @Override
+    public int compare(SchedulerApp a1, SchedulerApp a2) {
+      long diff = a1.getLaxity() - a2.getLaxity();
+      if (diff > 0L) {
+        return 1;
+      } else if (diff < 0L) {
+        return -1;
+      }
+      return a1.getApplicationAttemptId().compareTo(a2.getApplicationAttemptId());
+    }
+  };
 		  
   private java.util.SortedSet<SchedulerApp> applications =
 		  Collections.synchronizedSortedSet(
