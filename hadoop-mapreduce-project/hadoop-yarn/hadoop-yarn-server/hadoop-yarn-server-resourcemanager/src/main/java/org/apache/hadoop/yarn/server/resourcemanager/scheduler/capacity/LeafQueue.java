@@ -28,6 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
 import org.apache.commons.logging.Log;
@@ -96,11 +97,11 @@ public class LeafQueue implements CSQueue {
   private float usedCapacity = 0.0f;
   private volatile int numContainers;
 
-  Set<SchedulerApp> activeApplications;
+  SortedSet<SchedulerApp> activeApplications;
   Map<ApplicationAttemptId, SchedulerApp> applicationsMap = 
       new HashMap<ApplicationAttemptId, SchedulerApp>();
   
-  Set<SchedulerApp> pendingApplications;
+  SortedSet<SchedulerApp> pendingApplications;
   
   private final Resource minimumAllocation;
   private final Resource maximumAllocation;
