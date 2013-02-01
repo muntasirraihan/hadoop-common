@@ -120,6 +120,12 @@ public class CapacitySchedulerConfiguration extends Configuration {
   
   public static final String PREEMPT = 
     PREEMPT_PREFIX + "on";
+  
+  // the queueing discipline used in the Capacity Scheduler (tej)
+  public static final String QUEUE_POLICY =
+      PREFIX + "queues.policy";
+  public static final String DEFAULT_QUEUE_POLICY =
+      "fifo";
 
   public CapacitySchedulerConfiguration() {
     this(new Configuration());

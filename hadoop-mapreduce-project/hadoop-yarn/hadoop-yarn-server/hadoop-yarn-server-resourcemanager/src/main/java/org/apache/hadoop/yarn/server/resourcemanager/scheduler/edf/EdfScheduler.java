@@ -124,49 +124,10 @@ public class EdfScheduler implements ResourceScheduler {
 
   private Map<ApplicationAttemptId, SchedulerApp> applicationMap
       = new HashMap<ApplicationAttemptId, SchedulerApp>();
-  /**
-   * The compare method should return < 0 if a1 < a2; this indicates that a1
-   * should be scheduled earlier since the minimum app has the soonest
-   * deadline. In the case of ties, revert to Fifo ordering since otherwise ties
-   * will be broken arbitrarily by the PriorityQueue.
-   * @param a1 the left app of the comparison
-   * @param a2 the right app of the comparison
-   * @return a number < 0 if a1 is due before a2, == 0 if a1 and a2 have the
-   *         same deadline, and > 0 if a1 is due after a2.
-   */
-  private static final Comparator<SchedulerApp> deadlineComparator = new Comparator<SchedulerApp>() {
-    @Override
-	  public int compare(SchedulerApp a1, SchedulerApp a2) {
-      // Make sure the difference is not casted to avoid overflow issues.
-      long diff = a1.getDeadline() - a2.getDeadline();
-      // Return sgn(a1.deadline - a2.deadline).
-      if (diff > 0L) {
-        return 1;
-      } else if (diff < 0L) {
-        return -1;
-      }
-      // fallback to application attempt id for Fifo ordering
-      return a1.getApplicationAttemptId().compareTo(a2.getApplicationAttemptId());
-	  }
-  };
-  
-  // order in increasing laxity order
-  private static final Comparator<SchedulerApp> laxityComparator = new Comparator<SchedulerApp>() {
-    @Override
-    public int compare(SchedulerApp a1, SchedulerApp a2) {
-      long diff = a1.getLaxity() - a2.getLaxity();
-      if (diff > 0L) {
-        return 1;
-      } else if (diff < 0L) {
-        return -1;
-      }
-      return a1.getApplicationAttemptId().compareTo(a2.getApplicationAttemptId());
-    }
-  };
 		  
   private java.util.SortedSet<SchedulerApp> applications =
 		  Collections.synchronizedSortedSet(
-		      new java.util.TreeSet<SchedulerApp>(deadlineComparator));
+		      new java.util.TreeSet<SchedulerApp>(SchedulerApp.deadlineComparator));
 
   private static final String DEFAULT_QUEUE_NAME = "default";
   private final QueueMetrics metrics =

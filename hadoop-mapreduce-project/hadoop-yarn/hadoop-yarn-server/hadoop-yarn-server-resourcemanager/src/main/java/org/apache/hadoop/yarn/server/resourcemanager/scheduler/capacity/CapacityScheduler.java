@@ -101,13 +101,7 @@ implements ResourceScheduler, CapacitySchedulerContext {
     }
   };
 
-  static final Comparator<SchedulerApp> applicationComparator = 
-    new Comparator<SchedulerApp>() {
-    @Override
-    public int compare(SchedulerApp a1, SchedulerApp a2) {
-      return a1.getApplicationId().getId() - a2.getApplicationId().getId();
-    }
-  };
+  static Comparator<SchedulerApp> applicationComparator;
 
   private CapacitySchedulerConfiguration conf;
   private ContainerTokenSecretManager containerTokenSecretManager;
@@ -194,6 +188,15 @@ implements ResourceScheduler, CapacitySchedulerContext {
       this.maximumAllocation = this.conf.getMaximumAllocation();
       this.containerTokenSecretManager = containerTokenSecretManager;
       this.rmContext = rmContext;
+      String queuePolicy = conf.get(CapacitySchedulerConfiguration.QUEUE_POLICY,
+          CapacitySchedulerConfiguration.DEFAULT_QUEUE_POLICY);
+      if ("fifo".equals(queuePolicy)) {
+        applicationComparator = SchedulerApp.submitComparator;
+      } else if ("edf".equals(queuePolicy)) {
+        applicationComparator = SchedulerApp.deadlineComparator;
+      } else if ("llf".equals(queuePolicy)) {
+        applicationComparator = SchedulerApp.laxityComparator;
+      }
       initializeQueues(this.conf);
       initialized = true;
     } else {
