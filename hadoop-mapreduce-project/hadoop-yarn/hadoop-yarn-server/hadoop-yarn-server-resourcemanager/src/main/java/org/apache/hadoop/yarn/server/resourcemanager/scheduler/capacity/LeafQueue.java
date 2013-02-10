@@ -96,7 +96,12 @@ public class LeafQueue implements CSQueue {
   private Resource usedResources = Resources.createResource(0);
   private float usedCapacity = 0.0f;
   private volatile int numContainers;
-
+  
+  /**
+   * The sort order for the activeApplications determines what order they are
+   * given assignments in. This order is determined by the CapacityScheduler,
+   * which instantiates the LeafQueue with the appropriate comparator.
+   */
   SortedSet<SchedulerApp> activeApplications;
   Map<ApplicationAttemptId, SchedulerApp> applicationsMap = 
       new HashMap<ApplicationAttemptId, SchedulerApp>();
@@ -129,6 +134,14 @@ public class LeafQueue implements CSQueue {
   
   private final ActiveUsersManager activeUsersManager;
   
+  /**
+   * Create a LeafQueue.
+   * @param cs the scheduler context
+   * @param queueName name of this queue
+   * @param parent parent in the queue tree
+   * @param applicationComparator ordering of the applications for scheduling purposes
+   * @param old
+   */
   public LeafQueue(CapacitySchedulerContext cs, 
       String queueName, CSQueue parent, 
       Comparator<SchedulerApp> applicationComparator, CSQueue old) {

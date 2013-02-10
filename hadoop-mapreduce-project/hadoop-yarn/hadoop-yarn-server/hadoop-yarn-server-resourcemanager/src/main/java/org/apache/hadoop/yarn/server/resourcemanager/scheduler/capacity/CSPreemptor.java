@@ -346,7 +346,9 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
 //        releaseContainers(releaseAmount, overCapList);
 //      }
 //    }
-    // * Go through queues, kill containers (through NM)    
+    // * Go through queues, kill containers (through NM)
+    // This seems to be deprecated, since all it does is print info log lines
+    // about what it's not doing (tchajed)
     if (killAmount > 0) {
       LOG.info("(bcho2) kill amount "+killAmount+" but not killing!");
       
