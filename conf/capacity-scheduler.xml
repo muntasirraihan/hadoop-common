@@ -64,6 +64,10 @@
     <!-- random, probabilistic, least-resources, most-resources -->
   </property>
   <property>
+    <name>yarn.scheduler.capacity.queues.policy</name>
+    <value>edf</value>
+  </property>
+  <property>
     <name>yarn.scheduler.capacity.preempt.suspend</name>
     <value>true</value>
   </property>

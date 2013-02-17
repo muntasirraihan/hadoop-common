@@ -197,6 +197,7 @@ implements ResourceScheduler, CapacitySchedulerContext {
       } else if ("llf".equals(queuePolicy)) {
         applicationComparator = SchedulerApp.laxityComparator;
       }
+      LOG.debug("using queuePolicy " + queuePolicy);
       initializeQueues(this.conf);
       initialized = true;
     } else {
