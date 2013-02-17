@@ -53,7 +53,9 @@ HADOOP_CONF_SOURCE_DIR=.
 tar -xzf $HADOOP_SOURCE_DIR/hadoop-0.23.3-SNAPSHOT.tar.gz -C $HADOOP_TARGET_DIR
 cp $HADOOP_SOURCE_DIR/hadoop-0.23.3-SNAPSHOT/share/hadoop/mapreduce/hadoop-mapreduce-examples-0.23.3-SNAPSHOT.jar $HADOOP_TARGET_DIR/hadoop-0.23.3-SNAPSHOT/hadoop-examples.jar
 
-ln -s $HADOOP_COMMON_DIR/conf $HADOOP_HOME/conf
+if [ ! -e $HADOOP_HOME/conf ]; then
+  ln -s $HADOOP_COMMON_DIR/conf $HADOOP_HOME/conf
+fi
 
 $HADOOP_HOME/sbin/hadoop-daemon.sh stop namenode
 $HADOOP_HOME/sbin/hadoop-daemon.sh stop datanode
@@ -61,17 +63,19 @@ $HADOOP_HOME/sbin/yarn-daemon.sh stop resourcemanager
 $HADOOP_HOME/sbin/yarn-daemon.sh stop nodemanager
 
 
-rm -rf /tmp/dfs
-rm -rf /tmp/nm-local-dirs
-rm -rf /tmp/nm-log-dirs
-rm -rf /tmp/yarn-logs
-rm -rf /tmp/logs
-
-mkdir /tmp/nm-local-dirs
+mkdir -p /tmp/nm-local-dirs
 chmod a+w /tmp/nm-local-dirs
 
-mkdir /tmp/nm-log-dirs
+mkdir -p /tmp/nm-log-dirs
 chmod a+w /tmp/nm-log-dirs
+
+mkdir -p /tmp/yarn-logs
+
+rm -rf /tmp/dfs
+rm -rf /tmp/nm-local-dirs/*
+rm -rf /tmp/nm-log-dirs/*
+rm -rf /tmp/yarn-logs/*
+rm -rf /tmp/logs/*
 
 $HADOOP_HOME/bin/hadoop namenode -format
 
