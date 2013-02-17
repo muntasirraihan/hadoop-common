@@ -1,0 +1,53 @@
+<!-- To change queue properties (without shutdown): $ bin/yarn rmadmin -refreshQueues -->
+<!-- To submit mapreduce job to queue, use e.g. -Dmapreduce.job.queuename=research -->
+<configuration>
+  <property>
+    <name>yarn.scheduler.capacity.root.queues</name>
+    <value>production,research</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.capacity</name>
+    <value>100</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.production.capacity</name>
+    <value>70</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.research.capacity</name>
+    <value>30</value>
+  </property>
+  <!-- yarn.scheduler.capacity.research.maximum-capacity is another variable to look at -->
+  <!--
+  <property>
+    <name>yarn.scheduler.capacity.root.research.maximum-capacity</name>
+    <value>20</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.production.maximum-capacity</name>
+    <value>20</value>
+  </property>
+  -->
+  <!-- user-limit-factor allows a SINGLE user to become very elastic (see documentation) -->
+  <property>
+    <name>yarn.scheduler.capacity.root.research.user-limit-factor</name>
+    <value>4</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.production.user-limit-factor</name>
+    <value>4</value>
+  </property>
+  <!-- Maximum percent of resources in the cluster which can be used to run application masters - controls number of concurrent running applications. Specified as a float - ie 0.5 = 50%. Default is 10%. -->
+  <property>
+    <name>yarn.scheduler.capacity.maximum-am-resource-percent</name>
+    <value>0.5</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.preempt.kill-ms</name>
+    <value>12000</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.preempt.expire-ms</name>
+    <value>15000</value>
+  </property>
+</configuration>
