@@ -70,10 +70,12 @@ public class WordCount {
     Configuration conf = new Configuration();
     String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
     if (otherArgs.length != 2 && otherArgs.length != 3) {
-      System.err.println("Usage: wordcount <in> <out> <deadline (optional)>");
+      System.err.println("Usage: wordcount <in> <out> [deadline]");
       System.exit(2);
     }
-    conf.setLong(JobContext.DEADLINE, Long.parseLong(otherArgs[2]));
+    if (otherArgs.length >= 3) {
+      conf.setLong(JobContext.DEADLINE, Long.parseLong(otherArgs[2]));
+    }
     //conf.set(JobContext.DEADLINE, otherArgs[2]);
     Job job = new Job(conf, "word count");
     job.setJarByClass(WordCount.class);
