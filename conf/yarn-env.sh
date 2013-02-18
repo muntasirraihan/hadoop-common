@@ -31,7 +31,6 @@ export HADOOP_CONF_DIR=${YARN_CONF_DIR}
 # export JAVA_HOME=/home/y/libexec/jdk1.6.0/
 
 export JAVA_HOME=/usr
-echo $JAVA_HOME
 if [ "$JAVA_HOME" != "" ]; then
   #echo "run java in $JAVA_HOME"
   JAVA_HOME=$JAVA_HOME

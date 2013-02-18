@@ -21,8 +21,7 @@
 # remote nodes.
 
 # The java implementation to use.
-#export JAVA_HOME=${JAVA_HOME}
-export JAVA_HOME=/usr
+export JAVA_HOME=${JAVA_HOME}
 export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
 
 # Extra Java CLASSPATH elements.  Automatically insert capacity-scheduler.
