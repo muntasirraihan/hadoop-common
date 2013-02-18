@@ -6,7 +6,7 @@ import os
 import os.path as path
 from os.path import expanduser, expandvars, join
 from subprocess import call
-from shutil import rmtree
+from shutil import rmtree, copy
 import time
 
 import sys
@@ -14,9 +14,11 @@ import sys
 def cleartree(path):
   """ Clear everything inside a path without deleting the directory. """
   for fname in os.listdir(path):
-    file_path = path.join(path, fname)
+    if fname == "." or fname == "..":
+      continue
+    file_path = os.path.join(path, fname)
     try:
-      if path.isfile(file_path):
+      if os.path.isfile(file_path):
         os.unlink(file_path)
       else:
         rmtree(file_path)
@@ -59,7 +61,6 @@ def help():
   for cmd in sorted(commands.itervalues()):
     print(cmd)
 
-
 env = {}
 env["common"] = expanduser("~/natjam/hadoop-common")
 env["src"] = "%(common)s/hadoop-dist/target" % env
@@ -74,6 +75,8 @@ def extract():
   cleartree(env["target"])
   call(["tar", "xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
   os.symlink(expandvars("$PWD/conf"), "%(h-home)s/conf" % env)
+  copy("%(src)s/%(h-ver)s/share/hadoop/mapreduce/hadoop-mapreduce-examples-%(ver)s.jar" % env,
+      "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
 
 @command
 def setup_logs():
