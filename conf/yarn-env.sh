@@ -14,23 +14,25 @@
 # limitations under the License.
 
 # these are not here by default, for some reason (bcho2)
-#export HADOOP_HOME=$HOME/hadoop/hadoop-0.23.3-SNAPSHOT
-#export HADOOP_MAPRED_HOME=$HADOOP_HOME
-#export HADOOP_COMMON_HOME=$HADOOP_HOME
-#export HADOOP_HDFS_HOME=$HADOOP_HOME
-#export YARN_HOME=$HADOOP_HOME
+export HADOOP_HOME=$HOME/hadoop/hadoop-0.23.3-SNAPSHOT
+export HADOOP_MAPRED_HOME=$HADOOP_HOME
+export HADOOP_COMMON_HOME=$HADOOP_HOME
+export HADOOP_HDFS_HOME=$HADOOP_HOME
+export YARN_HOME=$HADOOP_HOME
 
 # User for YARN daemons
 export HADOOP_YARN_USER=${HADOOP_YARN_USER:-yarn}
 
 # resolve links - $0 may be a softlink
-export YARN_CONF_DIR="${YARN_CONF_DIR:-$YARN_HOME/conf}"
-export HADOOP_CONF_DIR=${YARN_CONF_DIR}
+#export YARN_CONF_DIR="${YARN_CONF_DIR:-$YARN_HOME/conf}"
+#export HADOOP_CONF_DIR=${YARN_CONF_DIR}
+export YARN_CONF_DIR="${YARN_HOME}/conf"
+export HADOOP_CONF_DIR="${HADOOP_HOME}/conf"
+
 
 # some Java parameters
 # export JAVA_HOME=/home/y/libexec/jdk1.6.0/
 
-export JAVA_HOME=/usr
 if [ "$JAVA_HOME" != "" ]; then
   #echo "run java in $JAVA_HOME"
   JAVA_HOME=$JAVA_HOME
