@@ -72,9 +72,15 @@ env["h-home"] = "%(target)s/%(h-ver)s" % env
 @command
 def extract():
   """ Extract the compiled hadoop source, overwriting what is in the target directory. """
+# remove what's inside the target folder
   cleartree(env["target"])
+# extract a packaged tar (create with mvn package; details on wiki)
   call(["tar", "xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
+# symlink conf to repository conf
   os.symlink(expandvars("$PWD/conf"), "%(h-home)s/conf" % env)
+# remove existing default conf
+  rmtree("%(target)s/etc" % env)
+# copy over our compiled example jar for convenient access
   copy("%(src)s/%(h-ver)s/share/hadoop/mapreduce/hadoop-mapreduce-examples-%(ver)s.jar" % env,
       "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
 
@@ -107,12 +113,15 @@ def stop_hdfs():
 @command
 def restart_hdfs():
   stop_hdfs()
-  time.sleep(3)
+  time.sleep(4)
   start_hdfs()
+@command
+def start_nm():
+  daemon_script("yarn", "start", "nodemanager")
 @command
 def start_yarn():
   daemon_script("yarn", "start", "resourcemanager")
-  daemon_script("yarn", "start", "nodemanager")
+  start_nm()
 @command
 def stop_yarn():
   daemon_script("yarn", "stop", "resourcemanager")
@@ -120,7 +129,7 @@ def stop_yarn():
 @command
 def restart_yarn():
   stop_yarn()
-  time.sleep(3)
+  time.sleep(4)
   start_yarn()
 
 if len(sys.argv) < 2:
