@@ -831,14 +831,16 @@ public class LeafQueue implements CSQueue {
               computeUserLimitAndSetHeadroom(application, clusterResource, 
                   required);          
           
-          // Check queue max-capacity limit
-          if (!assignToQueue(clusterResource, required)) {
-            return NULL_ASSIGNMENT;
-          }
-
           // Check user limit
           if (!assignToUser(application.getUser(), userLimit)) {
             break; 
+          }
+          
+          // Check queue max-capacity limit
+          if (!assignToQueue(clusterResource, required)) {
+            // instead of returning no assignment, send this resource request to
+            // the preemptor for it to get us resources.
+            return NULL_ASSIGNMENT;
           }
 
           // Inform the application it is about to get a scheduling opportunity

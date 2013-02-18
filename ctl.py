@@ -79,7 +79,7 @@ def extract():
 # symlink conf to repository conf
   os.symlink(expandvars("$PWD/conf"), "%(h-home)s/conf" % env)
 # remove existing default conf
-  rmtree("%(target)s/etc" % env)
+  rmtree("%(target)s/%(h-ver)s/etc" % env)
 # copy over our compiled example jar for convenient access
   copy("%(src)s/%(h-ver)s/share/hadoop/mapreduce/hadoop-mapreduce-examples-%(ver)s.jar" % env,
       "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
@@ -129,7 +129,7 @@ def stop_yarn():
 @command
 def restart_yarn():
   stop_yarn()
-  time.sleep(4)
+  time.sleep(6)
   start_yarn()
 
 if len(sys.argv) < 2:
