@@ -30,7 +30,9 @@ class Command:
     self.name = fn.__name__
     self.doc = fn.__doc__
   def __str__(self):
-    return "%s: %s" % (self.name, self.doc)
+    if self.doc is not None:
+      return "%s: %s" % (self.name, self.doc)
+    return self.name
   def run(self):
     print("running " + self.name)
     self.fn()
@@ -68,9 +70,10 @@ def setup_logs():
 @command
 def help():
   """ Show usage. """
+  print("Usage: " + sys.argv[0] + " <cmd>")
   print("Supported commands:")
-  for c in commands.itervalues():
-    print(c)
+  for cname in sorted(commands.iterkeys()):
+    print(commands[cname])
 
 def daemon_script(system, startstop, component):
   """ Run a particular daemon script.
