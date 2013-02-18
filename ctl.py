@@ -25,10 +25,17 @@ def cleartree(path):
 
 # Represent a command that is part of this script.
 class Command:
+  # track registration order with a class counter
+  num = 0
   def __init__(self, fn):
     self.fn = fn
     self.name = fn.__name__
     self.doc = fn.__doc__
+    self.num = Command.num
+    Command.num += 1
+  # order commands by registration order
+  def __le__(self, other):
+    return self.num <= other.num
   def __str__(self):
     if self.doc is not None:
       return "%s: %s" % (self.name, self.doc)
@@ -43,6 +50,15 @@ commands = {}
 def command(f):
   commands[f.__name__] = Command(f)
   return f
+
+@command
+def help():
+  """ Show usage. """
+  print("Usage: " + sys.argv[0] + " <cmd>")
+  print("Supported commands:")
+  for cmd in sorted(commands.itervalues()):
+    print(cmd)
+
 
 env = {}
 env["common"] = expanduser("~/natjam/hadoop-common")
@@ -66,14 +82,6 @@ def setup_logs():
     logdir = "/tmp/%s" % logname
     if not path.isdir(logdir):
       os.mkdirs(logdir)
-
-@command
-def help():
-  """ Show usage. """
-  print("Usage: " + sys.argv[0] + " <cmd>")
-  print("Supported commands:")
-  for cname in sorted(commands.iterkeys()):
-    print(commands[cname])
 
 def daemon_script(system, startstop, component):
   """ Run a particular daemon script.
