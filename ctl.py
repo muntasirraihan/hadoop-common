@@ -71,7 +71,7 @@ env["h-home"] = "%(target)s/%(h-ver)s" % env
 
 @command
 def extract():
-  """ Extract the compiled hadoop source. """
+  """ Extract the compiled hadoop source, overwriting what is in the target directory. """
   cleartree(env["target"])
   call(["tar", "xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
   os.symlink(expandvars("$PWD/conf"), "%(h-home)s/conf" % env)
@@ -84,7 +84,7 @@ def setup_logs():
   for logname in ["nm-local-dirs", "nm-log-dirs", "yarn-logs"]:
     logdir = "/tmp/%s" % logname
     if not path.isdir(logdir):
-      os.mkdirs(logdir)
+      os.makedirs(logdir)
 
 def daemon_script(system, startstop, component):
   """ Run a particular daemon script.
@@ -107,7 +107,7 @@ def stop_hdfs():
 @command
 def restart_hdfs():
   stop_hdfs()
-  time.sleep(2)
+  time.sleep(3)
   start_hdfs()
 @command
 def start_yarn():
@@ -120,11 +120,15 @@ def stop_yarn():
 @command
 def restart_yarn():
   stop_yarn()
-  time.sleep(2)
+  time.sleep(3)
   start_yarn()
 
 if len(sys.argv) < 2:
   help()
   sys.exit(1)
 cmd = sys.argv[1]
+if cmd not in commands:
+  print("'%s' is not a known command" % cmd)
+  help()
+  sys.exit(1)
 commands[cmd].run()
