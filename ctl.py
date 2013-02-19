@@ -70,10 +70,15 @@ env["h-ver"] = "hadoop-%(ver)s" % env
 env["h-home"] = "%(target)s/%(h-ver)s" % env
 
 @command
+def compile():
+  """ Compile and package the hadoop distribution. """
+  call("mvn package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true".split(), cwd="%(common)s" % env)
+
+@command
 def extract():
   """ Extract the compiled hadoop source, overwriting what is in the target directory. """
 # remove what's inside the target folder
-  cleartree(env["target"])
+  cleartree("%(target)s/%(h-ver)s" % env)
 # extract a packaged tar (create with mvn package; details on wiki)
   call(["tar", "xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
 # symlink conf to repository conf
