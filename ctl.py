@@ -99,7 +99,7 @@ def clear_logs():
 def setup_logs():
   """ Ensure log directories exist """
   for logname in ["nm-local-dirs", "nm-log-dirs", "yarn-logs"]:
-    logdir = ("/%(tmp)/" % env) + logname
+    logdir = ("/%(tmp)s/" % env) + logname
     if not path.isdir(logdir):
       os.makedirs(logdir)
 
