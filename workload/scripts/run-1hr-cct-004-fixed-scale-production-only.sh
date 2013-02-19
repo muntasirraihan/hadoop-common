@@ -1,0 +1,1100 @@
+#!/usr/bin/env bash
+
+CURRDIR="`pwd`"
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+#defaults
+ARGS="jar ../WorkGenYarn.jar org.apache.hadoop.examples.WorkGenYarn -conf ../workGenKeyValue_conf.xsl -libjars ../WorkGenYarn.jar"
+BINDIR="../../bin"
+OUTDIR="workGenLogs"
+
+#parse args
+arg_type="none"
+
+while (( "$#" )); do
+  case $1 in
+    --args)
+      arg_type="args"
+      ARGS=""
+      ;;
+    --bindir)
+      arg_type="bindir"
+      ;;
+    --outdir)
+      arg_type="outdir"
+      ;;
+    *)
+      if [ "$arg_type" = "args" ] ; then
+        ARGS="$ARGS $1"
+      elif [ "$arg_type" = "bindir" ] ; then
+        BINDIR="$1"
+      elif [ "$arg_type" = "outdir" ] ; then
+        OUTDIR="$1"
+      else
+        echo "Unrecognized $arg_type"
+      fi
+      ;;
+  esac
+  shift
+done
+
+#run
+if [ -d "$OUTDIR" ]; then rm -r "$OUTDIR"; fi
+mkdir "$OUTDIR"
+
+cd $SCRIPTDIR
+./run-jobs-script.sh \
+ --bindir $BINDIR --outdir $OUTDIR \
+ --args $ARGS \
+ --redratio-distribution uniform --suspend-strategy shortest \
+ --hdfs-input workGenInputSmall \
+ --interval 1 --duration 8 \
+ --verbose true \
+ --hdfs-input-num 100 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 0\
+ --sleep 23 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 1\
+ --sleep 0 \
+ --queue production --mapratio 0.87 --redratio 0.33 --nummaps 2 --numreduces 1 --jobs 2\
+ --sleep 0 \
+ --queue production --mapratio 0.24 --redratio 0.04 --nummaps 1 --numreduces 1 --jobs 3\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 4\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 5\
+ --sleep 1 \
+ --queue production --mapratio 1.22 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 6\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 7\
+ --sleep 10 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 8\
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 9\
+ --sleep 35 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 10\
+ --sleep 0 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 11\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 12\
+ --sleep 31 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 13\
+ --sleep 27 \
+ --sleep 0 \
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.11 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 17\
+ --sleep 1 \
+ --queue production --mapratio 0.34 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 18\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 19\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 20\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 21\
+ --sleep 6 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 22\
+ --sleep 3 \
+ --sleep 1 \
+ --sleep 0 \
+ --sleep 1 \
+ --queue production --mapratio 1.43 --redratio 0.21 --nummaps 1 --numreduces 1 --jobs 26\
+ --sleep 0 \
+ --queue production --mapratio 2.08 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 27\
+ --sleep 8 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 28\
+ --sleep 2 \
+ --sleep 0 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 30\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 31\
+ --sleep 2 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 33\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 34\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 35\
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.33 --redratio 1.72 --nummaps 1 --numreduces 1 --jobs 37\
+ --sleep 0 \
+ --sleep 8 \
+ --sleep 2 \
+ --sleep 0 \
+ --sleep 16 \
+ --sleep 4 \
+ --sleep 9 \
+ --sleep 9 \
+ --sleep 10 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 44\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 45\
+ --sleep 3 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 46\
+ --sleep 10 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 47\
+ --sleep 1 \
+ --sleep 15 \
+ --sleep 1 \
+ --sleep 14 \
+ --sleep 2 \
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 51\
+ --sleep 10 \
+ --sleep 0 \
+ --queue production --mapratio 0.87 --redratio 0.21 --nummaps 2 --numreduces 1 --jobs 53\
+ --sleep 1 \
+ --sleep 18 \
+ --sleep 0 \
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 56\
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 57\
+ --sleep 6 \
+ --sleep 1 \
+ --sleep 4 \
+ --queue production --mapratio 7.16 --redratio 0.03 --nummaps 1 --numreduces 1 --jobs 58\
+ --sleep 13 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 59\
+ --sleep 0 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 61\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 62\
+ --sleep 2 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 63\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 64\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 65\
+ --sleep 0 \
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 67\
+ --sleep 4 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 68\
+ --sleep 0 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 69\
+ --sleep 0 \
+ --sleep 10 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 70\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 71\
+ --sleep 4 \
+ --queue production --mapratio 0.12 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 72\
+ --sleep 1 \
+ --sleep 1 \
+ --queue production --mapratio 0.34 --redratio 0.16 --nummaps 1 --numreduces 1 --jobs 74\
+ --sleep 1 \
+ --queue production --mapratio 0.34 --redratio 1.52 --nummaps 1 --numreduces 1 --jobs 75\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 76\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 77\
+ --sleep 0 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 79\
+ --sleep 3 \
+ --queue production --mapratio 1.98 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 80\
+ --sleep 9 \
+ --sleep 10 \
+ --queue production --mapratio 0.25 --redratio 0.04 --nummaps 1 --numreduces 1 --jobs 81\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 82\
+ --sleep 6 \
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 84\
+ --sleep 15 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 85\
+ --sleep 11 \
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 87\
+ --sleep 13 \
+ --sleep 11 \
+ --queue production --mapratio 0.02 --redratio 0.03 --nummaps 1 --numreduces 1 --jobs 88\
+ --sleep 11 \
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 90\
+ --sleep 24 \
+ --sleep 19 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 92\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 93\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 94\
+ --sleep 1 \
+ --queue production --mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 95\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 96\
+ --sleep 0 \
+ --sleep 15 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 99\
+ --sleep 19 \
+ --sleep 9 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 102\
+ --sleep 2 \
+ --queue production --mapratio 0.90 --redratio 0.20 --nummaps 2 --numreduces 1 --jobs 103\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 104\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 105\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 106\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 107\
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 108\
+ --sleep 2 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 110\
+ --sleep 30 \
+ --sleep 13 \
+ --sleep 12 \
+ --queue production --mapratio 0.23 --redratio 0.05 --nummaps 1 --numreduces 1 --jobs 112\
+ --sleep 3 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 114\
+ --sleep 5 \
+ --sleep 2 \
+ --sleep 13 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 116\
+ --sleep 1 \
+ --sleep 1 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 119\
+ --sleep 0 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 120\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 121\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 122\
+ --sleep 0 \
+ --queue production --mapratio 0.36 --redratio 1.53 --nummaps 1 --numreduces 1 --jobs 123\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 124\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 125\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 126\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 127\
+ --sleep 4 \
+ --sleep 1 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 128\
+ --sleep 11 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 129\
+ --sleep 3 \
+ --sleep 0 \
+ --sleep 21 \
+ --sleep 0 \
+ --sleep 11 \
+ --queue production --mapratio 0.24 --redratio 0.04 --nummaps 1 --numreduces 1 --jobs 132\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 133\
+ --sleep 1 \
+ --queue production --mapratio 1.19 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 134\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 135\
+ --sleep 5 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 137\
+ --sleep 2 \
+ --sleep 13 \
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 139\
+ --sleep 0 \
+ --sleep 3 \
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 141\
+ --sleep 2 \
+ --queue production --mapratio 0.01 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 142\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 143\
+ --sleep 3 \
+ --sleep 2 \
+ --queue production --mapratio 0.34 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 145\
+ --sleep 2 \
+ --queue production --mapratio 0.11 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 146\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 147\
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 148\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 149\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 150\
+ --sleep 15 \
+ --queue production --mapratio 1.93 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 151\
+ --sleep 1 \
+ --sleep 4 \
+ --queue production --mapratio 0.92 --redratio 0.19 --nummaps 2 --numreduces 1 --jobs 153\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 154\
+ --sleep 5 \
+ --queue production --mapratio 0.16 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 155\
+ --sleep 5 \
+ --queue production --mapratio 0.03 --redratio 0.05 --nummaps 1 --numreduces 1 --jobs 156\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 157\
+ --sleep 0 \
+ --queue production --mapratio 0.04 --redratio 0.05 --nummaps 1 --numreduces 1 --jobs 158\
+ --sleep 0 \
+ --queue production --mapratio 0.32 --redratio 0.13 --nummaps 1 --numreduces 1 --jobs 159\
+ --sleep 0 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 160\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 161\
+ --sleep 24 \
+ --sleep 44 \
+ --queue production --mapratio 0.02 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 163\
+ --sleep 28 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 164\
+ --sleep 23 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 165\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 166\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 167\
+ --sleep 20 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 168\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 169\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 170\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 171\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 172\
+ --sleep 2 \
+ --queue production --mapratio 0.30 --redratio 1.55 --nummaps 1 --numreduces 1 --jobs 173\
+ --sleep 22 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 174\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 175\
+ --sleep 25 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 176\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 177\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 178\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 179\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 180\
+ --sleep 2 \
+ --queue production --mapratio 0.26 --redratio 0.06 --nummaps 1 --numreduces 1 --jobs 181\
+ --sleep 27 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 182\
+ --sleep 6 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 183\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 184\
+ --sleep 4 \
+ --queue production --mapratio 0.83 --redratio 0.25 --nummaps 2 --numreduces 1 --jobs 185\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 186\
+ --sleep 11 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 187\
+ --sleep 7 \
+ --queue production --mapratio 0.31 --redratio 0.06 --nummaps 1 --numreduces 1 --jobs 188\
+ --sleep 2 \
+ --queue production --mapratio 0.11 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 189\
+ --sleep 19 \
+ --queue production --mapratio 5.87 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 190\
+ --sleep 41 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 191\
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 192\
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 193\
+ --sleep 12 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 194\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 195\
+ --sleep 5 \
+ --queue production --mapratio 0.10 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 196\
+ --sleep 4 \
+ --queue production --mapratio 0.32 --redratio 0.08 --nummaps 1 --numreduces 1 --jobs 197\
+ --sleep 19 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 198\
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 199\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 200\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 201\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 202\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 203\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 204\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 205\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 206\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 207\
+ --sleep 5 \
+ --queue production --mapratio 2.04 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 208\
+ --sleep 2 \
+ --queue production --mapratio 1.52 --redratio 0.21 --nummaps 1 --numreduces 1 --jobs 209\
+ --sleep 0 \
+ --queue production --mapratio 2.06 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 210\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 211\
+ --sleep 46 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 212\
+ --sleep 0 \
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 213\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 214\
+ --sleep 34 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 215\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 216\
+ --sleep 5 \
+ --queue production --mapratio 0.32 --redratio 1.46 --nummaps 1 --numreduces 1 --jobs 217\
+ --sleep 19 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 218\
+ --sleep 13 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 219\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 220\
+ --sleep 8 \
+ --queue production --mapratio 0.89 --redratio 0.26 --nummaps 2 --numreduces 1 --jobs 221\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 222\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 223\
+ --sleep 16 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 224\
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 225\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 226\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 227\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 228\
+ --sleep 36 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 229\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 230\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 231\
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 232\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 233\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 234\
+ --sleep 3 \
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 235\
+ --sleep 0 \
+ --queue production --mapratio 0.25 --redratio 0.06 --nummaps 1 --numreduces 1 --jobs 236\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 237\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 238\
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 239\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 240\
+ --sleep 4 \
+ --queue production --mapratio 0.39 --redratio 1.87 --nummaps 1 --numreduces 1 --jobs 241\
+ --sleep 45 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 242\
+ --sleep 1 \
+ --sleep 40 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 243\
+ --sleep 49 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 244\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 245\
+ --sleep 25 \
+ --sleep 19 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 247\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 248\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 249\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 250\
+ --sleep 4 \
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 252\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 253\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 254\
+ --sleep 1 \
+ --queue production --mapratio 0.02 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 255\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 256\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 257\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 258\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 259\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 260\
+ --sleep 1 \
+ --sleep 23 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 262\
+ --sleep 2 \
+ --sleep 2 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 264\
+ --sleep 12 \
+ --sleep 3 \
+ --queue production --mapratio 0.33 --redratio 0.08 --nummaps 1 --numreduces 1 --jobs 266\
+ --sleep 0 \
+ --queue production --mapratio 0.11 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 267\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 268\
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 269\
+ --sleep 2 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 270\
+ --sleep 15 \
+ --sleep 0 \
+ --queue production --mapratio 2.03 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 272\
+ --sleep 1 \
+ --queue production --mapratio 0.84 --redratio 0.27 --nummaps 2 --numreduces 1 --jobs 273\
+ --sleep 22 \
+ --sleep 6 \
+ --sleep 18 \
+ --sleep 17 \
+ --sleep 17 \
+ --sleep 14 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 277\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 278\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 279\
+ --sleep 3 \
+ --sleep 0 \
+ --sleep 20 \
+ --sleep 1 \
+ --sleep 16 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 282\
+ --sleep 1 \
+ --sleep 2 \
+ --sleep 0 \
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 286\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 287\
+ --sleep 8 \
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 288\
+ --sleep 1 \
+ --queue production --mapratio 0.24 --redratio 0.06 --nummaps 1 --numreduces 1 --jobs 289\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 290\
+ --sleep 1 \
+ --queue production --mapratio 1.17 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 291\
+ --sleep 12 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 292\
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 293\
+ --sleep 1 \
+ --queue production --mapratio 0.24 --redratio 0.05 --nummaps 1 --numreduces 1 --jobs 294\
+ --sleep 0 \
+ --sleep 1 \
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 297\
+ --sleep 13 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 298\
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.86 --redratio 0.24 --nummaps 2 --numreduces 1 --jobs 299\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 300\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 301\
+ --sleep 3 \
+ --queue production --mapratio 0.30 --redratio 1.43 --nummaps 1 --numreduces 1 --jobs 302\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 303\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 304\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 305\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 306\
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 308\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 309\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 310\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 311\
+ --sleep 7 \
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 313\
+ --sleep 0 \
+ --sleep 2 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 314\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 315\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 316\
+ --sleep 8 \
+ --sleep 23 \
+ --queue production --mapratio 0.03 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 318\
+ --sleep 10 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 319\
+ --sleep 48 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 320\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 321\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 322\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 323\
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 324\
+ --sleep 15 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 325\
+ --sleep 6 \
+ --queue production --mapratio 0.37 --redratio 0.07 --nummaps 6 --numreduces 1 --jobs 326\
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 327\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 328\
+ --sleep 11 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 329\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 330\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 331\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 332\
+ --sleep 19 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 333\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 334\
+ --sleep 15 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 335\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 336\
+ --sleep 0 \
+ --queue production --mapratio 0.34 --redratio 1.58 --nummaps 1 --numreduces 1 --jobs 337\
+ --sleep 38 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 338\
+ --sleep 1 \
+ --queue production --mapratio 0.87 --redratio 0.24 --nummaps 2 --numreduces 1 --jobs 339\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 340\
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 341\
+ --sleep 0 \
+ --queue production --mapratio 0.11 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 342\
+ --sleep 0 \
+ --queue production --mapratio 0.32 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 343\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 344\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 345\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 346\
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 347\
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 348\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 349\
+ --sleep 3 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 350\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 351\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 352\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 353\
+ --sleep 1 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 354\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 355\
+ --sleep 7 \
+ --queue production --mapratio 2.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 356\
+ --sleep 2 \
+ --queue production --mapratio 1.41 --redratio 0.21 --nummaps 1 --numreduces 1 --jobs 357\
+ --sleep 11 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 358\
+ --sleep 43 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 359\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 360\
+ --sleep 27 \
+ --sleep 0 \
+ --sleep 0 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 364\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 365\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 366\
+ --sleep 7 \
+ --queue production --mapratio 0.30 --redratio 1.47 --nummaps 1 --numreduces 1 --jobs 367\
+ --sleep 11 \
+ --sleep 0 \
+ --sleep 1 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 371\
+ --sleep 12 \
+ --sleep 0 \
+ --sleep 0 \
+ --sleep 18 \
+ --sleep 0 \
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 375\
+ --sleep 0 \
+ --sleep 8 \
+ --sleep 0 \
+ --sleep 4 \
+ --sleep 0 \
+ --sleep 8 \
+ --queue production --mapratio 0.25 --redratio 0.05 --nummaps 1 --numreduces 1 --jobs 378\
+ --sleep 0 \
+ --queue production --mapratio 0.32 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 379\
+ --sleep 0 \
+ --queue production --mapratio 0.09 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 380\
+ --sleep 4 \
+ --sleep 0 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 383\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 384\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 385\
+ --sleep 2 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 386\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 387\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 388\
+ --sleep 5 \
+ --queue production --mapratio 2.04 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 389\
+ --sleep 0 \
+ --sleep 7 \
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 391\
+ --sleep 10 \
+ --sleep 6 \
+ --queue production --mapratio 0.10 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 393\
+ --sleep 8 \
+ --sleep 4 \
+ --sleep 9 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 395\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 396\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 397\
+ --sleep 1 \
+ --sleep 0 \
+ --sleep 1 \
+ --queue production --mapratio 1.97 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 399\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 400\
+ --sleep 1 \
+ --queue production --mapratio 0.31 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 401\
+ --sleep 8 \
+ --sleep 5 \
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 403\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 404\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 405\
+ --sleep 4 \
+ --sleep 14 \
+ --queue production --mapratio 0.88 --redratio 0.20 --nummaps 2 --numreduces 1 --jobs 407\
+ --sleep 2 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 408\
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 409\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 410\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 411\
+ --sleep 2 \
+ --sleep 0 \
+ --sleep 15 \
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 414\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 415\
+ --sleep 4 \
+ --queue production --mapratio 0.33 --redratio 1.43 --nummaps 1 --numreduces 1 --jobs 416\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 417\
+ --sleep 7 \
+ --sleep 3 \
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 420\
+ --sleep 2 \
+ --sleep 2 \
+ --sleep 16 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 421\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 422\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 423\
+ --sleep 0 \
+ --sleep 0 \
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 426\
+ --sleep 11 \
+ --sleep 9 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 427\
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 428\
+ --sleep 6 \
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 430\
+ --sleep 0 \
+ --queue production --mapratio 0.67 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 431\
+ --sleep 2 \
+ --queue production --mapratio 0.05 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 432\
+ --sleep 1 \
+ --queue production --mapratio 0.02 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 433\
+ --sleep 16 \
+ --sleep 10 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 435\
+ --sleep 3 \
+ --sleep 19 \
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 437\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 438\
+ --sleep 30 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 439\
+ --sleep 0 \
+ --queue production --mapratio 0.10 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 440\
+ --sleep 0 \
+ --queue production --mapratio 0.30 --redratio 0.06 --nummaps 1 --numreduces 1 --jobs 441\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 442\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 443\
+ --sleep 2 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 444\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 445\
+ --sleep 5 \
+ --queue production --mapratio 2.03 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 446\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 447\
+ --sleep 8 \
+ --queue production --mapratio 1.34 --redratio 0.18 --nummaps 1 --numreduces 1 --jobs 448\
+ --sleep 11 \
+ --queue production --mapratio 0.85 --redratio 0.23 --nummaps 2 --numreduces 1 --jobs 449\
+ --sleep 18 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 450\
+ --sleep 41 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 451\
+ --sleep 13 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 452\
+ --sleep 0 \
+ --queue production --mapratio 0.10 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 453\
+ --sleep 3 \
+ --queue production --mapratio 0.33 --redratio 0.08 --nummaps 1 --numreduces 1 --jobs 454\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 455\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 456\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 457\
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 458\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 459\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 460\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 461\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 462\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 463\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 464\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 465\
+ --sleep 12 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 466\
+ --sleep 15 \
+ --queue production --mapratio 0.23 --redratio 0.03 --nummaps 1 --numreduces 1 --jobs 467\
+ --sleep 2 \
+ --queue production --mapratio 1.23 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 468\
+ --sleep 35 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 469\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 470\
+ --sleep 15 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 471\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 472\
+ --sleep 0 \
+ --sleep 4 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 473\
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 474\
+ --sleep 16 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 475\
+ --sleep 12 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 476\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 477\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 478\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 479\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 480\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 481\
+ --sleep 0 \
+ --queue production --mapratio 1.98 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 482\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 483\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 484\
+ --sleep 0 \
+ --queue production --mapratio 0.32 --redratio 1.56 --nummaps 1 --numreduces 1 --jobs 485\
+ --sleep 28 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 486\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 487\
+ --sleep 3 \
+ --sleep 8 \
+ --queue production --mapratio 0.35 --redratio 0.07 --nummaps 1 --numreduces 1 --jobs 489\
+ --sleep 0 \
+ --queue production --mapratio 0.09 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 490\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 491\
+ --sleep 5 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 492\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 493\
+ --sleep 11 \
+ --queue production --mapratio 2.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 494\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 495\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 496\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 497\
+ --sleep 18 \
+ --queue production --mapratio 0.22 --redratio 0.03 --nummaps 1 --numreduces 1 --jobs 498\
+ --sleep 5 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 499\
+ --sleep 11 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 500\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 501\
+ --sleep 1 \
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 502\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 503\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 504\
+ --sleep 24 \
+ --queue production --mapratio 0.00 --redratio 0.02 --nummaps 1 --numreduces 1 --jobs 505\
+ --sleep 12 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 506\
+ --sleep 1 \
+ --queue production --mapratio 0.87 --redratio 0.22 --nummaps 2 --numreduces 1 --jobs 507\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 508\
+ --sleep 9 \
+ --queue production --mapratio 0.37 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 509\
+ --sleep 3 \
+ --queue production --mapratio 0.23 --redratio 0.03 --nummaps 1 --numreduces 1 --jobs 510\
+ --sleep 2 \
+ --queue production --mapratio 0.04 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 511\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 512\
+ --sleep 25 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 513\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 514\
+ --sleep 3 \
+ --sleep 2 \
+ --queue production --mapratio 0.35 --redratio 1.38 --nummaps 1 --numreduces 1 --jobs 515\
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 516\
+ --sleep 8 \
+ --queue production --mapratio 0.05 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 517\
+ --sleep 2 \
+ --queue production --mapratio 0.03 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 518\
+ --sleep 8 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 519\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 520\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 521\
+ --sleep 18 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 522\
+ --sleep 3 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 523\
+ --sleep 6 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 524\
+ --sleep 10 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 525\
+ --sleep 14 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 526\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 527\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 528\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 529\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 530\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 531\
+ --sleep 0 \
+ --queue production --mapratio 0.02 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 532\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 533\
+ --sleep 0 \
+ --queue production --mapratio 0.01 --redratio 0.01 --nummaps 1 --numreduces 1 --jobs 534\
+ --sleep 0 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 535\
+ --sleep 2 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 536\
+ --sleep 1 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 537\
+ --sleep 7 \
+ --queue production --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 --jobs 538\
+
+
+cd $CURRDIR

@@ -1,0 +1,15 @@
+8x Research, 0.5x Production
+
+-queue production 0.5 1400000 1400000  -queue research 8.0 87500 87500 -sleep_normalize 1000 -num_hdfs_inputs 5000 -input /home/bcho2/experiments/cs598cloud/SWIM/workloadSuite/yahoo/1hr-workload.tsv -run analyze
+
+===
+
+CCT (84 containers)
+
+-queue production 0.0015 49000000 49000000 -queue research 0.23 3062500 3062500 -sleep_normalize 1000 -num_hdfs_inputs 100 -input /home/bcho2/experiments/cs598cloud/SWIM/workloadSuite/yahoo/1hr-workload.tsv -run analyze
+
+===
+
+CCT 50/50 (84 containers)
+
+-queue production 0.025 28000000 28000000 -queue research 0.23 3062500 3062500 -sleep_normalize 1000 -num_hdfs_inputs 100 -input /home/bcho2/experiments/cs598cloud/SWIM/workloadSuite/yahoo/1hr-workload.tsv -run analyze
