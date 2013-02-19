@@ -11,6 +11,15 @@ import time
 
 import sys
 
+env = {}
+env["common"] = expanduser("~/natjam/hadoop-common")
+env["src"] = "%(common)s/hadoop-dist/target" % env
+env["target"] = expanduser("~/hadoop")
+env["ver"] = "0.23.3-SNAPSHOT"
+env["h-ver"] = "hadoop-%(ver)s" % env
+env["h-home"] = "%(target)s/%(h-ver)s" % env
+env["tmp"] = "/tmp"
+
 def cleartree(path):
   """ Clear everything inside a path without deleting the directory. """
   for fname in os.listdir(path):
@@ -18,7 +27,7 @@ def cleartree(path):
       continue
     file_path = os.path.join(path, fname)
     try:
-      if os.path.isfile(file_path):
+      if os.path.isfile(file_path) or os.path.islink(file_path):
         os.unlink(file_path)
       else:
         rmtree(file_path)
@@ -61,14 +70,6 @@ def help():
   for cmd in sorted(commands.itervalues()):
     print(cmd)
 
-env = {}
-env["common"] = expanduser("~/natjam/hadoop-common")
-env["src"] = "%(common)s/hadoop-dist/target" % env
-env["target"] = expanduser("~/hadoop")
-env["ver"] = "0.23.3-SNAPSHOT"
-env["h-ver"] = "hadoop-%(ver)s" % env
-env["h-home"] = "%(target)s/%(h-ver)s" % env
-
 @command
 def compile():
   """ Compile and package the hadoop distribution. """
@@ -80,9 +81,9 @@ def extract():
 # remove what's inside the target folder
   cleartree("%(target)s/%(h-ver)s" % env)
 # extract a packaged tar (create with mvn package; details on wiki)
-  call(["tar", "xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
+  call(["tar", "-xzf", "%(src)s/%(h-ver)s.tar.gz" % env, "-C", env["target"]])
 # symlink conf to repository conf
-  os.symlink(expandvars("$PWD/conf"), "%(h-home)s/conf" % env)
+  os.symlink("%(common)s/conf" % env, "%(h-home)s/conf" % env)
 # remove existing default conf
   rmtree("%(target)s/%(h-ver)s/etc" % env)
 # copy over our compiled example jar for convenient access
@@ -90,10 +91,15 @@ def extract():
       "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
 
 @command
+def clear_logs():
+  """ Clear out log directories. """
+  cleartree("%(tmp)s/yarn-logs" % env)
+
+@command
 def setup_logs():
   """ Ensure log directories exist """
   for logname in ["nm-local-dirs", "nm-log-dirs", "yarn-logs"]:
-    logdir = "/tmp/%s" % logname
+    logdir = ("/%(tmp)/" % env) + logname
     if not path.isdir(logdir):
       os.makedirs(logdir)
 
@@ -120,6 +126,11 @@ def restart_hdfs():
   stop_hdfs()
   time.sleep(4)
   start_hdfs()
+
+@command
+def clear_output():
+  """ Clear the output folders (/output*) in HDFS. """
+  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", "/output*"])
 @command
 def start_nm():
   daemon_script("yarn", "start", "nodemanager")
@@ -140,9 +151,13 @@ def restart_yarn():
 if len(sys.argv) < 2:
   help()
   sys.exit(1)
-cmd = sys.argv[1]
-if cmd not in commands:
-  print("'%s' is not a known command" % cmd)
-  help()
-  sys.exit(1)
-commands[cmd].run()
+cmds = []
+for cmd_name in sys.argv[1:]:
+  if cmd_name not in commands:
+    print("'%s' is not a known command" % cmd_name)
+    help()
+    sys.exit(1)
+  cmds.append(commands[cmd_name])
+
+for cmd in cmds:
+  cmd.run()
