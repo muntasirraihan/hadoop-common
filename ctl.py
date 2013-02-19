@@ -147,6 +147,12 @@ def restart_yarn():
   stop_yarn()
   time.sleep(6)
   start_yarn()
+@command
+def flush():
+  """ Clear out everything to get ready for a run. """
+  clear_output()
+  clear_logs()
+  stop_yarn()
 
 if len(sys.argv) < 2:
   help()
