@@ -188,8 +188,11 @@ implements ResourceScheduler, CapacitySchedulerContext {
       this.maximumAllocation = this.conf.getMaximumAllocation();
       this.containerTokenSecretManager = containerTokenSecretManager;
       this.rmContext = rmContext;
-      String queuePolicy = conf.get(CapacitySchedulerConfiguration.QUEUE_POLICY,
-          CapacitySchedulerConfiguration.DEFAULT_QUEUE_POLICY);
+      String queuePolicy = this.conf.get(CapacitySchedulerConfiguration.QUEUE_POLICY);
+      if (queuePolicy == null) {
+        LOG.debug("queue policy not in conf, using fifo");
+        queuePolicy = "fifo";
+      }
       if ("fifo".equals(queuePolicy)) {
         applicationComparator = SchedulerApp.submitComparator;
       } else if ("edf".equals(queuePolicy)) {

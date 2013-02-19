@@ -152,7 +152,7 @@ def flush():
   """ Clear out everything to get ready for a run. """
   clear_output()
   clear_logs()
-  stop_yarn()
+  restart_yarn()
 
 if len(sys.argv) < 2:
   help()

@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -107,11 +108,13 @@ public class SleepingWordCount {
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
     String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-    if (otherArgs.length != 2) {
-      System.err.println("Usage: sleepingwordcount <in> <out>");
+    if (otherArgs.length != 2 && otherArgs.length != 3) {
+      System.err.println("Usage: sleepingwordcount <in> <out> [deadline]");
       System.exit(2);
     }
-    
+    if (otherArgs.length >= 3) {
+      conf.setLong(JobContext.DEADLINE, Long.parseLong(otherArgs[2]));
+    }
     Job job = new Job(conf, "sleeping word count");
     job.setJarByClass(SleepingWordCount.class);
     job.setMapperClass(TokenizerMapper.class);

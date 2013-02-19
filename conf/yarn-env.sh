@@ -32,6 +32,11 @@ export HADOOP_CONF_DIR="${HADOOP_HOME}/conf"
 
 # some Java parameters
 # export JAVA_HOME=/home/y/libexec/jdk1.6.0/
+if [[ $(uname) == 'Darwin' ]]; then
+  export JAVA_HOME=$(/usr/libexec/java_home)
+else
+  export JAVA_HOME="/usr"
+fi
 
 if [ "$JAVA_HOME" != "" ]; then
   #echo "run java in $JAVA_HOME"

@@ -774,6 +774,13 @@ public class LeafQueue implements CSQueue {
         + " #applications=" + activeApplications.size());
     }
     
+    if (LOG.isDebugEnabled()) {
+      for (SchedulerApp application : activeApplications) {
+        LOG.debug("laxity for application " + application.getApplicationId() +
+            " is " + application.getLaxity());
+      }
+    }
+    
     // Check for reserved resources
     RMContainer reservedContainer = node.getReservedContainer();
     if (reservedContainer != null) {
@@ -829,18 +836,20 @@ public class LeafQueue implements CSQueue {
           //       before all higher priority ones are serviced.
           Resource userLimit = 
               computeUserLimitAndSetHeadroom(application, clusterResource, 
-                  required);          
-          
-          // Check user limit
-          if (!assignToUser(application.getUser(), userLimit)) {
-            break; 
-          }
+                  required);
           
           // Check queue max-capacity limit
           if (!assignToQueue(clusterResource, required)) {
             // instead of returning no assignment, send this resource request to
             // the preemptor for it to get us resources.
+            LOG.debug("application " + application.getApplicationId() + " could not be assigned to a queue");
             return NULL_ASSIGNMENT;
+          }
+          
+          // Check user limit
+          if (!assignToUser(application.getUser(), userLimit)) {
+            LOG.debug("could not assign, user is above limit");
+            break; 
           }
 
           // Inform the application it is about to get a scheduling opportunity
