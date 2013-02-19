@@ -132,6 +132,10 @@ def clear_output():
   """ Clear the output folders (/output*) in HDFS. """
   call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", "/output*"])
 @command
+def format_hdfs():
+  """ Format HDFS. """
+  call(["%(target)s/%(h-ver)s/bin/hadoop" % env, "namenode", "-format"])
+@command
 def start_nm():
   daemon_script("yarn", "start", "nodemanager")
 @command
