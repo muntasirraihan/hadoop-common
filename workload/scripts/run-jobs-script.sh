@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 #defaults
-ARGS="jar ../WorkGenYarn.jar org.apache.hadoop.examples.WorkGenYarn -conf ../workGenKeyValue_conf.xsl -libjars ../WorkGenYarn.jar"
-BINDIR="../../bin"
+ARGS="jar $HADOOP_COMMON/workload/WorkGenYarn.jar org.apache.hadoop.examples.WorkGenYarn -conf $HADOOP_COMMON/conf/workGenKeyValue_conf.xsl -libjars $HADOOP_COMMON/workload/WorkGenYarn.jar"
+BINDIR="$HADOOP_HOME/bin"
 OUTDIR="workGenLogs"
 QUEUE="production"
 DEADLINE="0"
@@ -21,6 +21,9 @@ HDFSIN_NUM="64"
 VERBOSE="false"
 
 arg_type="none"
+
+if [ -d "$OUTDIR" ]; then rm -r "$OUTDIR"; fi
+mkdir "$OUTDIR"
 
 while (( "$#" )); do
   case $1 in

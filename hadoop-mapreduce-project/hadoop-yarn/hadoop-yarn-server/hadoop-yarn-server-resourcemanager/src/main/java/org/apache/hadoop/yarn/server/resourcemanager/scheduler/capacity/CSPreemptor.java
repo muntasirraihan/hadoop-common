@@ -641,7 +641,9 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         totalContainersReleased++;
         totalReleasableContainers--;
         
-        ((ResourcesComparator)comparator).releaseConsumption(app, memoryPerContainer);
+        if (comparator instanceof ResourcesComparator) {
+          ((ResourcesComparator)comparator).releaseConsumption(app, memoryPerContainer);
+        }
         
         LOG.info("(bcho2) releaseContainersOrderedIncremental app "+app+
             " containers "+containersMap.get(app));
