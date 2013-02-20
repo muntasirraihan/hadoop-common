@@ -139,14 +139,20 @@ def format_hdfs():
 @command
 def start_nm():
   daemon_script("yarn", "start", "nodemanager")
-@command
 def start_yarn():
   daemon_script("yarn", "start", "resourcemanager")
   start_nm()
-@command
 def stop_yarn():
   daemon_script("yarn", "stop", "resourcemanager")
   daemon_script("yarn", "stop", "nodemanager")
+@command
+def start():
+  """ Start YARN """
+  start_yarn()
+@command
+def stop():
+  """" Stop YARN """
+  stop_yarn()
 @command 
 def start_history():
   daemon_script("mr-jobhistory", "start", "historyserver")
