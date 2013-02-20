@@ -53,13 +53,13 @@ cd $SCRIPTDIR
  --sleep 0 \
  --queue low --deadline 40 --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 \
  --jobs 0\
- --sleep 10 \
+ --sleep 2 \
  --queue low --deadline 30 --mapratio 0.06 --redratio 0.02 --nummaps 1 --numreduces 1 \
  --jobs 1\
- --sleep 0 \
+ --sleep 2 \
  --queue low --deadline 20--mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 \
  --jobs 2\
- --sleep 0 \
+ --sleep 2 \
  --queue low --deadline 10 --mapratio 0.10 --redratio 0.35 --nummaps 1 --numreduces 1 \
  --jobs 3\
  --sleep 0 \

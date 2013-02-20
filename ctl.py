@@ -73,7 +73,7 @@ def help():
 @command
 def compile():
   """ Compile and package the hadoop distribution. """
-  call("mvn package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true".split(), cwd="%(common)s" % env)
+  call("mvn3 package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true".split(), cwd="%(common)s" % env)
 
 @command
 def extract():
