@@ -146,6 +146,12 @@ def start_yarn():
 def stop_yarn():
   daemon_script("yarn", "stop", "resourcemanager")
   daemon_script("yarn", "stop", "nodemanager")
+@command 
+def start_history():
+  daemon_script("mr-jobhistory", "start", "historyserver")
+@command
+def stop_history():
+  daemon_script("mr-jobhistory", "stop", "historyserver")
 @command
 def restart_yarn():
   stop_yarn()
