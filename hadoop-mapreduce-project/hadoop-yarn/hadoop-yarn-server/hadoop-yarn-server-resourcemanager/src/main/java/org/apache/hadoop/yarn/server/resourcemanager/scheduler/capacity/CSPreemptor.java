@@ -26,6 +26,8 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
+import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttempt;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
@@ -436,11 +438,13 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       // build a set of applications in scheduling order
       SortedSet<SchedulerApp> applications = ImmutableSortedSet
           .orderedBy(schedulingComparator).addAll(applicationSet).build();
+      LOG.debug("(tchajed) providing resource in order for " + applications.size() + " applications");
       for (SchedulerApp app : applications) {
         if (requests.size() > 0) {
           // already have found an application that needs resources, this
           // application is less important
           releasableApplications.add(app);
+          LOG.debug("(tchajed) potentially releasing from " + app.getApplicationId());
         } else {
           // this app may need resources that can be taken from later apps
           for (Priority pri : app.getPriorities()) {
@@ -450,10 +454,17 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
               requests.add(request);
             }
           }
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("(tchajed) application " + app.getApplicationId()
+                + " is high-priority and requested " + requests.size()
+                + " resources");
+          }
         }
       } // end application iterator
       // provide resources to the app that needs them
       for (ResourceRequest request : requests) {
+        LOG.debug("(tchajed) releasing containers for " + request +
+            " with " + releasableApplications.size() + " potential victims");
         releaseContainersOrderedIncremental(request, releasableApplications, suspendComparator);
       }
     } // end queue iteration
@@ -600,13 +611,18 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     for (SchedulerApp app : releasableApplications) {
       containersMap.put(app, 0);
       Resource consumption = app.getCurrentConsumption();
-      int releasableMemory = consumption.getMemory() - app.getRMApp().getCurrentAppAttempt().
-                             getMasterContainer().getResource().getMemory();
-      int releasableContainers = releasableMemory/memoryPerContainer;
-      if (releasableContainers > 0) {
-        releasable.put(app, releasableContainers);
-        totalReleasableContainers += releasableContainers;
+      RMApp rmapp = app.getRMApp();
+      RMAppAttempt currentAttempt = rmapp.getCurrentAppAttempt();
+      Container masterContainer = currentAttempt.getMasterContainer();
+      if (masterContainer == null) {
+        continue;
       }
+      Resource masterResource = masterContainer.getResource();
+      int releasableMemory = consumption.getMemory() -
+          masterResource.getMemory();
+      int releasableContainers = releasableMemory/memoryPerContainer;
+      releasable.put(app, releasableContainers);
+      totalReleasableContainers += releasableContainers;
     }
 
     while(totalContainersToRelease > totalContainersReleased &&
@@ -636,9 +652,6 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           releasableContainers--;
           releasable.put(app, releasableContainers);
         }
-      } else {
-        LOG.error("(bcho2) releasableContainers "+releasableContainers+
-            " for "+app);
       }
     }
 
