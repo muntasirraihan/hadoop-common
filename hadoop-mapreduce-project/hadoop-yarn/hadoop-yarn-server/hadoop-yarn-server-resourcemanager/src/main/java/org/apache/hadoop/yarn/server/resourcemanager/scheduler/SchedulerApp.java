@@ -246,8 +246,11 @@ public class SchedulerApp {
   
   public long getEstimatedFinish() {
     //now + (now - start)/progress * (1-progress)
-    long now = System.currentTimeMillis()/1000;
+    // current time (ms)
+    long now = System.currentTimeMillis();
+    // app start time (ms)
     long start = this.getRMApp().getStartTime();
+    // percentage [0,1]
     float progress = this.getRMApp().getProgress();
     float executionTime = (float) (now - start);
     float remainingTime = executionTime * (1 - progress) / progress;
