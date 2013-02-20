@@ -82,6 +82,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   private Clock clock = new SystemClock();
   
   protected CSQueue root;
+  protected int rootMB;
   protected CapacitySchedulerContext scheduler;
 
   protected Map<CSQueue, Integer> reclaimingMemory = 
@@ -143,6 +144,11 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
   
   public void initialize(CSQueue root, CapacitySchedulerContext scheduler) {
     this.root = root;
+    QueueMetrics metrics = root.getMetrics();
+    this.rootMB =
+        metrics.getAvailableMB() +
+        metrics.getReservedMB() +
+        metrics.getAllocatedMB();
     this.scheduler = scheduler;
     
     CapacitySchedulerConfiguration conf = scheduler.getConfiguration();
@@ -323,31 +329,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     for (Entry<CSQueue, List<ResourceRequest>> needEntry : needMap.entrySet()) {
       CSQueue queue = needEntry.getKey();
       for (ResourceRequest request : needEntry.getValue()) {
-        int memNeeded = request.getCapability().getMemory() * request.getNumContainers();
-        float memNeededRatio = (float)memNeeded / rootMB;
-        int memReclaiming = 0;
-        float memReclaimingRatio = 0.0f;
-        if (reclaimingMemory.containsKey(queue)) {
-          memReclaiming = reclaimingMemory.get(queue);
-          memReclaimingRatio = (float)memReclaiming / rootMB;
-        }
+        int containersToReclaim = getContainersToReclaim(request, queue);
         
-        float ratioToReclaim = (queue.getAbsoluteUsedCapacity() + memNeededRatio)
-          - (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)));
-        int containersToReclaim = (int)Math.ceil(ratioToReclaim * rootMB / request.getCapability().getMemory());
-        
-        LOG.info("(bcho2) addIF"
-            + " memNeeded " + memNeeded
-            + " memReclaiming " + memReclaiming
-            + " queue "+queue.getQueueName()
-            + " queueUsed " + queue.getAbsoluteUsedCapacity()
-            + " memReclaimingRatio " + memReclaimingRatio
-            + " queueCap " + queue.getAbsoluteCapacity()
-            + " lhs " + (queue.getAbsoluteUsedCapacity() + memNeededRatio)
-            + " rhs " + (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)))
-            + " containersRequested "+request.getNumContainers()
-            + " containersToReclaim "+containersToReclaim);
-
         // If (need memory) && (not given capacity of memory), including what has been reclaimed
            // if ((memNeeded - memReclaiming) > 0 &&
         // If (I'm under my capacity) && (other queues will prevent me from getting my memory) 
@@ -415,6 +398,33 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
   }
   
+  private int getContainersToReclaim(ResourceRequest request, CSQueue queue) {
+    int memNeeded = request.getCapability().getMemory() * request.getNumContainers();
+    float memNeededRatio = (float)memNeeded / rootMB;
+    int memReclaiming = 0;
+    float memReclaimingRatio = 0.0f;
+    if (reclaimingMemory.containsKey(queue)) {
+      memReclaiming = reclaimingMemory.get(queue);
+      memReclaimingRatio = (float)memReclaiming / rootMB;
+    }
+    
+    float ratioToReclaim = (queue.getAbsoluteUsedCapacity() + memNeededRatio)
+      - (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)));
+    int containersToReclaim = (int)Math.ceil(ratioToReclaim * rootMB / request.getCapability().getMemory());
+    LOG.info("(bcho2) addIF"
+        + " memNeeded " + memNeeded
+        + " memReclaiming " + memReclaiming
+        + " queue "+queue.getQueueName()
+        + " queueUsed " + queue.getAbsoluteUsedCapacity()
+        + " memReclaimingRatio " + memReclaimingRatio
+        + " queueCap " + queue.getAbsoluteCapacity()
+        + " lhs " + (queue.getAbsoluteUsedCapacity() + memNeededRatio)
+        + " rhs " + (1.0f-(root.getAbsoluteUsedCapacity() - (queue.getAbsoluteUsedCapacity() + memReclaimingRatio)))
+        + " containersRequested "+request.getNumContainers()
+        + " containersToReclaim "+containersToReclaim);
+    return containersToReclaim;
+  }
+  
   /**
    * Fix scheduling inversions by providing resources to applications in order.
    * 
@@ -449,8 +459,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           // this app may need resources that can be taken from later apps
           for (Priority pri : app.getPriorities()) {
             ResourceRequest request = app.getSavedRequest(pri, RMNode.ANY);
-            Resource required = request.getCapability();
-            if (request.getNumContainers() > 0) {
+            if (request.getNumContainers() > 0 && getContainersToReclaim(request, queue) > 0) {
               requests.add(request);
             }
           }
