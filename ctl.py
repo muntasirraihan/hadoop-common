@@ -159,10 +159,10 @@ def restart_yarn():
   start_yarn()
 @command
 def flush():
-  """ Clear out everything to get ready for a run. """
+  """ Clear out everything - output, logs - and shutdown YARN. """
   clear_output()
+  stop_yarn()
   clear_logs()
-  restart_yarn()
 
 if len(sys.argv) < 2:
   help()
