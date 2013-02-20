@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
+VERSION=0.23.3
+
+HADOOP_COMMON=$HOME/natjam/hadoop-common
+HADOOP_HOME=$HOME/hadoop/hadoop-$VERSION-SNAPSHOT
+
 CURRDIR="`pwd`"
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 #defaults
-ARGS="jar ../WorkGenYarn.jar org.apache.hadoop.examples.WorkGenYarn -conf ../workGenKeyValue_conf.xsl -libjars ../WorkGenYarn.jar"
-BINDIR="../../bin"
+ARGS="jar $HADOOP_COMMON/workload/WorkGenYarn.jar org.apache.hadoop.examples.WorkGenYarn -conf $HADOOP_COMMON/conf/workGenKeyValue_conf.xsl -libjars $HADOOP_COMMON/workload/WorkGenYarn.jar"
+BINDIR="$HADOOP_HOME/bin"
 OUTDIR="workGenLogs"
 
 #parse args
@@ -51,13 +56,13 @@ cd $SCRIPTDIR
  --verbose true \
  --hdfs-input-num 100 \
  --sleep 0 \
- --queue low --deadline 40 --mapratio 0.00 --redratio 0.00 --nummaps 1 --numreduces 1 \
+ --queue low --deadline 40 --mapratio 0.00 --redratio 0.50 --nummaps 1 --numreduces 1 \
  --jobs 0\
  --sleep 2 \
- --queue low --deadline 30 --mapratio 0.06 --redratio 0.02 --nummaps 1 --numreduces 1 \
+ --queue low --deadline 30 --mapratio 0.06 --redratio 0.50 --nummaps 1 --numreduces 1 \
  --jobs 1\
  --sleep 2 \
- --queue low --deadline 20--mapratio 0.01 --redratio 0.00 --nummaps 1 --numreduces 1 \
+ --queue low --deadline 20 --mapratio 0.01 --redratio 0.50 --nummaps 1 --numreduces 1 \
  --jobs 2\
  --sleep 2 \
  --queue low --deadline 10 --mapratio 0.10 --redratio 0.35 --nummaps 1 --numreduces 1 \

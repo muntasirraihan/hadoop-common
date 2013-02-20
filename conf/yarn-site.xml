@@ -53,7 +53,7 @@
 <!-- medium containers--> 
     <property>
         <name>yarn.nodemanager.resource.memory-mb</name>
-        <value>12288</value>
+        <value>4096</value>
     </property>
 
 </configuration>

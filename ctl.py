@@ -131,6 +131,7 @@ def restart_hdfs():
 def clear_output():
   """ Clear the output folders (/output*) in HDFS. """
   call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", "/output*"])
+  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", expandvars("/user/$USER/out*")])
 @command
 def format_hdfs():
   """ Format HDFS. """
