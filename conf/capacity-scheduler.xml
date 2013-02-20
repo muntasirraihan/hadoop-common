@@ -56,7 +56,7 @@
   </property>
   <property>
     <name>yarn.scheduler.capacity.preempt.on</name>
-    <value>true</value>
+    <value>false</value>
   </property>
   <property>
     <name>yarn.scheduler.capacity.preempt.suspend.strategy</name>

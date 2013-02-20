@@ -9,15 +9,15 @@
   </property>-->
   <property>
     <name>mapreduce.map.memory.mb</name>
-    <value>1024</value>
+    <value>512</value>
   </property>
   <property>
     <name>mapreduce.reduce.memory.mb</name>
-    <value>1024</value>
+    <value>512</value>
   </property>
   <property>
     <name>yarn.app.mapreduce.am.resource.mb</name>
-    <value>1024</value> <!-- changed from 1536 10/5/2012 -->
+    <value>512</value> <!-- changed from 1536 10/5/2012 --><!-- changed from 1024 2/19/2013 -->
   </property>
   <!-- Added these properties so killing enabled jobs don't fail -->
   <property>
