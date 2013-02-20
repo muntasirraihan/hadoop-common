@@ -190,8 +190,8 @@ implements ResourceScheduler, CapacitySchedulerContext {
       this.rmContext = rmContext;
       String queuePolicy = this.conf.get(CapacitySchedulerConfiguration.QUEUE_POLICY);
       if (queuePolicy == null) {
-        LOG.debug("queue policy not in conf, using fifo");
-        queuePolicy = "fifo";
+        queuePolicy = CapacitySchedulerConfiguration.DEFAULT_QUEUE_POLICY;
+        LOG.debug("queue policy not in conf, using " + queuePolicy);
       }
       if ("fifo".equals(queuePolicy)) {
         applicationComparator = SchedulerApp.submitComparator;

@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
+import java.util.SortedSet;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.Clock;
@@ -25,11 +28,13 @@ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerApp;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
 import org.apache.hadoop.yarn.util.BuilderUtils;
-import org.apache.hadoop.yarn.util.Records;
+
+import com.google.common.collect.ImmutableSortedSet;
 
 // Bring back preemption. Based on what was stripped out with
 //   HADOOP-5726 cs-without-preemption-23-1-2009.patch
@@ -67,6 +72,10 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
 
   private boolean suspend = false;
   private String suspendStrategy = DEFAULT_SUSPEND_STRATEGY;
+  /**
+   * The comparator to use if suspending strategy is a comparative strategy (eg, fifo)
+   */
+  private Comparator<SchedulerApp> suspendComparator = null;
   private boolean stopReclaim = false;
   private Clock clock = new SystemClock();
   
@@ -141,6 +150,23 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     this.utilizationTolerance = conf.getFloat(UTILIZATION_TOL, DEFAULT_UTILIZATION_TOL);
     this.suspend = conf.getBoolean(SUSPEND, false);
     this.suspendStrategy = conf.get(SUSPEND_STRATEGY, DEFAULT_SUSPEND_STRATEGY);
+    if ("least-resources".equals(suspendStrategy)) {
+      this.suspendComparator = new ResourcesComparator();
+    } else if ("most-resources".equals(suspendStrategy)) {
+      this.suspendComparator = Collections.reverseOrder(new ResourcesComparator());
+    } else if ("edf".equals(suspendStrategy)) {
+      // EDF refers to which one is scheduled first, while this is which one is suspended first
+      this.suspendComparator = Collections.reverseOrder(SchedulerApp.deadlineComparator);
+    } else if ("llf".equals(suspendStrategy)) {
+      // LLF refers to which one is scheduled first, while this is which one is suspended first
+      this.suspendComparator = Collections.reverseOrder(SchedulerApp.laxityComparator);
+    } else if ("fifo".equals(suspendStrategy)) {
+      // kill old jobs first
+      this.suspendComparator = SchedulerApp.submitComparator;
+    } else {
+      // this suspend strategy does not use a comparator
+      this.suspendComparator = null;
+    }
     
     LOG.info("(bcho2) kill interval "+killInterval);
     LOG.info("(bcho2) suspend strategy "+suspendStrategy);
@@ -155,6 +181,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           break;
         }
         reclaimCapacity();
+        provideOrderedResources();
       } catch (InterruptedException t) {
         break;
       } catch (Throwable t) {
@@ -211,7 +238,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     }
   }
   
-  public void reclaimCapacity() {
+  private void reclaimCapacity() {
     // * Update lists:
     long currentTime = clock.getTime();
     // reclaim -> reclaimExpire
@@ -385,6 +412,52 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       }
     }
   }
+  
+  /**
+   * Fix scheduling inversions by providing resources to applications in order.
+   * 
+   * Goes through applications in desired scheduling order and finds one that
+   * needs resources. If possible, satisfies that request using applications
+   * later in the ordering.
+   * 
+   * Expects the scheduling policy to be an order-based one (ie, applicationComparator != null)
+   */
+  private void provideOrderedResources() {
+    Map<CSQueue, List<ResourceRequest>> needMap =
+        findQueueNeedResources(root, new HashMap<CSQueue, List<ResourceRequest>>());
+    for (CSQueue queue : needMap.keySet()) {
+      List<ResourceRequest> requests = new ArrayList<ResourceRequest>();
+      List<SchedulerApp> releasableApplications = new ArrayList<SchedulerApp>();
+      Set<SchedulerApp> applicationSet = ((LeafQueue) queue).getActiveApplications();
+      // we want to schedule the applications in the reverse order that we
+      // suspend them in
+      Comparator<SchedulerApp> schedulingComparator = Collections
+          .reverseOrder(suspendComparator);
+      // build a set of applications in scheduling order
+      SortedSet<SchedulerApp> applications = ImmutableSortedSet
+          .orderedBy(schedulingComparator).addAll(applicationSet).build();
+      for (SchedulerApp app : applications) {
+        if (requests.size() > 0) {
+          // already have found an application that needs resources, this
+          // application is less important
+          releasableApplications.add(app);
+        } else {
+          // this app may need resources that can be taken from later apps
+          for (Priority pri : app.getPriorities()) {
+            ResourceRequest request = app.getSavedRequest(pri, RMNode.ANY);
+            Resource required = request.getCapability();
+            if (request.getNumContainers() > 0) {
+              requests.add(request);
+            }
+          }
+        }
+      } // end application iterator
+      // provide resources to the app that needs them
+      for (ResourceRequest request : requests) {
+        releaseContainersOrderedIncremental(request, releasableApplications, suspendComparator);
+      }
+    } // end queue iteration
+  }
 
   static class ResourcesComparator
   implements Comparator<SchedulerApp> {
@@ -433,27 +506,13 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       } else if ("probabilistic".equals(suspendStrategy)) {
         containersMap =
           releaseContainersProbabilistic(releaseRequest, releasableApplications);
-      } else { // Use some kind of Comparator
-        Comparator<SchedulerApp> comparator = null;
-        if ("least-resources".equals(suspendStrategy)) {
-          comparator = new ResourcesComparator();
-        } else if ("most-resources".equals(suspendStrategy)) {
-          comparator = Collections.reverseOrder(new ResourcesComparator());
-        } else if ("edf".equals(suspendStrategy)) {
-          // EDF refers to which one is scheduled first, while this is which one is suspended first
-          comparator = Collections.reverseOrder(SchedulerApp.deadlineComparator);
-        } else if ("llf".equals(suspendStrategy)) {
-          // LLF refers to which one is scheduled first, while this is which one is suspended first
-          comparator = Collections.reverseOrder(SchedulerApp.laxityComparator);
-        } else if ("fifo".equals(suspendStrategy)) {
-          // kill old jobs first
-          comparator = SchedulerApp.submitComparator;
-        }
-        if (comparator == null) {
-          LOG.error(String.format("check configuration; unknown suspendStrategy %s specified!", suspendStrategy));
-        }
+      } else {
+        // Use some kind of Comparator, initialized already in instance variable
+        // applicationComparator
         containersMap = 
-          releaseContainersOrderedIncremental(releaseRequest, releasableApplications, comparator);
+          releaseContainersOrderedIncremental(releaseRequest,
+              releasableApplications,
+              suspendComparator);
         // TODO: A lot of repeated code here. Combine w/ probabilistic, by passing along the function (as an interface) that gets the next entry.
       }
     }
