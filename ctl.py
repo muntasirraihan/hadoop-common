@@ -3,7 +3,6 @@
 from __future__ import print_function, division
 
 import os
-import os.path as path
 from os.path import expanduser, expandvars, join
 from subprocess import call
 from shutil import rmtree, copy
@@ -67,17 +66,20 @@ def help():
   """ Show usage. """
   print("Usage: " + sys.argv[0] + " <cmd>")
   print("Supported commands:")
-  for cmd in sorted(commands.itervalues()):
-    print(cmd)
+  for command_object in sorted(commands.itervalues()):
+    print(command_object)
 
 @command
 def compile():
   """ Compile and package the hadoop distribution. """
-  call("mvn3 package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true".split(), cwd="%(common)s" % env)
+  commandline = "mvn3 package -Pdist -DskipTests -Dtar"
+  commandline += " -Dmaven.javadoc.skip=true"
+  call(commandline.split(), cwd="%(common)s" % env)
 
 @command
 def extract():
-  """ Extract the compiled hadoop source, overwriting what is in the target directory. """
+  """ Extract the compiled hadoop source,
+  overwriting what is in the target directory. """
 # remove what's inside the target folder
   cleartree("%(target)s/%(h-ver)s" % env)
 # extract a packaged tar (create with mvn package; details on wiki)
@@ -87,8 +89,9 @@ def extract():
 # remove existing default conf
   rmtree("%(target)s/%(h-ver)s/etc" % env)
 # copy over our compiled example jar for convenient access
-  copy("%(src)s/%(h-ver)s/share/hadoop/mapreduce/hadoop-mapreduce-examples-%(ver)s.jar" % env,
-      "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
+  example_jar = "%(src)s/%(h-ver)s/share/hadoop/mapreduce/" % env
+  example_jar += "hadoop-mapreduce-examples-%(ver)s.jar" % env
+  copy(example_jar, "%(target)s/%(h-ver)s/hadoop-examples.jar" % env)
 
 @command
 def clear_logs():
@@ -100,7 +103,7 @@ def setup_logs():
   """ Ensure log directories exist """
   for logname in ["nm-local-dirs", "nm-log-dirs", "yarn-logs"]:
     logdir = ("/%(tmp)s/" % env) + logname
-    if not path.isdir(logdir):
+    if not os.path.isdir(logdir):
       os.makedirs(logdir)
 
 def daemon_script(system, startstop, component):
@@ -130,8 +133,10 @@ def restart_hdfs():
 @command
 def clear_output():
   """ Clear the output folders (/output*) in HDFS. """
-  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", "/output*"])
-  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", expandvars("/user/$USER/out*")])
+  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs",
+    "-rm", "-r", "-f", "/output*"])
+  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs",
+    "-rm", "-r", "-f", expandvars("/user/$USER/out*")])
 @command
 def format_hdfs():
   """ Format HDFS. """
