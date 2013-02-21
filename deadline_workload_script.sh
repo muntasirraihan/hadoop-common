@@ -1,6 +1,4 @@
 #!/bin/bash
-clear
-
 HADOOP_SOURCE=$HOME/natjam/hadoop-common
 
 # clear output directories before running the test

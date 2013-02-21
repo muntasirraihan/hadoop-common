@@ -29,10 +29,10 @@
 -->
    <property>
      <name>test.randomwrite.total_bytes</name>
-     <value>629145600</value>
+     <value>229145600</value>
    </property>
    <property>
      <name>test.randomwrite.bytes_per_map</name>
-     <value>6291456</value>
+     <value>2291456</value>
    </property>
 </configuration>
