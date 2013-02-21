@@ -798,7 +798,6 @@ public class LeafQueue implements CSQueue {
                                 // for reserved containers
     }
     
-    LOG.debug("(bcho2) activeApplication.size "+activeApplications.size());
     // Try to assign containers to applications in order
     for (SchedulerApp application : activeApplications) {
       
@@ -817,15 +816,6 @@ public class LeafQueue implements CSQueue {
 
           // Do we need containers at this 'priority'?
           if (!needContainers(application, priority, required)) {
-            // if (priority.getPriority() == 3) {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("(bcho2) assignment unneeded,"
-                  +" node="+node
-                  +" application="+application.getApplicationId()
-                  +" priority="+priority
-                  +" totalContainersNeeded="+application.getTotalRequiredResources(priority));
-            }
-            // }
             continue;
           }
 
@@ -911,8 +901,10 @@ public class LeafQueue implements CSQueue {
       application.showRequests();
     }
 
+    /*
     LOG.debug("(bcho2) assignment returning null,"
       +" node="+node);
+    */
     return NULL_ASSIGNMENT;
 
   }

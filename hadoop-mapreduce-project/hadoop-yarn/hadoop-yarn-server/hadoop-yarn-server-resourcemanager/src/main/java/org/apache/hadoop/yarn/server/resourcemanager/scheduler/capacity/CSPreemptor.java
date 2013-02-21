@@ -189,7 +189,9 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           break;
         }
         reclaimCapacity();
-        provideOrderedResources();
+        if (suspendComparator != null) {
+          provideOrderedResources();
+        }
       } catch (InterruptedException t) {
         break;
       } catch (Throwable t) {
@@ -542,8 +544,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       SchedulerApp app = entry.getKey();
       int containersToRelease = entry.getValue();
       if (suspend) {
-        LOG.info("(bcho2) containersMap app "+app+
-            " containersToRelease "+containersToRelease);
+        LOG.info("(bcho2) PREEMPT suspending " + containersToRelease + " containers");
         ResourceRequest appRequest = createReleaseRequest(releaseRequest, containersToRelease);
         app.addReleaseRequests(appRequest);
         releasedContainers += containersToRelease;
