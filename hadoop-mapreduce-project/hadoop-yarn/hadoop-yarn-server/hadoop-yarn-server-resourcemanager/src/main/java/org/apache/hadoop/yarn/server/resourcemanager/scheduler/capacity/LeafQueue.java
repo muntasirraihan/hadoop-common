@@ -1106,6 +1106,7 @@ public class LeafQueue implements CSQueue {
             " finalvalue=" + ((starvation + requiredContainers) - reservedContainers) );
       }
     } else {
+      /*
       if (LOG.isDebugEnabled()) {
         LOG.debug("(bcho2) application "+application+
             " priority "+priority+
@@ -1113,7 +1114,9 @@ public class LeafQueue implements CSQueue {
             " starvation "+starvation+
             " requiredContainers "+requiredContainers+
             " reservedContainers "+reservedContainers);
+       
       }
+      */
     }
     return (((starvation + requiredContainers) - reservedContainers) > 0);
   }

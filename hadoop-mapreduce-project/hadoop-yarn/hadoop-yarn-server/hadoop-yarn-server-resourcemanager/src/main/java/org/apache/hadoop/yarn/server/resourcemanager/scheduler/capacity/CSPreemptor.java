@@ -300,15 +300,17 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     List<CSQueue> overCapList =
       findQueueOverCap(root, new LinkedList<CSQueue>());
     if (overCapList.isEmpty()) {
-      LOG.debug("(bcho2) no queues over cap");
+      // LOG.debug("(bcho2) no queues over cap");
       return;
     }
+    /*
     if (LOG.isDebugEnabled()) {
       for (CSQueue queue : overCapList) {
         LOG.debug("(bcho2) queue "+queue.getQueuePath()+
             " over cap "+queue.getAbsoluteUsedCapacity());
       }
     }
+    */
     
     // TODO: is there a better way?
     QueueMetrics metrics = root.getMetrics();
@@ -325,7 +327,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       needMap.remove(queue);
     }
     if (needMap.isEmpty()) {
-      LOG.debug("(bcho2) no queues need resources");
+      // LOG.debug("(bcho2) no queues need resources");
       return;
     }
     for (Entry<CSQueue, List<ResourceRequest>> needEntry : needMap.entrySet()) {
@@ -460,7 +462,8 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         } else {
           // this app may need resources that can be taken from later apps
           for (Priority pri : app.getPriorities()) {
-            ResourceRequest request = app.getSavedRequest(pri, RMNode.ANY);
+            ResourceRequest request = app.getResourceRequest(pri, RMNode.ANY);
+            // removed && getContainersToReclaim(request, queue) > 0
             if (request.getNumContainers() > 0 && getContainersToReclaim(request, queue) > 0) {
               requests.add(request);
             }
@@ -474,9 +477,12 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       } // end application iterator
       // provide resources to the app that needs them
       for (ResourceRequest request : requests) {
-        LOG.debug("(tchajed) releasing containers for " + request +
-            " with " + releasableApplications.size() + " potential victims");
-        releaseContainersOrderedIncremental(request, releasableApplications, suspendComparator);
+        LOG.debug("(tchajed) releasing containers for request of size "
+            + request.getCapability() + " with "
+            + releasableApplications.size() + " potential victims");
+        Map<SchedulerApp, Integer> containersMap =
+            releaseContainersOrderedIncremental(request, releasableApplications, suspendComparator);
+        releaseSelectedContainers(request, containersMap);
       }
     } // end queue iteration
   }
@@ -539,6 +545,10 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       }
     }
 
+    releaseSelectedContainers(releaseRequest, containersMap);
+  }
+  
+  private void releaseSelectedContainers(ResourceRequest releaseRequest, Map<SchedulerApp, Integer> containersMap) {
     int releasedContainers = 0;
     for (Entry<SchedulerApp, Integer> entry : containersMap.entrySet()) {
       SchedulerApp app = entry.getKey();
@@ -655,7 +665,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           ((ResourcesComparator)comparator).releaseConsumption(app, memoryPerContainer);
         }
         
-        LOG.info("(bcho2) releaseContainersOrderedIncremental app "+app+
+        LOG.info("(bcho2) releaseContainersOrderedIncremental app "+app.getApplicationId()+
             " containers "+containersMap.get(app));
         if (releasableContainers <= 1) {
           releasable.remove(app);
