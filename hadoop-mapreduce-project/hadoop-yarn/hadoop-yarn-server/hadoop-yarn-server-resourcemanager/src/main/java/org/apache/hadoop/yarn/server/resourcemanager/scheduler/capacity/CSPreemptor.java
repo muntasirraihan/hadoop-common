@@ -464,8 +464,13 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
           for (Priority pri : app.getPriorities()) {
             ResourceRequest request = app.getResourceRequest(pri, RMNode.ANY);
             // removed && getContainersToReclaim(request, queue) > 0
-            if (request.getNumContainers() > 0 && getContainersToReclaim(request, queue) > 0) {
+            if (request.getNumContainers() > 0) {
               requests.add(request);
+            } else {
+              LOG.debug("(tchajed) request of memory " + request.getCapability().getMemory()
+                  + " with containers=" + request.getNumContainers()
+                  + " and containersToReclaim=" + getContainersToReclaim(request, queue)
+                  + " was not considered as a request!");
             }
           }
           if (LOG.isDebugEnabled()) {

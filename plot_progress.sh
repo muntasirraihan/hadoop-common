@@ -3,8 +3,8 @@ clear
 
 VERSION=0.23.3
 
-HADOOP_HOME=/mnt/hadoop/hadoop-$VERSION-SNAPSHOT
-HADOOP_SOURCE=/proj/ISS/scheduling
+#HADOOP_SOURCE=/proj/ISS/scheduling
+HADOOP_SOURCE="$HOME/natjam/hadoop-common"
 JOB_OUTPUT_DIR=$HADOOP_SOURCE/workload/scripts/workGenLogs
 
 echo $JOB_OUTPUT_DIR

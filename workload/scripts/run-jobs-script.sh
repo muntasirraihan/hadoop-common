@@ -22,8 +22,8 @@ VERBOSE="false"
 
 arg_type="none"
 
-if [ -d "$OUTDIR" ]; then rm -r "$OUTDIR"; fi
-mkdir "$OUTDIR"
+#if [ -d "$OUTDIR" ]; then rm -r "$OUTDIR"; fi
+#mkdir "$OUTDIR"
 
 while (( "$#" )); do
   case $1 in
@@ -135,7 +135,7 @@ while (( "$#" )); do
 	    -DworkGen.ratios.shuffleInputDistribution=$REDRATIO_DISTRIBUTION \
 	    -DworkGen.num-inputs=$NUMMAPS \
 	    -m $NUMMAPS -r $NUMREDUCES -v $VERBOSE \
-	    $HDFSIN $HDFSIN_INDEX $HDFSIN_NUM out-$1 $MAPRATIO $REDRATIO >> $OUTDIR/job-$1.txt 2>> $OUTDIR/job-$1.txt &
+	    $HDFSIN $HDFSIN_INDEX $HDFSIN_NUM out-$1 $MAPRATIO $REDRATIO &> $OUTDIR/job-$1.txt &
         # ./run-job-scripted.sh \
 	#     --jobname $1 --bindir $BINDIR --outdir $OUTDIR $ARGS \
 	#     -Dmapreduce.job.queuename=$QUEUE -Dmapreduce.job.suspend.strategy=$SUSPEND_STRATEGY \
