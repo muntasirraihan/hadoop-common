@@ -131,15 +131,23 @@ class AppInfo:
 
 if __name__ == "__main__":
   import argparse
-  parser = argparse.ArgumentParser()
-  parser.add_argument("json", help="file to output json to")
+  parser = argparse.ArgumentParser(
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("-j", "--json",
+      default="experiment.json",
+      help="file to output json to")
+  parser.add_argument("-t", "--period",
+      type=float,
+      default=2,
+      help="sampling period, in seconds"
+      )
   args = parser.parse_args()
   def main():
     info = AppInfo()
 
     while not info.is_experiment_over():
       info.update()
-      time.sleep(2)
+      time.sleep(args.period)
     with open(args.json, 'w') as f:
       info.dump(f)
   main()

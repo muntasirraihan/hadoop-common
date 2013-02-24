@@ -6,7 +6,8 @@ import argparse
 from subprocess import call
 import os
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-j", "--json",
     default="experiment.json",
     help="json file to plot")
