@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     while not info.is_experiment_over():
       info.update()
-      time.sleep(3)
+      time.sleep(2)
     with open(args.json, 'w') as f:
       info.dump(f)
   main()
