@@ -124,7 +124,7 @@ class AppInfo:
         'app_data': self.app_data,
         }
     json.dump(recorded_info, fp)
-  def is_experiment_over(self):
+  def is_run_over(self):
     total = len(self.apps)
     finished = len(self.finished_apps)
     return total == finished and total > 0
@@ -134,7 +134,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument("-j", "--json",
-      default="experiment.json",
+      default="run.json",
       help="file to output json to")
   parser.add_argument("-t", "--period",
       type=float,
@@ -145,7 +145,7 @@ if __name__ == "__main__":
   def main():
     info = AppInfo()
 
-    while not info.is_experiment_over():
+    while not info.is_run_over():
       info.update()
       time.sleep(args.period)
     with open(args.json, 'w') as f:
