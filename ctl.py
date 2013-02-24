@@ -148,8 +148,13 @@ def start_yarn():
   daemon_script("yarn", "start", "resourcemanager")
   start_nm()
 def stop_yarn():
-  daemon_script("yarn", "stop", "resourcemanager")
   daemon_script("yarn", "stop", "nodemanager")
+  time.sleep(2)
+  daemon_script("yarn", "stop", "resourcemanager")
+def restart_yarn():
+  stop_yarn()
+  time.sleep(2)
+  start_yarn()
 @command
 def start():
   """ Start YARN """
@@ -158,6 +163,9 @@ def start():
 def stop():
   """" Stop YARN """
   stop_yarn()
+@command
+def restart():
+  restart_yarn()
 @command 
 def start_history():
   daemon_script("mr-jobhistory", "start", "historyserver")
@@ -165,16 +173,15 @@ def start_history():
 def stop_history():
   daemon_script("mr-jobhistory", "stop", "historyserver")
 @command
-def restart_yarn():
-  stop_yarn()
-  time.sleep(6)
-  start_yarn()
-@command
 def flush():
   """ Clear out everything - output, logs - and shutdown YARN. """
-  clear_output()
   stop_yarn()
+  clear_output()
   clear_logs()
+@command
+def sleep():
+  """ Sleep for 4 seconds - for chaining together commands. """
+  time.sleep(4)
 
 if len(sys.argv) < 2:
   help()
