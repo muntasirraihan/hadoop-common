@@ -25,7 +25,11 @@ class URLResolver:
 
 class AppInfo:
   """ Interface to the cluster's metadata about applications. """
-  def __init__(self, resolver):
+  def __init__(self, resolver, **kwargs):
+    if 'measure' in kwargs:
+      self.measure = kwargs['measure']
+    else:
+      self.measure = True
     # private http client
     self._c = httplib2.Http()
     # timestamp-keyed, raw app data
@@ -83,7 +87,6 @@ class AppInfo:
     return info['job']
 
   def update(self):
-    now = time.time()
     apps_list = self._apps()
     if apps_list is None:
       return
@@ -101,13 +104,10 @@ class AppInfo:
         print(log_message % this_info)
       if app['state'] in ["FINISHED", "FAILED", "KILLED"]:
         self.finished_apps.add(app['id'])
-    self.app_data[now] = info
-  def dump(self, fp):
-    """ Write out the info gathered so far.
-
-    Takes a file-like object and writes a JSON representation of the app info
-    to it.
-    """
+    if self.measure:
+      now = time.time()
+      self.app_data[now] = info
+  def marshal(self):
     app_info = {}
     for app_id in self.apps:
       app_info[app_id] = {}
@@ -122,6 +122,14 @@ class AppInfo:
         'app_info': app_info,
         'app_data': self.app_data,
         }
+    return recorded_info
+  def dump(self, fp):
+    """ Write out the info gathered so far.
+
+    Takes a file-like object and writes a JSON representation of the app info
+    to it.
+    """
+    recorded_info = self.marshal()
     json.dump(recorded_info, fp)
   def is_run_over(self):
     total = len(self.apps)
