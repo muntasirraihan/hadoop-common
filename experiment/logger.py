@@ -7,33 +7,24 @@ import json
 import httplib2
 import re
 
+class URLResolver:
+  def __init__(self, host):
+    self.rm = "http://" + host + ":8088/ws/v1/cluster"
+    self.history = "http://" + host + ":19888"
+  def apps(self):
+    return self.rm+ "/apps"
+  def app(self, app_id):
+    return self.rm+ "/proxy/" + app_id + "/ws/v1"
+  def job(self, app_id):
+    return self.app(app_id) + "/mapreduce/jobs"
+  def history_info(self, app_id):
+    job_id = re.sub("application", "job", app_id)
+    return self.history + "/ws/v1/history/mapreduce/jobs/" + job_id
+  def conf(self, app_id):
+    return self.history_info(app_id) + "/conf"
+
 class AppInfo:
   """ Interface to the ResourceManager's metadata about applications. """
-
-  # URL to the resource manager's REST API.
-  RM_URL = "http://localhost:8088"
-# URL to the history server
-  HISTORY_URL = "http://localhost:19888"
-  BASE_URL = RM_URL + "/ws/v1/cluster"
-  APPS_URL = BASE_URL + "/apps"
-  @classmethod
-  def app_url_base(cls, app):
-    """ Get the base proxy url for the app object. """
-    return cls.RM_URL + "/proxy/" + app['id'] + "/ws/v1"
-  @classmethod
-  def app_job_url(cls, app):
-    """ Get the job info url for the app object. """
-    return cls.app_url_base(app) + "/mapreduce/jobs"
-  @classmethod
-  def app_history_base_url(cls, app_id):
-    job_id = re.sub("application", "job", app_id)
-    return cls.HISTORY_URL + "/ws/v1/history/mapreduce/jobs/" + job_id
-  @classmethod
-  def app_conf_url(cls, app_id):
-    return cls.app_history_base_url(app_id) + "/conf"
-  @classmethod
-  def app_history_info_url(cls, app_id):
-    return cls.app_history_base_url(app_id)
   def __init__(self):
     # private http client
     self._c = httplib2.Http()
@@ -41,6 +32,12 @@ class AppInfo:
     self.app_data = {}
     self.apps = set([])
     self.finished_apps = set([])
+    self.url = URLResolver("localhost")
+    apps = self._apps()
+    if apps is not None:
+      self.historical_apps = set([app['id'] for app in apps])
+    else:
+      self.historical_apps = set([])
   def _getJSON(self, url):
     try:
       resp, content = self._c.request(url)
@@ -54,7 +51,7 @@ class AppInfo:
       return None
   def _apps(self):
     """ Get the list of applications from the ResourceManager. """
-    apps = self._getJSON(AppInfo.APPS_URL)
+    apps = self._getJSON(self.url.apps())
     if apps is None:
       return None
     apps = apps['apps']
@@ -67,7 +64,7 @@ class AppInfo:
     Fetches the info for the first job in the application from the AM; only
     works if job is still running.
     """
-    jobs = self._getJSON(AppInfo.app_job_url(app))
+    jobs = self._getJSON(self.url.job(app['id']))
     if jobs is None:
       return
     # return only the first job in the application since we do not consider
@@ -75,12 +72,12 @@ class AppInfo:
     return jobs['jobs']['job'][0]
   def _job_conf(self, app_id):
     """ Get the status for a job, specified by application id. """
-    conf = self._getJSON(AppInfo.app_conf_url(app_id))
+    conf = self._getJSON(self.url.conf(app_id))
     if conf is None:
       return None
     return conf['conf']
   def _job_history_info(self, app_id):
-    info = self._getJSON(AppInfo.app_history_info_url(app_id))
+    info = self._getJSON(self.url.history_info(app_id))
     if info is None:
       return None
     return info['job']
@@ -90,6 +87,8 @@ class AppInfo:
     apps_list = self._apps()
     if apps_list is None:
       return
+    apps_list = [app for app in apps_list
+        if app['id'] not in self.historical_apps]
     self.apps |= set([app['id'] for app in apps_list])
     info = {}
     for app in apps_list:
