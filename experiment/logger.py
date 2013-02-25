@@ -24,15 +24,15 @@ class URLResolver:
     return self.history_info(app_id) + "/conf"
 
 class AppInfo:
-  """ Interface to the ResourceManager's metadata about applications. """
-  def __init__(self):
+  """ Interface to the cluster's metadata about applications. """
+  def __init__(self, resolver):
     # private http client
     self._c = httplib2.Http()
     # timestamp-keyed, raw app data
     self.app_data = {}
     self.apps = set([])
     self.finished_apps = set([])
-    self.url = URLResolver("localhost")
+    self.url = resolver
     apps = self._apps()
     if apps is not None:
       self.historical_apps = set([app['id'] for app in apps])
@@ -129,21 +129,25 @@ class AppInfo:
     return total == finished and total > 0
 
 if __name__ == "__main__":
-  import argparse
-  parser = argparse.ArgumentParser(
-      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("-j", "--json",
-      default="run.json",
-      help="file to output json to")
-  parser.add_argument("-t", "--period",
-      type=float,
-      default=2,
-      help="sampling period, in seconds"
-      )
-  args = parser.parse_args()
+# use a main function to hide variables
   def main():
-    info = AppInfo()
-
+    import argparse
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-j", "--json",
+        default="run.json",
+        help="file to output json to")
+    parser.add_argument("-t", "--period",
+        type=float,
+        default=2,
+        help="sampling period, in seconds"
+        )
+    parser.add_argument("-h", "--host",
+        default="localhost",
+        help="host name of resourcemanager/history server"
+        )
+    args = parser.parse_args()
+    info = AppInfo(args.host)
     while not info.is_run_over():
       info.update()
       time.sleep(args.period)
