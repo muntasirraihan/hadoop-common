@@ -1,0 +1,7 @@
+{
+  "min": -10,
+  "max": 10,
+  "steps": 5,
+  "epsilon": 0.5,
+  "mapRatio": 20
+}

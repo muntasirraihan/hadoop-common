@@ -16,7 +16,7 @@ OUTDIR="workGenLogs"
 arg_type="none"
 
 if [ -z "$1" ]; then
-  echo "Usage $0 --deadline <deadline> --redratio <redratio> --nummaps <nummaps> --numreduces <numreduces> --jobs <jobnum>"
+  echo "Usage $0 --deadline <deadline> --mapratio <mapratio> --redratio <redratio> --nummaps <nummaps> --numreduces <numreduces> --jobs <jobnum>"
 fi
 
 cd $SCRIPTDIR
@@ -28,6 +28,6 @@ cd $SCRIPTDIR
  --interval 1 --duration 8 \
  --verbose true \
  --hdfs-input-num 100 \
- --queue low --mapratio 0.01 $@
+ --queue low $@
 
 cd $CURRDIR

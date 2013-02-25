@@ -1,0 +1,11 @@
+{
+  "dirs": {
+    "common": "~/natjam/hadoop-common",
+    "target": "~/hadoop/hadoop-0.23.3-SNAPSHOT"
+  },
+  "jobParams": {
+    "numMaps": 4,
+    "numReduces": 30,
+    "reduceRatio": 50
+  }
+}

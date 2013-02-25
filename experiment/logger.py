@@ -9,12 +9,12 @@ import re
 
 class URLResolver:
   def __init__(self, host):
-    self.rm = "http://" + host + ":8088/ws/v1/cluster"
+    self.rm = "http://" + host + ":8088"
     self.history = "http://" + host + ":19888"
   def apps(self):
-    return self.rm+ "/apps"
+    return self.rm + "/ws/v1/cluster/apps"
   def app(self, app_id):
-    return self.rm+ "/proxy/" + app_id + "/ws/v1"
+    return self.rm + "/proxy/" + app_id + "/ws/v1"
   def job(self, app_id):
     return self.app(app_id) + "/mapreduce/jobs"
   def history_info(self, app_id):
@@ -117,10 +117,10 @@ class AppInfo:
         if prop['name'] in ["mapreduce.job.deadline"]:
           conf_map[prop['name']] = prop['value']
       app_info[app_id]['conf'] = conf_map
-      app_info[app_id]['finish_info'] = self._job_history_info(app_id)
+      app_info[app_id]['finishInfo'] = self._job_history_info(app_id)
     recorded_info = {
-        'app_info': app_info,
-        'app_data': self.app_data,
+        'appInfo': app_info,
+        'appData': self.app_data,
         }
     return recorded_info
   def dump(self, fp):
