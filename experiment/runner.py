@@ -38,21 +38,29 @@ startTime = time.time()
 for run in exp:
   print("running %s" % run)
   s_hat = experiment.Estimate()
+  margins_hat = [experiment.Estimate() for i in xrange(2)]
   for i in range(args.numruns):
     info = logger.AppInfo(args.host, measure=False)
     run.run(runNum)
     runNum += 1
     updateNum = 0
     while not info.is_run_over():
-      logStatus = (updateNum % 5 == 0)
-      info.update(log=logStatus)
+      info.update(log=(updateNum % 5 == 0))
       time.sleep(2)
       updateNum += 1
     s = info.scheduledPerc()
     s_hat.add(s)
+    infos = info.orderedInfo()
+    for appInfo, margin_hat in zip(infos, margins_hat):
+      margin_hat.add(appInfo["margin"])
     print("scheduled %0.1f jobs" % s)
     print("~%s remaining" %
         showTime(remainingTime(startTime, runNum + 1, totalRuns)))
-  results[run.param] = s_hat
+  results[run.param] = {
+      "s": s_hat,
+      "margins": margins_hat,
+      "info": info.appInfo(),
+      }
+print("total time: %s" % showTime(time.time() - startTime))
 with open(args.output, "w") as f:
   pickle.dump(results, f)

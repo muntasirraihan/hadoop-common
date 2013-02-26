@@ -138,6 +138,11 @@ class AppInfo:
         appInfo[app_id] = info
       self._appInfo = appInfo
     return self._appInfo
+  def orderedInfo(self):
+    appInfo = self.appInfo()
+    apps = sorted(appInfo.iteritems(),
+        key=lambda kv: kv[1]["finishInfo"]["name"])
+    return [kv[1] for kv in apps]
   def scheduledPerc(self):
     appInfo = self.appInfo()
     scheduled = 0
