@@ -3,9 +3,15 @@
 from experiment import Job, Run, Experiment
 
 class DeltaExperimentGen(object):
-  def __init__(self, epsilon, mapRatio):
+  def __init__(self, config):
+    self.config = config
+    epsilon = config["epsilon"]
+    mapRatio = config["mapRatio"]
     self.job = Job(epsilon, mapRatio)
-  def build(self, minDelta, maxDelta, steps):
+  def build(self):
+    minDelta = self.config["min"]
+    maxDelta = self.config["max"]
+    steps = self.config["steps"]
     runs = []
     stepsize = (maxDelta - minDelta)/steps
     delta = minDelta
@@ -30,7 +36,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.json) as f:
       config = json.load(f)
-    expgen = DeltaExperimentGen(config["epsilon"], config["mapRatio"])
-    exp = expgen.build(config["min"], config["max"], config["steps"])
+    expgen = DeltaExperimentGen(config)
+    exp = expgen.build()
     exp.write(args.output)
   main()
