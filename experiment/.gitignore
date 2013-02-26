@@ -1,0 +1,4 @@
+# these are all auto-generated or results of runs
+*.pickle
+# python compiled module
+*.pyc
