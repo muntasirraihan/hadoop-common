@@ -84,6 +84,13 @@ class Job(object):
     call(args)
   def __repr__(self):
     return "e=%0.1f size=%0.0f" % (self.epsilon, self.mapRatio)
+# these methods allow jobs to be used in keys of pickled hashes without
+  # problems when the object is reconstructed
+  def __eq__(self, other):
+    return self.epsilon == other.epsilon and \
+        self.mapRatio == other.mapRatio
+  def __hash__(self):
+    return hash( (self.epsilon, self.mapRatio) )
 
 class EstimatedJob(Job):
   def __init__(self, job, runtimeMs_hat):
