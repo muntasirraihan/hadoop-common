@@ -100,13 +100,6 @@ class EstimatedJob(Job):
     self.runtime = runtimeMs_hat
   def rel_deadline(self):
     return self.runtime.mean() * (1 + self.epsilon)
-  def deadline(self):
-    return float(time.time()) + self.rel_deadline()
-  def run(self, *args):
-    """ args: num, now """
-    num = args[0]
-    now = args[1]
-    super(EstimatedJob, self).run(num, now + self.rel_deadline())
   def __repr__(self):
     return "e=%0.1f size=%0.0f runtimeMin=%s" % \
       (self.epsilon, self.mapRatio, self.runtime / 60e3)
@@ -114,9 +107,9 @@ class EstimatedJob(Job):
 class Run(object):
   def __init__(self, jobs, delta, param):
     """
-    jobs: list or tuple of two jobs
-    delta: time difference submit(high deadline) - submit(low deadline)
-    param: arbitrary parameter that characterizes this job
+    jobs: (job0, job1) where job0 is the lower deadline job
+    delta: time difference submit(job1) - submit(job0)
+    param: arbitrary parameter that characterizes this job (for plotting)
     """
     assert len(jobs) == 2
     self.jobs = jobs
@@ -130,21 +123,22 @@ class Run(object):
     job nums used are 2*num and 2*num+1
     """
     startnum = num*2
-    now = float(time.time())*1e3
     job0 = self.jobs[0]
     job1 = self.jobs[1]
-    if job0.rel_deadline() > job1.rel_deadline():
-      job0, job1 = job1, job0
+    deadlineDelta = GlobalConfig.get("runParams")["deadlineDelta"]
+    now = float(time.time())*1e3
     # deadline(job0) <= deadline(job1)
+    deadlines = [now + job0.rel_deadline()]
+    deadlines.append(deadlines[0] + deadlineDelta)
 # delta is defined to be submit(high deadline) - submit(low deadline)
     if self.delta >= 0:
-      job0.run(startnum, now)
+      job0.run(startnum, deadlines[0])
       time.sleep(self.delta)
-      job1.run(startnum+1, now+self.delta)
+      job1.run(startnum+1, deadlines[1])
     else:
-      job1.run(startnum+1, now)
+      job1.run(startnum+1, deadlines[1])
       time.sleep(-self.delta)
-      job0.run(startnum, now+self.delta)
+      job0.run(startnum, deadlines[0])
 
 class Experiment(object):
   def __init__(self, runs):

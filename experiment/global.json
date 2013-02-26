@@ -7,5 +7,8 @@
     "numMaps": 4,
     "numReduces": 30,
     "reduceRatio": 50
+  },
+  "runParams": {
+    "deadlineDelta": 1000
   }
 }
