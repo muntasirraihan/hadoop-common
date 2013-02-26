@@ -117,7 +117,12 @@ class Run(object):
     self.param = param
   def __repr__(self):
     return repr(self.jobs) + " delta=%0.0f x=%0.0f" % (self.delta, self.param)
-  def run(self, startnum):
+  def run(self, num):
+    """ Num need only be unique for each run.
+    
+    job nums used are 2*num and 2*num+1
+    """
+    startnum = num*2
     job0 = self.jobs[0]
     job1 = self.jobs[1]
     if job0.rel_deadline() > job1.rel_deadline():
