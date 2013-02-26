@@ -1,7 +1,0 @@
-{
-  "min": -40,
-  "max": 30,
-  "steps": 15,
-  "epsilon": 0.75,
-  "mapRatio": 20
-}
