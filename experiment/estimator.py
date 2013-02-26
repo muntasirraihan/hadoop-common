@@ -19,7 +19,7 @@ parser.add_argument("exp",
     help="pickled experiment")
 parser.add_argument("-n", "--numruns",
     type=int,
-    default=5,
+    default=3,
     help="number of runs to use for estimate")
 parser.add_argument("-o", "--output",
     help="output file for estimated experiment")

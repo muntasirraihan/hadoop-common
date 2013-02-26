@@ -6,7 +6,6 @@ import time
 import pickle
 
 from os.path import splitext
-import sys
 import argparse
 parser = argparse.ArgumentParser(
     add_help=False,
@@ -18,7 +17,7 @@ parser.add_argument("exp",
     help="pickled, estimated experiment")
 parser.add_argument("-n", "--numruns",
     type=int,
-    default=5,
+    default=1,
     help="number of runs to use for estimate")
 parser.add_argument("-o", "--output",
     default=None,
