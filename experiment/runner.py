@@ -55,7 +55,7 @@ for run in exp:
       margin_hat.add(appInfo["margin"])
     print("scheduled %0.1f jobs" % s)
     print("~%s remaining" %
-        showTime(remainingTime(startTime, runNum + 1, totalRuns)))
+        showTime(remainingTime(startTime, runNum, totalRuns)))
   results[run.param] = {
       "s": s_hat,
       "margins": margins_hat,
