@@ -42,7 +42,7 @@ for runNum, run in enumerate(exp):
       runtimeMs_hat = experiment.Estimate()
       for i in range(args.numruns):
         print("estimate %d" % (i+1))
-        info = logger.AppInfo(logger.URLResolver(args.host), measure=False)
+        info = logger.AppInfo(args.host, measure=False)
         submitTime = float(time.time())
         job.run(jobnum)
         while not info.is_run_over():
@@ -54,7 +54,7 @@ for runNum, run in enumerate(exp):
         apps = appInfo.keys()
         finish = appInfo[apps[0]]["finishInfo"]
         runtimeMs = finish["finishTime"] - finish["startTime"]
-        print("accept time of %0.2fs" % (finish["startTime"] - submitTime))
+        print("accept time of %0.2fs" % (finish["startTime"]/1e3 - submitTime))
         print("runtime of %0.2fmin" % (runtimeMs/60e3))
         runtimeMs_hat.add(runtimeMs)
         jobnum += 1

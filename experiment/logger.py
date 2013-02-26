@@ -25,7 +25,7 @@ class URLResolver:
 
 class AppInfo:
   """ Interface to the cluster's metadata about applications. """
-  def __init__(self, resolver, **kwargs):
+  def __init__(self, host, **kwargs):
     if 'measure' in kwargs:
       self.measure = kwargs['measure']
     else:
@@ -38,7 +38,7 @@ class AppInfo:
     self._appInfo = None
     self.apps = set([])
     self.finished_apps = set([])
-    self.url = resolver
+    self.url = URLResolver(host)
     apps = self._apps()
     if apps is not None:
       self.historical_apps = set([app['id'] for app in apps])
@@ -130,6 +130,14 @@ class AppInfo:
         appInfo[app_id] = info
       self._appInfo = appInfo
     return self._appInfo
+  def scheduledPerc(self):
+    appInfo = self.appInfo()
+    scheduled = 0
+    total = len(appInfo)
+    for info in appInfo.itervalues():
+      if info["scheduled"]:
+        scheduled += 1
+    return scheduled/total
   def marshal(self):
     recorded_info = {
         'appInfo': self.appInfo(),
