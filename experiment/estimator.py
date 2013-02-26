@@ -6,6 +6,7 @@ import experiment
 import logger
 import time
 
+from os.path import splitext
 import argparse
 parser = argparse.ArgumentParser(
     add_help=False,
@@ -13,13 +14,15 @@ parser = argparse.ArgumentParser(
 parser.add_argument("-h", "--host",
     default="localhost",
     help="hostname where resourcemanager is running")
-parser.add_argument("-f", "--exp",
-    default="delta-exp.pickle",
+parser.add_argument("exp",
     help="pickled experiment")
 parser.add_argument("-o", "--output",
-    default="delta-exp-estimated.pickle",
     help="output file for estimated experiment")
 args = parser.parse_args()
+
+if args.output is None:
+  base, ext = splitext(args.exp)
+  args.output = base + "-est" + ext
 
 # cache jobs that have already been estimated
 estimatedJobs = {}
