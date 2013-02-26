@@ -1,6 +1,7 @@
 # Module for utilities braodly useful for experimentation utlities
+# coding: utf-8
 
-from __future__ import print_function
+from __future__ import print_function, division
 from subprocess import call
 from os.path import expanduser, expandvars
 from math import sqrt
@@ -23,7 +24,7 @@ class GlobalConfig(object):
 class Estimate(object):
   """ Track an estimated parameter with confidence measure. """
   def __init__(self, *args):
-    """ Initialize with any number of values. """
+    """ Initialize with any number of values, including none. """
     self.sum = 0
     self.sse = 0.0
     self.n = 0
@@ -34,10 +35,30 @@ class Estimate(object):
   def stddev(self):
     return sqrt(self.sse / (self.n - 1))
   def add(self, v):
-    oldmean = self.mean()
-    self.sum += v
-    self.n += 1
-    self.sse += (v - oldmean) * (v - self.mean())
+    if self.n == 0:
+      self.sum = v
+      self.n = 1
+    else:
+      oldmean = self.mean()
+      self.sum += v
+      self.n += 1
+      self.sse += (v - oldmean) * (v - self.mean())
+  def __mul__(self, c):
+    scaled = Estimate()
+    scaled.sum = self.sum * c
+    scaled.sse = self.sse * (c*c)
+    scaled.n = self.n
+    return scaled
+  def __truediv__(self, c):
+    return self * (1.0/c)
+  def __repr__(self):
+    if self.n == 0:
+      return "0.0"
+    if self.n == 1:
+      return "%0.2f±inf" % self.mean()
+    return "%0.2f±%0.2f" % (self.mean(), self.stddev())
+  def __str__(self):
+    return repr(self)
 
 class Job(object):
   def __init__(self, epsilon, mapRatio):
@@ -65,9 +86,13 @@ class Job(object):
     return "e=%0.1f size=%0.0f" % (self.epsilon, self.mapRatio)
 
 class EstimatedJob(Job):
-  def __init__(self, job, runtimeMs):
+  def __init__(self, job, runtimeMs_hat):
+    """
+    job: the job to base this EstimatedJob on
+    runtimeMs: an Estimate of the runtime, in milliseconds
+    """
     super(EstimatedJob, self).__init__(job.epsilon, job.mapRatio)
-    self.runtime = runtimeMs
+    self.runtime = runtimeMs_hat
   def rel_deadline(self):
     return self.runtime * (1 + self.epsilon)
   def deadline(self):
@@ -76,7 +101,7 @@ class EstimatedJob(Job):
     num = args[0]
     super(EstimatedJob, self).run(self, self.deadline(), num)
   def __repr__(self):
-    return "e=%0.1f size=%0.0f runtimeMin=%0.1f" % \
+    return "e=%0.1f size=%0.0f runtimeMin=%s" % \
       (self.epsilon, self.mapRatio, self.runtime / 60e3)
 
 class Run(object):
@@ -116,6 +141,8 @@ class Experiment(object):
       pickle.dump(self, f)
   def __repr__(self):
     return repr(self.runs)
+  def __iter__(self):
+    return iter(self.runs)
 
 def load(fname):
   """ Wrapper for pickle loading. """

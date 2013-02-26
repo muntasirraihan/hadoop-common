@@ -33,7 +33,9 @@ class AppInfo:
     # private http client
     self._c = httplib2.Http()
     # timestamp-keyed, raw app data
-    self.app_data = {}
+    self.appData = {}
+# cached end-of-run app info
+    self._appInfo = None
     self.apps = set([])
     self.finished_apps = set([])
     self.url = resolver
@@ -85,7 +87,6 @@ class AppInfo:
     if info is None:
       return None
     return info['job']
-
   def update(self):
     apps_list = self._apps()
     if apps_list is None:
@@ -106,21 +107,25 @@ class AppInfo:
         self.finished_apps.add(app['id'])
     if self.measure:
       now = time.time()
-      self.app_data[now] = info
+      self.appData[now] = info
+  def appInfo(self):
+    if self._appInfo is None:
+      appInfo = {}
+      for app_id in self.apps:
+        appInfo[app_id] = {}
+        conf = self._job_conf(app_id)
+        conf_map = {}
+        for prop in conf['property']:
+          if prop['name'] in ["mapreduce.job.deadline"]:
+            conf_map[prop['name']] = prop['value']
+        appInfo[app_id]['conf'] = conf_map
+        appInfo[app_id]['finishInfo'] = self._job_history_info(app_id)
+      self._appInfo = appInfo
+    return self._appInfo
   def marshal(self):
-    app_info = {}
-    for app_id in self.apps:
-      app_info[app_id] = {}
-      conf = self._job_conf(app_id)
-      conf_map = {}
-      for prop in conf['property']:
-        if prop['name'] in ["mapreduce.job.deadline"]:
-          conf_map[prop['name']] = prop['value']
-      app_info[app_id]['conf'] = conf_map
-      app_info[app_id]['finishInfo'] = self._job_history_info(app_id)
     recorded_info = {
-        'appInfo': app_info,
-        'appData': self.app_data,
+        'appInfo': self.appInfo(),
+        'appData': self.appData,
         }
     return recorded_info
   def dump(self, fp):

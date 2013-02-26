@@ -16,6 +16,10 @@ parser.add_argument("-h", "--host",
     help="hostname where resourcemanager is running")
 parser.add_argument("exp",
     help="pickled experiment")
+parser.add_argument("-n", "--numruns",
+    type=int,
+    default=5,
+    help="number of runs to use for estimate")
 parser.add_argument("-o", "--output",
     help="output file for estimated experiment")
 args = parser.parse_args()
@@ -30,25 +34,32 @@ estimatedJobs = {}
 exp = experiment.load(args.exp)
 jobnum = 0
 experiment.clearHDFS()
-for runNum, run in enumerate(exp.runs):
+for runNum, run in enumerate(exp):
   for jobNum, job in enumerate(run.jobs):
     if job in estimatedJobs:
       estimatedJob = estimatedJobs[job]
     else:
-      info = logger.AppInfo(logger.URLResolver(args.host), measure=False)
-      job.run(jobnum)
-      while not info.is_run_over():
-        info.update()
-        time.sleep(4)
-      # a hash with app keys is returned, but we only care about the single
-      # submitted app
-      appInfo = info.marshal()["appInfo"]
-      apps = appInfo.keys()
-      finishInfo = appInfo[apps[0]]["finishInfo"]
-      runtimeMs = finishInfo["finishTime"] - finishInfo["startTime"]
-      estimatedJob = experiment.EstimatedJob(job, runtimeMs)
+      runtimeMs_hat = experiment.Estimate()
+      for i in range(args.numruns):
+        print("estimate %d" % (i+1))
+        info = logger.AppInfo(logger.URLResolver(args.host), measure=False)
+        submitTime = float(time.time())
+        job.run(jobnum)
+        while not info.is_run_over():
+          info.update()
+          time.sleep(4)
+        # a hash with app keys is returned, but we only care about the single
+        # submitted app
+        appInfo = info.appInfo()
+        apps = appInfo.keys()
+        finish = appInfo[apps[0]]["finishInfo"]
+        runtimeMs = finish["finishTime"] - finish["startTime"]
+        print("accept time of %0.2fs" % (finish["startTime"] - submitTime))
+        print("runtime of %0.2fmin" % (runtimeMs/60e3))
+        runtimeMs_hat.add(runtimeMs)
+        jobnum += 1
+      estimatedJob = experiment.EstimatedJob(job, runtimeMs_hat)
       estimatedJobs[job] = estimatedJob
-      jobnum += 1
     exp.runs[runNum].jobs[jobNum] = estimatedJob
 
 exp.write(args.output)
