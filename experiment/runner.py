@@ -31,12 +31,14 @@ if args.output is None:
 exp = experiment.load(args.exp)
 experiment.clearHDFS()
 results = {}
-for runNum, run in enumerate(exp):
+runNum = 0
+for run in exp:
   print("running %s" % run)
   s_hat = experiment.Estimate()
   for i in range(args.numruns):
     info = logger.AppInfo(args.host, measure=False)
     run.run(runNum)
+    runNum += 1
     while not info.is_run_over():
       info.update()
       time.sleep(4)
