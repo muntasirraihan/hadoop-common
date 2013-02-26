@@ -156,6 +156,8 @@ class Experiment(object):
     return repr(self.runs)
   def __iter__(self):
     return iter(self.runs)
+  def __len__(self):
+    return len(self.runs)
 
 def load(fname):
   """ Wrapper for pickle loading. """

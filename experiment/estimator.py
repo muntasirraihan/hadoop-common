@@ -47,7 +47,7 @@ for runNum, run in enumerate(exp):
     if job.size() in runtimeEstimates:
       runtimeEstimate = runtimeEstimates[job.size()]
     else:
-      runtimeMs_hat = experiment.Estimate()
+      runtimeEstimate = experiment.Estimate()
       for i in range(args.numruns):
         print("estimate %d" % (i+1))
         info = logger.AppInfo(args.host, measure=False)
@@ -64,10 +64,10 @@ for runNum, run in enumerate(exp):
         runtimeMs = finish["finishTime"] - finish["startTime"]
         print("accept time of %0.2fs" % (finish["startTime"]/1e3 - submitTime))
         print("runtime of %0.2fmin" % (runtimeMs/60e3))
-        runtimeMs_hat.add(runtimeMs)
+        runtimeEstimate.add(runtimeMs)
         jobnum += 1
-      estimatedJob = experiment.EstimatedJob(job, runtimeMs_hat)
-      runtimeEstimates[job.size()] = runtimeMs_hat
+      runtimeEstimates[job.size()] = runtimeEstimate
+    estimatedJob = experiment.EstimatedJob(job, runtimeEstimate)
     exp.runs[runNum].jobs[jobNum] = estimatedJob
 
 saveEstimates()
