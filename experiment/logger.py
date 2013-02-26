@@ -112,14 +112,22 @@ class AppInfo:
     if self._appInfo is None:
       appInfo = {}
       for app_id in self.apps:
-        appInfo[app_id] = {}
+        info = {}
         conf = self._job_conf(app_id)
         conf_map = {}
         for prop in conf['property']:
           if prop['name'] in ["mapreduce.job.deadline"]:
             conf_map[prop['name']] = prop['value']
-        appInfo[app_id]['conf'] = conf_map
-        appInfo[app_id]['finishInfo'] = self._job_history_info(app_id)
+        info['conf'] = conf_map
+        info['finishInfo'] = self._job_history_info(app_id)
+        if "mapreduce.job.deadline" not in conf_map:
+          scheduled = True
+        else:
+          finishTime = info['finishInfo']['finishTime']
+          deadline = conf_map["mapreduce.job.deadline"]
+          scheduled = (finishTime <= deadline)
+        info['scheduled'] = scheduled
+        appInfo[app_id] = info
       self._appInfo = appInfo
     return self._appInfo
   def marshal(self):
