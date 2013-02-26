@@ -31,21 +31,21 @@ if args.output is None:
 
 # cache jobs that have already been estimated
 try:
-  estimatedJobs = experiment.load("caches/job_estimates.pickle")
+  runtimeEstimates = experiment.load("caches/runtime_estimates.pickle")
 except Exception:
-  estimatedJobs = {}
+  runtimeEstimates = {}
 
 def saveEstimates():
-  with open("caches/job_estimates.pickle", "w") as f:
-    pickle.dump(estimatedJobs, f)
+  with open("caches/runtime_estimates.pickle", "w") as f:
+    pickle.dump(runtimeEstimates, f)
 
 exp = experiment.load(args.exp)
 jobnum = 0
 experiment.clearHDFS()
 for runNum, run in enumerate(exp):
   for jobNum, job in enumerate(run.jobs):
-    if job in estimatedJobs:
-      estimatedJob = estimatedJobs[job]
+    if job.size() in runtimeEstimates:
+      runtimeEstimate = runtimeEstimates[job.size()]
     else:
       runtimeMs_hat = experiment.Estimate()
       for i in range(args.numruns):
@@ -67,7 +67,7 @@ for runNum, run in enumerate(exp):
         runtimeMs_hat.add(runtimeMs)
         jobnum += 1
       estimatedJob = experiment.EstimatedJob(job, runtimeMs_hat)
-      estimatedJobs[job] = estimatedJob
+      runtimeEstimates[job.size()] = runtimeMs_hat
     exp.runs[runNum].jobs[jobNum] = estimatedJob
 
 saveEstimates()
