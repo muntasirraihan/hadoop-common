@@ -5,6 +5,7 @@ from __future__ import print_function, division
 import experiment
 import logger
 import time
+import pickle
 
 from os.path import splitext
 import argparse
@@ -29,7 +30,14 @@ if args.output is None:
   args.output = base + "-est" + ext
 
 # cache jobs that have already been estimated
-estimatedJobs = {}
+try:
+  estimatedJobs = experiment.load("caches/job_estimates.pickle")
+except Exception:
+  estimatedJobs = {}
+
+def saveEstimates():
+  with open("caches/job_estimates.pickle", "w") as f:
+    pickle.dump(estimatedJobs, f)
 
 exp = experiment.load(args.exp)
 jobnum = 0
@@ -61,5 +69,7 @@ for runNum, run in enumerate(exp):
       estimatedJob = experiment.EstimatedJob(job, runtimeMs_hat)
       estimatedJobs[job] = estimatedJob
     exp.runs[runNum].jobs[jobNum] = estimatedJob
+
+saveEstimates()
 
 exp.write(args.output)

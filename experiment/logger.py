@@ -124,7 +124,8 @@ class AppInfo:
           scheduled = True
         else:
           finishTime = info['finishInfo']['finishTime']
-          deadline = conf_map["mapreduce.job.deadline"]
+          deadline = int(conf_map["mapreduce.job.deadline"])
+          print("margin: %0.0fs" % ((deadline - finishTime)/1e3))
           scheduled = (finishTime <= deadline)
         info['scheduled'] = scheduled
         appInfo[app_id] = info
