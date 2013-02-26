@@ -86,11 +86,27 @@ class Run(object):
     delta: time difference submit(high deadline) - submit(low deadline)
     param: arbitrary parameter that characterizes this job
     """
+    assert len(jobs) == 2
     self.jobs = jobs
     self.delta = delta
     self.param = param
   def __repr__(self):
     return repr(self.jobs) + " delta=%0.0f x=%0.0f" % (self.delta, self.param)
+  def run(self, startnum):
+    job0 = self.jobs[0]
+    job1 = self.jobs[1]
+    if job0.rel_deadline() > job1.rel_deadline():
+      job0, job1 = job1, job0
+    # deadline(job0) <= deadline(job1)
+# delta is defined to be submit(high deadline) - submit(low deadline)
+    if self.delta >= 0:
+      job0.run(startnum)
+      time.sleep(self.delta)
+      job1.run(startnum+1)
+    else:
+      job1.run(startnum+1)
+      time.sleep(-self.delta)
+      job0.run(startnum)
 
 class Experiment(object):
   def __init__(self, runs):
