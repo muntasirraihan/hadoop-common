@@ -122,12 +122,15 @@ class AppInfo:
         info['finishInfo'] = self._job_history_info(app_id)
         if "mapreduce.job.deadline" not in conf_map:
           scheduled = True
+          margin = float('inf')
         else:
           finishTime = info['finishInfo']['finishTime']
           deadline = int(conf_map["mapreduce.job.deadline"])
-          print("margin: %0.0fs" % ((deadline - finishTime)/1e3))
-          scheduled = (finishTime <= deadline)
+          margin = deadline - finishTime
+          print("margin: %0.0fs" % (margin/1e3))
+          scheduled = margin > 0
         info['scheduled'] = scheduled
+        info['margin'] = margin
         appInfo[app_id] = info
       self._appInfo = appInfo
     return self._appInfo
