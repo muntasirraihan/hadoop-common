@@ -122,7 +122,7 @@ def load(fname):
   with open(fname, "r") as f:
     return pickle.load(f)
 
-def clearOutput():
+def clearHDFS():
   dirs = GlobalConfig.get("dirs")
   script = expanduser(dirs["target"]) + "/bin/hdfs"
   args = [script]

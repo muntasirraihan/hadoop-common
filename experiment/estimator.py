@@ -29,7 +29,7 @@ estimatedJobs = {}
 
 exp = experiment.load(args.exp)
 jobnum = 0
-experiment.clearOutput()
+experiment.clearHDFS()
 for runNum, run in enumerate(exp.runs):
   for jobNum, job in enumerate(run.jobs):
     if job in estimatedJobs:
