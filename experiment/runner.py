@@ -2,6 +2,7 @@
 
 import logger
 import experiment
+from experiment import showTime, remainingTime
 import time
 import pickle
 
@@ -32,6 +33,8 @@ exp = experiment.load(args.exp)
 experiment.clearHDFS()
 results = {}
 runNum = 0
+totalRuns = len(exp)
+startTime = time.time()
 for run in exp:
   print("running %s" % run)
   s_hat = experiment.Estimate()
@@ -39,12 +42,17 @@ for run in exp:
     info = logger.AppInfo(args.host, measure=False)
     run.run(runNum)
     runNum += 1
+    updateNum = 0
     while not info.is_run_over():
-      info.update()
-      time.sleep(4)
+      logStatus = (updateNum % 5 == 0)
+      info.update(log=logStatus)
+      time.sleep(2)
+      updateNum += 1
     s = info.scheduledPerc()
     s_hat.add(s)
     print("scheduled %0.1f jobs" % s)
+    print("~%s remaining" %
+        showTime(remainingTime(startTime, runNum + 1, totalRuns)))
   results[run.param] = s_hat
 with open(args.output, "w") as f:
   pickle.dump(results, f)

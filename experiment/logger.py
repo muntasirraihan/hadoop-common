@@ -87,7 +87,11 @@ class AppInfo:
     if info is None:
       return None
     return info['job']
-  def update(self):
+  def update(self, **kwargs):
+    if "log" in kwargs:
+      logStatus = kwargs["log"]
+    else:
+      logStatus = True
     apps_list = self._apps()
     if apps_list is None:
       return
@@ -98,7 +102,7 @@ class AppInfo:
     for app in apps_list:
       this_info = self._job_info(app)
       info[app['id']] = this_info
-      if this_info is not None:
+      if this_info is not None and logStatus:
         log_message = "app " + app['id'][-4:]
         log_message += " map: %(mapProgress)0.1f"
         log_message += " reduce: %(reduceProgress)0.1f"

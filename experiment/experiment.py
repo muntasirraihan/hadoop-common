@@ -164,6 +164,20 @@ def load(fname):
   with open(fname, "r") as f:
     return pickle.load(f)
 
+def showTime(s):
+  # round out microseconds
+  s = int(s)
+  return "%d:%02d" % ((s // 60), (s % 60))
+
+def remainingTime(startTime, done, outOf):
+  """ Compute remaining time in seconds.
+  
+  Assumes that the same average progress rate will be maintained
+  """
+  elapsed = time.time() - startTime
+  progress = done/outOf
+  return elapsed * (1 - progress) / progress
+
 def clearHDFS():
   dirs = GlobalConfig.get("dirs")
   script = expanduser(dirs["target"]) + "/bin/hdfs"
