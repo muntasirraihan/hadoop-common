@@ -2,7 +2,7 @@
   "delta": {
     "min": -40,
     "max": 30,
-    "steps": 2,
+    "steps": 10,
     "epsilon": 1.1,
     "mapRatio": 20
   },
