@@ -70,6 +70,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
 import org.apache.hadoop.yarn.server.security.ContainerTokenSecretManager;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 
+import com.google.common.collect.ImmutableSortedSet;
+
 @Private
 @Unstable
 public class LeafQueue implements CSQueue {
@@ -105,6 +107,7 @@ public class LeafQueue implements CSQueue {
   SortedSet<SchedulerApp> activeApplications;
   Map<ApplicationAttemptId, SchedulerApp> applicationsMap = 
       new HashMap<ApplicationAttemptId, SchedulerApp>();
+  private Comparator<SchedulerApp> applicationComparator;
   
   SortedSet<SchedulerApp> pendingApplications;
   
@@ -222,6 +225,7 @@ public class LeafQueue implements CSQueue {
         + ", fullname=" + getQueuePath());
     }
 
+    this.applicationComparator = applicationComparator;
     this.pendingApplications = 
         new TreeSet<SchedulerApp>(applicationComparator);
     this.activeApplications = new TreeSet<SchedulerApp>(applicationComparator);
@@ -768,14 +772,20 @@ public class LeafQueue implements CSQueue {
   @Override
   public synchronized CSAssignment 
   assignContainers(Resource clusterResource, SchedulerNode node) {
+    
+    /**
+     * Create a new sorted set of applications so that the applications are re-sorted.
+     */
+    SortedSet<SchedulerApp> applications = ImmutableSortedSet
+        .orderedBy(applicationComparator).addAll(activeApplications).build();
 
     if(LOG.isDebugEnabled()) {
       LOG.debug("assignContainers: node=" + node.getHostName()
-        + " #applications=" + activeApplications.size());
+        + " #applications=" + applications.size());
     }
     
     if (LOG.isDebugEnabled()) {
-      for (SchedulerApp application : activeApplications) {
+      for (SchedulerApp application : applications) {
         LOG.debug("laxity for application " + application.getApplicationId() +
             " is " + application.getLaxity());
       }
@@ -799,7 +809,7 @@ public class LeafQueue implements CSQueue {
     }
     
     // Try to assign containers to applications in order
-    for (SchedulerApp application : activeApplications) {
+    for (SchedulerApp application : applications) {
       
       if(LOG.isDebugEnabled()) {
         LOG.debug("pre-assignContainers for application "
@@ -1123,7 +1133,12 @@ public class LeafQueue implements CSQueue {
   
   public List<ResourceRequest> needResources() {
     List<ResourceRequest> needList = new LinkedList<ResourceRequest>();
-    for (SchedulerApp application : activeApplications) {
+    /**
+     * Create a new sorted set of applications so that the applications are re-sorted.
+     */
+    SortedSet<SchedulerApp> applications = ImmutableSortedSet
+        .orderedBy(applicationComparator).addAll(activeApplications).build();
+    for (SchedulerApp application : applications) {
       synchronized (application) {
         for (Priority priority : application.getPriorities()) {
           // Required resource

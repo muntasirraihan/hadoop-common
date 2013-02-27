@@ -453,6 +453,16 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
       SortedSet<SchedulerApp> applications = ImmutableSortedSet
           .orderedBy(schedulingComparator).addAll(applicationSet).build();
       LOG.debug("(tchajed) providing resource in order for " + applications.size() + " applications");
+      /*
+      if (LOG.isDebugEnabled()) {
+        for (SchedulerApp app : applications) {
+          LOG.debug("(tchajed) app " + app.getApplicationId() +
+              " has laxity=" + app.getLaxity() +
+              " deadline=" + app.getDeadline() +
+              " progress=" + app.getRMApp().getProgress());
+        }
+      }
+      */
       for (SchedulerApp app : applications) {
         if (requests.size() > 0) {
           // already have found an application that needs resources, this
