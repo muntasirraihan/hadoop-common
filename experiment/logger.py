@@ -175,6 +175,7 @@ if __name__ == "__main__":
   def main():
     import argparse
     parser = argparse.ArgumentParser(
+        add_help=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-j", "--json",
         default="run.json",
