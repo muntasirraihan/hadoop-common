@@ -7,7 +7,8 @@ import logger
 import time
 import pickle
 
-from os.path import splitext
+from os import mkdir
+from os.path import splitext, exists
 import argparse
 parser = argparse.ArgumentParser(
     add_help=False,
@@ -29,15 +30,23 @@ if args.output is None:
   base, ext = splitext(args.exp)
   args.output = base + "-est" + ext
 
+CACHE_DIR = "caches"
+CACHE_PATH = CACHE_DIR + "/runtime_estimates.pickle"
+
 # cache jobs that have already been estimated
 try:
-  runtimeEstimates = experiment.load("caches/runtime_estimates.pickle")
+  runtimeEstimates = experiment.load(CACHE_PATH)
 except Exception:
   runtimeEstimates = {}
 
 def saveEstimates():
-  with open("caches/runtime_estimates.pickle", "w") as f:
-    pickle.dump(runtimeEstimates, f)
+  if not exists(CACHE_PATH):
+    mkdir(CACHE_DIR)
+  try:
+    with open(CACHE_PATH, "w") as f:
+      pickle.dump(runtimeEstimates, f)
+  except Exception:
+    print("could not cache runtime estimates!")
 
 exp = experiment.load(args.exp)
 jobnum = 0
