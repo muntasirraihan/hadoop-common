@@ -20,6 +20,9 @@ class GlobalConfig(object):
   @classmethod
   def get(cls, key):
     return cls.getConfig()[key]
+  @classmethod
+  def toJSON(cls):
+    return json.dumps(cls.config, indent=4)
 
 class Estimate(object):
   """ Track an estimated parameter with confidence measure. """
@@ -141,8 +144,11 @@ class Run(object):
       job0.run(startnum, deadlines[0])
 
 class Experiment(object):
-  def __init__(self, runs):
+  def __init__(self, runs, details, config):
     self.runs = runs
+    self.config = config
+    self.details = details
+    self.globalConfig = GlobalConfig.getConfig()
   def write(self, fname):
     with open(fname, "w") as f:
       pickle.dump(self, f)
@@ -157,6 +163,12 @@ def load(fname):
   """ Wrapper for pickle loading. """
   with open(fname, "r") as f:
     return pickle.load(f)
+
+def loadResults(fname):
+  with open(fname) as f:
+    exp = pickle.load(f)
+    results = pickle.load(f)
+  return (exp, results)
 
 def showTime(s):
   # round out microseconds

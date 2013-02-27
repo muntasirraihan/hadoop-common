@@ -39,6 +39,9 @@ for run in exp:
   print("running %s" % run)
   s_hat = experiment.Estimate()
   margins_hat = [experiment.Estimate() for i in xrange(2)]
+# record the complete final info from the history server for each run just in
+# case it's useful later.
+  finalInfo = []
   for i in range(args.numruns):
     info = logger.AppInfo(args.host, measure=False)
     run.run(runNum)
@@ -48,6 +51,7 @@ for run in exp:
       info.update(log=(updateNum % 5 == 0))
       time.sleep(2)
       updateNum += 1
+    finalInfo.append(info.appInfo())
     s = info.scheduledPerc()
     s_hat.add(s)
     infos = info.orderedInfo()
@@ -59,8 +63,9 @@ for run in exp:
   results[run.param] = {
       "s": s_hat,
       "margins": margins_hat,
-      "info": info.appInfo(),
+      "infos": finalInfo,
       }
 print("total time: %s" % showTime(time.time() - startTime))
 with open(args.output, "w") as f:
+  pickle.dump(exp, f)
   pickle.dump(results, f)

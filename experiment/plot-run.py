@@ -11,6 +11,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument("-j", "--json",
     default="run.json",
     help="json file to plot")
+parser.add_argument("-t", "--title",
+    default="Run",
+    help="title of plot")
 args = parser.parse_args()
 
 with open(args.json) as f:
@@ -46,5 +49,5 @@ for t in sorted(run['appData'].keys()):
 
 with open("run.csv", "w") as f:
   f.write(csv_data)
-call(["gnuplot", "run.plt"])
+call(["./csv.plt", "run", args.title, "t", "progress"])
 os.remove("run.csv")

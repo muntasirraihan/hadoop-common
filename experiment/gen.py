@@ -9,6 +9,11 @@ def floatRange(start, step, stop):
     v += step
 
 class DeltaExperimentGen(object):
+  details = {
+      "name": "delta",
+      "param": "delta",
+      "param_f": "%d",
+      }
   def __init__(self, config):
     self.config = config
     epsilon = config["epsilon"]
@@ -19,13 +24,18 @@ class DeltaExperimentGen(object):
     maxDelta = self.config["max"]
     steps = self.config["steps"]
     runs = []
-    stepsize = (maxDelta - minDelta)/steps
+    stepsize = (maxDelta - minDelta)/(steps - 1)
     for delta in floatRange(minDelta, stepsize, maxDelta):
       run = Run([self.job, self.job], delta, delta)
       runs.append(run)
-    return Experiment(runs)
+    return Experiment(runs, self.__class__.details, self.config)
 
 class BetaExperimentGen(object):
+  details = {
+      "name": "beta",
+      "param": "beta",
+      "param_f": "%0.2f",
+      }
   def __init__(self, config):
     self.config = config
     epsilon = config["baseJob"]["epsilon"]
@@ -37,12 +47,12 @@ class BetaExperimentGen(object):
     maxBeta = self.config["max"]
     steps = self.config["steps"]
     runs = []
-    stepsize = (maxBeta - minBeta)/steps
+    stepsize = (maxBeta - minBeta)/(steps - 1)
     for beta in floatRange(minBeta, stepsize, maxBeta):
       job1 = Job(self.job0.epsilon, self.job0.mapRatio * beta)
       run = Run([self.job0, job1], self.delta, beta)
       runs.append(run)
-    return Experiment(runs)
+    return Experiment(runs, self.__class__.details, self.config)
 
 if __name__ == "__main__":
   import sys

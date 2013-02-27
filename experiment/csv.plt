@@ -1,7 +1,15 @@
+#!/bin/sh
+PREFIX="$1"
+TITLE="$2"
+XLABEL="$3"
+YLABEL="$4"
+num_columns=$(awk -F',' "{if(NR == 1) print NF}" < "$PREFIX.csv")
+
+gnuplot << EOF
 # adapted from Brighten Godfrey's example at
 # http://youinfinitesnake.blogspot.com/2011/02/attractive-scientific-plots-with.html
 set terminal svg size 640,480 fname "Gill Sans" fsize 9 rounded dashed
-set output "run.svg"
+set output "$PREFIX.svg"
 
 # Line style for axes
 set style line 80 lt 0
@@ -35,12 +43,15 @@ set style line 2 lt rgb "#00A000" lw 2 pt 9
 set style line 3 lt rgb "#5060D0" lw 2 pt 5
 set style line 4 lt rgb "#F25900" lw 2 pt 13
 
-set xlabel "t"
-set ylabel "progress"
+set xlabel "$XLABEL"
+set ylabel "$YLABEL"
+
+set title "$TITLE"
 
 set key autotitle columnhead
 set key bottom right
 
 set datafile separator ","
 
-plot for [i=2:5] 'run.csv' using 1:i with lines ls (i-1)
+plot for [i=2:$num_columns] "$PREFIX.csv" using 1:i with lines ls (i-1)
+EOF
