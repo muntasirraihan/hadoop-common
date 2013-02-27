@@ -1,7 +1,7 @@
 # adapted from Brighten Godfrey's example at
 # http://youinfinitesnake.blogspot.com/2011/02/attractive-scientific-plots-with.html
 set terminal svg size 640,480 fname "Gill Sans" fsize 9 rounded dashed
-set output "experiment.svg"
+set output "run.svg"
 
 # Line style for axes
 set style line 80 lt 0
@@ -43,4 +43,4 @@ set key bottom right
 
 set datafile separator ","
 
-plot for [i=2:5] 'experiment.csv' using 1:i with lines ls (i-1)
+plot for [i=2:5] 'run.csv' using 1:i with lines ls (i-1)

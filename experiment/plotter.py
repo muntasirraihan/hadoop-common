@@ -17,13 +17,13 @@ with open(args.json) as f:
   run = json.load(f)
 
 csv_data = ""
-apps = sorted(run['app_info'].keys())
+apps = sorted(run['appInfo'].keys())
 # header line
 csv_data += "time,"
 csv_data += ",".join( ["j%d m,j%d r" % (i, i) for i in range(len(apps))] )
 csv_data += "\n"
 
-timestamps = [float(t) for t in sorted(run['app_data'].keys())]
+timestamps = [float(t) for t in sorted(run['appData'].keys())]
 t0 = timestamps[0]
 lastinfo = {}
 for app in apps:
@@ -31,11 +31,11 @@ for app in apps:
       "mapProgress": 0.0,
       "reduceProgress": 0.0,
       }
-for t in sorted(run['app_data'].keys()):
+for t in sorted(run['appData'].keys()):
   csv_data += str(float(t) - t0) + ","
   for app in apps:
     try:
-      info = run['app_data'][t][app]
+      info = run['appData'][t][app]
     except KeyError:
       info = None
     if info is None:
