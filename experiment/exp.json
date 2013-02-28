@@ -11,9 +11,7 @@
     "max": 4,
     "steps": 5,
     "delta": -10,
-    "baseJob": {
-      "epsilon": 1.1,
-      "mapRatio": 20
-    }
+    "epsilon": 1.1,
+    "mapRatio": 20
   }
 }
