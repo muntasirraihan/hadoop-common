@@ -4,6 +4,7 @@ TITLE="$2"
 XLABEL="$3"
 YLABEL="$4"
 num_columns=$(awk -F',' "{if(NR == 1) print NF}" < "$PREFIX.csv")
+num_series=$(( (num_columns-1)/2 ))
 
 gnuplot << EOF
 # adapted from Brighten Godfrey's example at
@@ -53,5 +54,5 @@ set key bottom right
 
 set datafile separator ","
 
-plot for [i=2:$num_columns] "$PREFIX.csv" using 1:i with lines ls (i-1)
+plot for [i=0:$((num_series-1))] "$PREFIX.csv" using 1:2+i*2:3+i*2 with yerrorbars ls i+1
 EOF

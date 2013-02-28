@@ -17,11 +17,13 @@ args = parser.parse_args()
 
 exp, results = experiment.loadResults(args.results)
 # header row
-csv_data = exp.details["param"] + ",margin0,margin1\n"
+csv_data = exp.details["param"] + ",margin0,margin0_err,margin1,margin1_err\n"
 for param, run in sorted(results.items()):
   csv_data += ("%f" % param) + ","
-  margins = [margin_hat.mean() for margin_hat in run["margins"]]
-  csv_data += ",".join(["%0.2f" % (margin/1e3) for margin in margins])
+  margin_seconds = [margin_hat/1e3 for margin_hat in run["margins"]]
+  margins = [(m_hat.mean(), m_hat.stddev()) for m_hat in margin_seconds]
+  csv_data += ",".join(["%0.2f,%0.2f" % (mean, stddev)
+    for mean, stddev in margins])
   csv_data += "\n"
 
 if args.title is None:
