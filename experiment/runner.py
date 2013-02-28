@@ -33,7 +33,7 @@ exp = experiment.load(args.exp)
 experiment.clearHDFS()
 results = {}
 runNum = 0
-totalRuns = len(exp) * args.n
+totalRuns = len(exp) * args.numruns
 startTime = time.time()
 for run in exp:
   print("running %s" % run)
