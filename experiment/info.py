@@ -15,11 +15,14 @@ args = parser.parse_args()
 
 exp, results = experiment.loadResults(args.results)
 
+numruns = results.itervalues().next()["s"].n
+
 output = {
     "exp": {
       exp.details["name"] : exp.config
       }, 
-    "global": exp.globalConfig
+    "global": exp.globalConfig,
+    "numruns": numruns,
     }
 
 if args.key != "all":
