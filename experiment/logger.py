@@ -99,7 +99,7 @@ class AppInfo:
         if app['id'] not in self.historical_apps]
     self.apps |= set([app['id'] for app in apps_list])
     info = {}
-    for app in apps_list:
+    for app in sorted(apps_list):
       this_info = self._job_info(app)
       info[app['id']] = this_info
       if this_info is not None and logStatus:
