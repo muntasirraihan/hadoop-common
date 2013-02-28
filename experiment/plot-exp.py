@@ -33,4 +33,4 @@ if args.title is None:
 with open("exp.csv", "w") as f:
   f.write(csv_data)
 call(["./csv.plt", "exp", args.title, exp.details["param"], "margin (s)"])
-os.remove("exp.csv")
+#os.remove("exp.csv")

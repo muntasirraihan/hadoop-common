@@ -36,6 +36,8 @@ class Estimate(object):
   def mean(self):
     return self.sum / self.n
   def stddev(self):
+    if self.n == 1:
+      return float('inf')
     return sqrt(self.sse / (self.n - 1))
   def add(self, v):
     if self.n == 0:
