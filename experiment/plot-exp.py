@@ -18,7 +18,7 @@ args = parser.parse_args()
 exp, results = experiment.loadResults(args.results)
 # header row
 csv_data = exp.details["param"] + ",margin0,margin1\n"
-for param, run in results.items():
+for param, run in sorted(results.items()):
   csv_data += (exp.details["param_f"] % param) + ","
   margins = [margin_hat.mean() for margin_hat in run["margins"]]
   csv_data += ",".join(["%0.0f" % (margin/1e3) for margin in margins])
