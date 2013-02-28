@@ -28,6 +28,7 @@ for param, run in sorted(results.items()):
 
 if args.title is None:
   args.title = exp.details["name"].capitalize()
+  args.title += " - epsilon %0.2g" % exp.config["epsilon"]
 
 with open("exp.csv", "w") as f:
   f.write(csv_data)
