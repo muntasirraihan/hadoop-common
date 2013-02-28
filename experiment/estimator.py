@@ -40,7 +40,7 @@ except Exception:
   runtimeEstimates = {}
 
 def saveEstimates():
-  if not exists(CACHE_PATH):
+  if not exists(CACHE_DIR):
     mkdir(CACHE_DIR)
   try:
     with open(CACHE_PATH, "w") as f:
