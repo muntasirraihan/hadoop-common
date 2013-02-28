@@ -33,7 +33,7 @@ exp = experiment.load(args.exp)
 experiment.clearHDFS()
 results = {}
 runNum = 0
-totalRuns = len(exp)
+totalRuns = len(exp) * args.n
 startTime = time.time()
 for run in exp:
   print("running %s" % run)
@@ -59,7 +59,7 @@ for run in exp:
       margin_hat.add(appInfo["margin"])
     print("scheduled %0.1f jobs" % s)
     print("~%s remaining" %
-        showTime(remainingTime(startTime, runNum, totalRuns)))
+        showTime(remainingTime(startTime, runNum+1, totalRuns)))
   results[run.param] = {
       "s": s_hat,
       "margins": margins_hat,
