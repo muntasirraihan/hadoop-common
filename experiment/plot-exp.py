@@ -4,6 +4,8 @@ from __future__ import print_function, division
 import experiment
 from subprocess import call
 import os
+import os.path
+from os.path import join
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -30,7 +32,9 @@ if args.title is None:
   args.title = exp.details["name"].capitalize()
   args.title += " - epsilon %0.2g" % exp.config["epsilon"]
 
+plot_script = join(os.path.realpath(os.path.dirname(__file__)), "csv.plt")
+
 with open("exp.csv", "w") as f:
   f.write(csv_data)
-call(["./csv.plt", "exp", args.title, exp.details["param"], "margin (s)"])
-#os.remove("exp.csv")
+call([plot_script, "exp", args.title, exp.details["param"], "margin (s)"])
+os.remove("exp.csv")
