@@ -3,6 +3,10 @@
 from experiment import Job, Run, Experiment
 
 def floatRange(start, stop, step):
+  """ Iterates from start to stop in sizes of step.
+
+  Supports floats for all parameters.
+  """
   v = start
   while v <= stop:
     yield v
@@ -12,6 +16,11 @@ def stepSize(start, stop, steps):
   return (stop - start)/(steps - 1)
 
 def configStep(config):
+  """ Iterates over the step given in a config.
+
+  Requires the space to be specified as the keys min/max and steps
+  Returns an iterator.
+  """
   minParam = config["min"]
   maxParam = config["max"]
   steps = config["steps"]
@@ -20,8 +29,9 @@ def configStep(config):
 
 # global dictionary of generator classes
 generators = {}
-
 def experiment(cls):
+  """ Register an experiment generator class. """
+# generators are known in this frontend by their name
   name = cls.details["name"]
   generators[name] = cls
   return cls
