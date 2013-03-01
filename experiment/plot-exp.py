@@ -30,7 +30,8 @@ for param, run in sorted(results.items()):
 
 if args.title is None:
   args.title = exp.details["name"].capitalize()
-  args.title += " - epsilon %0.2g" % exp.config["epsilon"]
+  if "epsilon" in exp.config:
+    args.title += " - epsilon %0.2g" % exp.config["epsilon"]
 
 plot_script = join(os.path.realpath(os.path.dirname(__file__)), "csv.plt")
 
