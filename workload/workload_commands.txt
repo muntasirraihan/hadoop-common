@@ -1,1 +1,5 @@
+CLASSPATH=.:$HOME/.m2/repository/commons-cli/commons-cli/1.2/commons-cli-1.2.jar
+
+export CLASSPATH
+
 java WorkloadGenerator -queue production 0.5 1400000 1400000  -queue research 8.0 87500 87500 -sleep_normalize 1000 -num_hdfs_inputs 5000 -input 1hr-workload.tsv -run generate >> 1hr-workload.tsv.sh
