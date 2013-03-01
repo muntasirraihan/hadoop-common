@@ -38,8 +38,8 @@ class BetaExperimentGen(object):
       }
   def __init__(self, config):
     self.config = config
-    epsilon = config["baseJob"]["epsilon"]
-    mapRatio = config["baseJob"]["mapRatio"]
+    epsilon = config["epsilon"]
+    mapRatio = config["mapRatio"]
     self.job0 = Job(epsilon, mapRatio)
     self.delta = config["delta"]
   def build(self):
