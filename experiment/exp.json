@@ -13,5 +13,12 @@
     "delta": -10,
     "epsilon": 1.1,
     "mapRatio": 20
+  },
+  "epsilon": {
+    "min": 0.7,
+    "max": 2,
+    "steps": 10,
+    "delta": -5,
+    "mapRatio": 20
   }
 }

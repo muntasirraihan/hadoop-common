@@ -2,12 +2,31 @@
 
 from experiment import Job, Run, Experiment
 
-def floatRange(start, step, stop):
+def floatRange(start, stop, step):
   v = start
   while v <= stop:
     yield v
     v += step
 
+def stepSize(start, stop, steps):
+  return (stop - start)/(steps - 1)
+
+def configStep(config):
+  minParam = config["min"]
+  maxParam = config["max"]
+  steps = config["steps"]
+  stepsize = stepSize(minParam, maxParam, steps)
+  return floatRange(minParam, maxParam, stepsize)
+
+# global dictionary of generator classes
+generators = {}
+
+def experiment(cls):
+  name = cls.details["name"]
+  generators[name] = cls
+  return cls
+
+@experiment
 class DeltaExperimentGen(object):
   details = {
       "name": "delta",
@@ -20,16 +39,13 @@ class DeltaExperimentGen(object):
     mapRatio = config["mapRatio"]
     self.job = Job(epsilon, mapRatio)
   def build(self):
-    minDelta = self.config["min"]
-    maxDelta = self.config["max"]
-    steps = self.config["steps"]
     runs = []
-    stepsize = (maxDelta - minDelta)/(steps - 1)
-    for delta in floatRange(minDelta, stepsize, maxDelta):
+    for delta in configStep(self.config):
       run = Run([self.job, self.job], delta, delta)
       runs.append(run)
     return Experiment(runs, self.__class__.details, self.config)
 
+@experiment
 class BetaExperimentGen(object):
   details = {
       "name": "beta",
@@ -43,14 +59,29 @@ class BetaExperimentGen(object):
     self.job0 = Job(epsilon, mapRatio)
     self.delta = config["delta"]
   def build(self):
-    minBeta = self.config["min"]
-    maxBeta = self.config["max"]
-    steps = self.config["steps"]
     runs = []
-    stepsize = (maxBeta - minBeta)/(steps - 1)
-    for beta in floatRange(minBeta, stepsize, maxBeta):
+    for beta in configStep(self.config):
       job1 = Job(self.job0.epsilon, self.job0.mapRatio * beta)
       run = Run([self.job0, job1], self.delta, beta)
+      runs.append(run)
+    return Experiment(runs, self.__class__.details, self.config)
+
+@experiment
+class EpsilonExperimentGen(object):
+  details = {
+      "name": "epsilon",
+      "param": "epsilon",
+      "param_f": "%0.2g",
+      }
+  def __init__(self, config):
+    self.config = config
+    self.mapRatio = config["mapRatio"]
+    self.delta = config["delta"]
+  def build(self):
+    runs = []
+    for epsilon in configStep(self.config):
+      job = Job(epsilon, self.mapRatio)
+      run = Run([job, job], self.delta, epsilon)
       runs.append(run)
     return Experiment(runs, self.__class__.details, self.config)
 
@@ -65,6 +96,7 @@ if __name__ == "__main__":
         default="exp.json",
         help="config file for experiments")
     parser.add_argument("name",
+        choices=generators.keys(),
         help="name of experiment")
     parser.add_argument("-o", "--output",
         default=None,
@@ -77,13 +109,7 @@ if __name__ == "__main__":
       print("experiment %s not found" % args.name)
       return 1
     expconfig = config[args.name]
-    if args.name == "delta":
-      expgen = DeltaExperimentGen(expconfig)
-    elif args.name == "beta":
-      expgen = BetaExperimentGen(expconfig)
-    else:
-      print("generator for experiment %s not found" % args.name)
-      return 1
+    expgen = generators[args.name](expconfig)
     exp = expgen.build()
     if args.output is None:
       args.output = args.name + ".pickle"
