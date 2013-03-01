@@ -8,14 +8,18 @@ import json
 import argparse
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("results",
-    help="pickled experiment results file")
+parser.add_argument("exp",
+    help="pickled experiment or experiment results")
 parser.add_argument("--key", default="all", choices=["all", "exp", "global"])
 args = parser.parse_args()
 
-exp, results = experiment.loadResults(args.results)
+exp, results = experiment.loadResults(args.exp)
 
-numruns = results.itervalues().next()["s"].n
+# there may not be results
+if results is not None:
+  numruns = results.itervalues().next()["s"].n
+else:
+  numruns = None
 
 output = {
     "exp": {

@@ -169,7 +169,10 @@ def load(fname):
 def loadResults(fname):
   with open(fname) as f:
     exp = pickle.load(f)
-    results = pickle.load(f)
+    try:
+      results = pickle.load(f)
+    except EOFError:
+      results = None
   return (exp, results)
 
 def showTime(s):
