@@ -9,7 +9,7 @@ import pickle
 
 from os import mkdir
 from os.path import splitext, exists
-import socket
+import platform
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -33,7 +33,7 @@ if args.output is None:
   args.output = base + "-est" + ext
 
 CACHE_DIR = "caches"
-CACHE_PATH = CACHE_DIR + ("/%s-runtime-estimates.pickle" % socket.gethostname())
+CACHE_PATH = CACHE_DIR + ("/%s-runtime-estimates.pickle" % platform.node())
 
 # cache jobs that have already been estimated
 try:
