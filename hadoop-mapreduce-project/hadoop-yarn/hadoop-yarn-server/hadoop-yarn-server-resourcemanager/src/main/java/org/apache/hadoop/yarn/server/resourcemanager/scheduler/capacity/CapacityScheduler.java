@@ -199,6 +199,10 @@ implements ResourceScheduler, CapacitySchedulerContext {
         applicationComparator = SchedulerApp.deadlineComparator;
       } else if ("llf".equals(queuePolicy)) {
         applicationComparator = SchedulerApp.laxityComparator;
+      } else if ("most-resources".equals(queuePolicy)) {
+        // the suspend order is most resources first; scheduling order is least
+        // to most resources
+        applicationComparator = new SchedulerApp.ResourcesComparator();
       }
       LOG.debug("using queuePolicy " + queuePolicy);
       initializeQueues(this.conf);

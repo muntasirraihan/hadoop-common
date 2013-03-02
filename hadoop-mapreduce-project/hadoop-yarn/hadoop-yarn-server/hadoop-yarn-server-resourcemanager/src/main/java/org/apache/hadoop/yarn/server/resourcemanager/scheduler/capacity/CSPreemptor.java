@@ -25,7 +25,6 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttempt;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
@@ -33,6 +32,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEven
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerApp;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerApp.ResourcesComparator;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 
@@ -500,40 +500,6 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
         releaseSelectedContainers(request, containersMap);
       }
     } // end queue iteration
-  }
-
-  static class ResourcesComparator
-  implements Comparator<SchedulerApp> {
-
-    private Map<SchedulerApp, Resource> releasingConsumption = 
-      new HashMap<SchedulerApp, Resource>();
-    
-    public void releaseConsumption(SchedulerApp app, int memory) {
-      Resource release = Resources.createResource(memory);
-      if (!releasingConsumption.containsKey(app)) {
-        releasingConsumption.put(app, release);
-      } else {
-        releasingConsumption.put(app,
-            Resources.addTo(releasingConsumption.get(app), release));
-      }
-    }
-    
-    @Override
-    public int compare(SchedulerApp o1, SchedulerApp o2) {
-      if (!releasingConsumption.containsKey(o1)) {
-        releasingConsumption.put(o1, Resources.createResource(0));
-      }
-      if (!releasingConsumption.containsKey(o2)) {
-        releasingConsumption.put(o2, Resources.createResource(0));
-      }
-      
-      Resource o1r = Resources.subtract(o1.getCurrentConsumption(),
-          releasingConsumption.get(o1));
-      Resource o2r = Resources.subtract(o2.getCurrentConsumption(),
-          releasingConsumption.get(o2));
-      
-      return o1r.compareTo(o2r);
-    }
   }
   
   private void releaseContainers(ResourceRequest releaseRequest, List<CSQueue> overCapList, boolean suspend) {

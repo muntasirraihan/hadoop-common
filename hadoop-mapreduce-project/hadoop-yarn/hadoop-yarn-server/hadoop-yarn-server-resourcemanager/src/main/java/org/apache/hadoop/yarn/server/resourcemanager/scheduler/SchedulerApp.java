@@ -119,6 +119,40 @@ public class SchedulerApp {
       return submitComparator.compare(a1, a2);
     }
   };
+  
+  public static class ResourcesComparator
+  implements Comparator<SchedulerApp> {
+
+    private Map<SchedulerApp, Resource> releasingConsumption = 
+      new HashMap<SchedulerApp, Resource>();
+    
+    public void releaseConsumption(SchedulerApp app, int memory) {
+      Resource release = Resources.createResource(memory);
+      if (!releasingConsumption.containsKey(app)) {
+        releasingConsumption.put(app, release);
+      } else {
+        releasingConsumption.put(app,
+            Resources.addTo(releasingConsumption.get(app), release));
+      }
+    }
+    
+    @Override
+    public int compare(SchedulerApp o1, SchedulerApp o2) {
+      if (!releasingConsumption.containsKey(o1)) {
+        releasingConsumption.put(o1, Resources.createResource(0));
+      }
+      if (!releasingConsumption.containsKey(o2)) {
+        releasingConsumption.put(o2, Resources.createResource(0));
+      }
+      
+      Resource o1r = Resources.subtract(o1.getCurrentConsumption(),
+          releasingConsumption.get(o1));
+      Resource o2r = Resources.subtract(o2.getCurrentConsumption(),
+          releasingConsumption.get(o2));
+      
+      return o1r.compareTo(o2r);
+    }
+  }
 
   private static final Log LOG = LogFactory.getLog(SchedulerApp.class);
 
