@@ -49,5 +49,5 @@ for t in sorted(run['appData'].keys()):
 
 with open("run.csv", "w") as f:
   f.write(csv_data)
-call(["./csv.plt", "run", args.title, "t", "progress"])
+call(["./csv-lines.plt", "run", args.title, "t", "progress"])
 os.remove("run.csv")
