@@ -66,35 +66,10 @@ class Estimate(object):
   def __str__(self):
     return repr(self)
 
-class Job(object):
-  def __init__(self, epsilon, mapRatio):
-    self.epsilon = epsilon
-    self.mapRatio = mapRatio
-  def run(self, *args):
-    num = args[0]
-    if len(args) < 2:
-      deadline = 0
-    else:
-      deadline = args[1]
-    dirs = GlobalConfig.get("dirs")
-    script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
-    args = [script]
-    args.extend(["--deadline", int(deadline)])
-    jobParams = GlobalConfig.get("jobParams")
-    args.extend(["--nummaps", jobParams["numMaps"]])
-    args.extend(["--numreduces", jobParams["numReduces"]])
-    args.extend(["--mapratio", self.mapRatio])
-    args.extend(["--redratio", jobParams["reduceRatio"]])
-    args.extend(["--jobs", num])
-    args = [str(arg) for arg in args]
-    call(args)
-  def __repr__(self):
-    return "e=%0.1f size=%0.0f" % (self.epsilon, self.mapRatio)
-  def __eq__(self, other):
-    return self.epsilon == other.epsilon and \
-        self.mapRatio == other.mapRatio
-  def size(self):
-    return self.mapRatio
+class EstimatableJob(object):
+  """ Provides job estimation functionality in an abstract base class. """
+  def run(self, jobnum):
+    raise NotImplementedError
   def estimate(self, host, numruns):
     """ Estimate this job.
 
@@ -125,19 +100,50 @@ class Job(object):
       runtimeEstimate.add(runtimeMs)
       jobnum += 1
     return runtimeEstimate
-    
 
-class TraceJob(object):
+class Job(EstimatableJob):
+  def __init__(self, epsilon, mapRatio):
+    self.epsilon = epsilon
+    self.mapRatio = mapRatio
+    super(Job, self).__init__(self)
+  def run(self, *args):
+    num = args[0]
+    if len(args) < 2:
+      deadline = 0
+    else:
+      deadline = args[1]
+    dirs = GlobalConfig.get("dirs")
+    script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
+    args = [script]
+    args.extend(["--deadline", int(deadline)])
+    jobParams = GlobalConfig.get("jobParams")
+    args.extend(["--nummaps", jobParams["numMaps"]])
+    args.extend(["--numreduces", jobParams["numReduces"]])
+    args.extend(["--mapratio", self.mapRatio])
+    args.extend(["--redratio", jobParams["reduceRatio"]])
+    args.extend(["--jobs", num])
+    args = [str(arg) for arg in args]
+    call(args)
+  def __repr__(self):
+    return "e=%0.1f size=%0.0f" % (self.epsilon, self.mapRatio)
+  def __eq__(self, other):
+    return self.epsilon == other.epsilon and \
+        self.mapRatio == other.mapRatio
+  def size(self):
+    return self.mapRatio
+
+class TraceJob(EstimatableJob):
   def __init__(self, params):
     """ params: arguments passed directly to run-jobs-script.sh """
     self.params = params
-  def run(self):
+    super(TraceJob, self).__init__(self)
+  def run(self, jobnum):
     dirs = GlobalConfig.get("dirs")
     script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
     args = [script]
     for k, v in self.params.iteritems():
-      args.append("--%s" % k)
-      args.append(v)
+      args.extend(["--%s" % k, v])
+    args.extend(["--jobs", jobnum])
     args = [str(arg) for arg in args]
     return call(args)
 
