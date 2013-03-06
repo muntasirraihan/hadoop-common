@@ -45,11 +45,15 @@ with open(args.input) as f:
   for line in f:
     submitTime = int(getColumn("submission_time", line))
     params = {
+        "queue": QUEUE
         }
     jobs.append(experiment.TraceJob(params))
     if lastTime is not None:
       waitTimes.append(submitTime - lastTime)
     lastTime = submitTime
+
+# make waitTimes and jobs the same length
+waitTimes.append(0)
 
 with open(args.output, "w") as f:
   pickle.dump(jobs, f)
