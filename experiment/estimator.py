@@ -3,8 +3,6 @@
 from __future__ import print_function, division
 
 import experiment
-import logger
-import time
 import pickle
 
 from os import mkdir
@@ -51,32 +49,13 @@ def saveEstimates():
     print("could not cache runtime estimates!")
 
 exp = experiment.load(args.exp)
-jobnum = 0
 experiment.clearHDFS()
 for runNum, run in enumerate(exp):
   for jobNum, job in enumerate(run.jobs):
     if job.size() in runtimeEstimates:
       runtimeEstimate = runtimeEstimates[job.size()]
     else:
-      runtimeEstimate = experiment.Estimate()
-      for i in range(args.numruns):
-        print("estimate %d" % (i+1))
-        info = logger.AppInfo(args.host, measure=False)
-        submitTime = float(time.time())
-        job.run(jobnum)
-        while not info.is_run_over():
-          info.update()
-          time.sleep(4)
-        # a hash with app keys is returned, but we only care about the single
-        # submitted app
-        appInfo = info.appInfo()
-        apps = appInfo.keys()
-        finish = appInfo[apps[0]]["finishInfo"]
-        runtimeMs = finish["finishTime"] - finish["startTime"]
-        print("accept time of %0.2fs" % (finish["startTime"]/1e3 - submitTime))
-        print("runtime of %0.2fmin" % (runtimeMs/60e3))
-        runtimeEstimate.add(runtimeMs)
-        jobnum += 1
+      runtimeEstimate = job.estimate(args.host, args.numruns)
       runtimeEstimates[job.size()] = runtimeEstimate
     estimatedJob = experiment.EstimatedJob(job, runtimeEstimate)
     exp.runs[runNum].jobs[jobNum] = estimatedJob

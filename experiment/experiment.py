@@ -7,6 +7,7 @@ from os.path import expanduser, expandvars
 from math import sqrt
 import json, pickle
 import time
+import logger
 
 class GlobalConfig(object):
   """ Singleton reference to the global configuration. """
@@ -94,6 +95,37 @@ class Job(object):
         self.mapRatio == other.mapRatio
   def size(self):
     return self.mapRatio
+  def estimate(self, host, numruns):
+    """ Estimate this job.
+
+    host: hostname to use for getting runtime info
+    numruns: number of times to re-run to improve estimate
+
+    Returns the runtime estimate.
+    """
+    clearHDFS()
+    runtimeEstimate = Estimate()
+    jobnum = 0
+    for i in range(numruns):
+      print("estimate %d" % (i+1))
+      info = logger.AppInfo(host, measure=False)
+      submitTime = float(time.time())
+      self.run(jobnum)
+      while not info.is_run_over():
+        info.update()
+        time.sleep(4)
+      # a hash with app keys is returned, but we only care about the single
+      # submitted app
+      appInfo = info.appInfo()
+      apps = appInfo.keys()
+      finish = appInfo[apps[0]]["finishInfo"]
+      runtimeMs = finish["finishTime"] - finish["startTime"]
+      print("accept time of %0.2fs" % (finish["startTime"]/1e3 - submitTime))
+      print("runtime of %0.2fmin" % (runtimeMs/60e3))
+      runtimeEstimate.add(runtimeMs)
+      jobnum += 1
+    return runtimeEstimate
+    
 
 class TraceJob(object):
   def __init__(self, params):
