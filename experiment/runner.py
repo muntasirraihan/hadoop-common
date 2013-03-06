@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# vim: ft=python
 
 import logger
 import experiment
