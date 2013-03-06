@@ -1,4 +1,8 @@
 # these are all auto-generated or results of runs
 *.pickle
+*.csv
+*.svg
 # python compiled module
 *.pyc
+# keep these private
+production.tsv

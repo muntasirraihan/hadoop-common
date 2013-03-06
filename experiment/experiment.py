@@ -95,6 +95,20 @@ class Job(object):
   def size(self):
     return self.mapRatio
 
+class TraceJob(object):
+  def __init__(self, params):
+    """ params: arguments passed directly to run-jobs-script.sh """
+    self.params = params
+  def run(self):
+    dirs = GlobalConfig.get("dirs")
+    script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
+    args = [script]
+    for k, v in self.params.iteritems():
+      args.append("--%s" % k)
+      args.append(v)
+    args = [str(arg) for arg in args]
+    return call(args)
+
 class EstimatedJob(Job):
   def __init__(self, job, runtimeMs_hat):
     """
