@@ -49,7 +49,8 @@ with open(args.input) as f:
         }
     jobs.append(experiment.TraceJob(params))
     if lastTime is not None:
-      waitTimes.append(submitTime - lastTime)
+# wait times should be written in seconds
+      waitTimes.append( (submitTime - lastTime)/1e3)
     lastTime = submitTime
 
 # make waitTimes and jobs the same length

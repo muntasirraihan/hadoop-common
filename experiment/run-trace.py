@@ -20,4 +20,5 @@ with open(args.trace) as f:
 
 for job, wait in zip(jobs, waitTimes):
   job.run()
+# wait times are written in seconds
   time.sleep(wait)
