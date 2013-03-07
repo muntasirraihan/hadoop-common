@@ -105,7 +105,7 @@ class Job(EstimatableJob):
   def __init__(self, epsilon, mapRatio):
     self.epsilon = epsilon
     self.mapRatio = mapRatio
-    super(Job, self).__init__(self)
+    super(Job, self).__init__()
   def run(self, *args):
     num = args[0]
     if len(args) < 2:
