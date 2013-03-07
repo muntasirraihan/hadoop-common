@@ -6,3 +6,4 @@
 *.pyc
 # keep these private
 production.tsv
+1hr-workload.tsv

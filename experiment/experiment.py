@@ -136,14 +136,18 @@ class TraceJob(EstimatableJob):
   def __init__(self, params):
     """ params: arguments passed directly to run-jobs-script.sh """
     self.params = params
-    super(TraceJob, self).__init__(self)
+    super(TraceJob, self).__init__()
   def run(self, jobnum):
     dirs = GlobalConfig.get("dirs")
     script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
     args = [script]
     for k, v in self.params.iteritems():
+# the jobs key must go last for the script to parse the job correctly
+      if k == "jobs":
+        continue
       args.extend(["--%s" % k, v])
-    args.extend(["--jobs", jobnum])
+    args.append(jobnum)
+    args.extend(["--jobs", self.params["jobs"]])
     args = [str(arg) for arg in args]
     return call(args)
 
