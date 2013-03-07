@@ -23,7 +23,8 @@ csv_data = ""
 apps = sorted(run['appInfo'].keys())
 # header line
 csv_data += "time,"
-csv_data += ",".join( ["j%d m,j%d r" % (i, i) for i in range(len(apps))] )
+csv_data += ",".join( ["Job %d Map,Job %d Reduce" % (i+1, i+1) for i in
+  range(len(apps))] )
 csv_data += "\n"
 
 timestamps = [float(t) for t in sorted(run['appData'].keys())]
@@ -49,5 +50,5 @@ for t in sorted(run['appData'].keys()):
 
 with open("run.csv", "w") as f:
   f.write(csv_data)
-call(["./csv-lines.plt", "run", args.title, "t", "progress"])
-os.remove("run.csv")
+call(["./csv-lines.plt", "run", args.title, "time (s)", "Progress"])
+#os.remove("run.csv")

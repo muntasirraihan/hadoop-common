@@ -35,14 +35,20 @@ set ytics nomirror
 # than strictly primary colors or hard-to-see colors
 # like gnuplot's default yellow.  Make the lines thick
 # so they're easy to see in small plots in papers.
+#set style line 1 lt 1
+#set style line 2 lt 1
+#set style line 3 lt 1
+#set style line 4 lt 1
+#set style line 1 lt rgb "#A00000" lw 2 pt 7
+#set style line 2 lt rgb "#00A000" lw 2 pt 9
+#set style line 3 lt rgb "#5060D0" lw 2 pt 5
+#set style line 4 lt rgb "#F25900" lw 2 pt 13
 set style line 1 lt 1
-set style line 2 lt 1
-set style line 3 lt 1
-set style line 4 lt 1
-set style line 1 lt rgb "#A00000" lw 2 pt 7
-set style line 2 lt rgb "#00A000" lw 2 pt 9
-set style line 3 lt rgb "#5060D0" lw 2 pt 5
-set style line 4 lt rgb "#F25900" lw 2 pt 13
+set style line 2 lt 2
+set style line 3 lt 3
+set style line 4 lt 4
+set style line 5 lt 5
+set style line 6 lt 6
 
 set xlabel "$XLABEL"
 set ylabel "$YLABEL"
