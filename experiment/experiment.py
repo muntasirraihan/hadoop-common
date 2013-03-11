@@ -141,6 +141,7 @@ class Job(EstimatableJob):
     dirs = GlobalConfig.get("dirs")
     script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
     args = [script]
+    args.extend(["--queue", "low"])
     args.extend(["--deadline", int(deadline)])
     jobParams = GlobalConfig.get("jobParams")
     args.extend(["--nummaps", jobParams["numMaps"]])
@@ -171,7 +172,7 @@ class TraceJob(EstimatableJob):
     object first. Otherwise 0 will be used as the deadline.
     """
     dirs = GlobalConfig.get("dirs")
-    script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
+    script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
     args = [script]
     epsilon = self.params.pop("epsilon")
     if self.runtime.n == 0:
