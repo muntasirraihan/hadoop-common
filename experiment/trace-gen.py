@@ -77,7 +77,8 @@ if __name__ == "__main__":
 # argument names. Epsilon is treated specially and converted to an appropriate
 # deadline parameter.
         params = {
-            "queue": queue,
+            #"queue": queue,
+            "queue": "high",
             "jobs": name,
             "mapratio": mapRatio,
             "redratio": reduceRatio,
