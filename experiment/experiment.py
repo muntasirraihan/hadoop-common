@@ -3,11 +3,37 @@
 
 from __future__ import print_function, division
 from subprocess import call
-from os.path import expanduser, expandvars
+from os import mkdir
+from os.path import expanduser, expandvars, exists
 from math import sqrt
 import json, pickle
 import time
 import logger
+import platform
+
+
+# caching tools
+CACHE_DIR = "caches"
+
+def hostname():
+  return platform.node()
+
+def saveEstimates(estimates, path):
+# ensure cache exists
+  if not exists(CACHE_DIR):
+    mkdir(CACHE_DIR)
+  try:
+    with open(path, "w") as f:
+      pickle.dump(estimates, f)
+  except Exception:
+    print("could not cache runtime estimates!")
+
+def loadEstimates(path):
+  try:
+    estimates = load(path)
+    return estimates
+  except Exception:
+    return {}
 
 class GlobalConfig(object):
   """ Singleton reference to the global configuration. """
@@ -136,11 +162,19 @@ class TraceJob(EstimatableJob):
   def __init__(self, params):
     """ params: arguments passed directly to run-jobs-script.sh """
     self.params = params
+    self.runtime = Estimate()
     super(TraceJob, self).__init__()
   def run(self, jobnum):
+    """ Run this trace job.
+
+    Before running, the job's runtime must be estimated and stored in the object first.
+    """
     dirs = GlobalConfig.get("dirs")
     script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
     args = [script]
+    epsilon = self.params.pop("epsilon")
+    deadline = int(time.time()) + self.runtime.mean() * (1 + epsilon)
+    self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
 # the jobs key must go last for the script to parse the job correctly
       if k == "jobs":
@@ -150,6 +184,13 @@ class TraceJob(EstimatableJob):
     args.extend(["--jobs", self.params["jobs"]])
     args = [str(arg) for arg in args]
     return call(args)
+  def size(self):
+    return tuple([self.params[key] for key in 
+      [ "mapratio",
+        "redratio",
+        "nummaps",
+        "numreduces",
+        ]])
 
 class EstimatedJob(Job):
   def __init__(self, job, runtimeMs_hat):

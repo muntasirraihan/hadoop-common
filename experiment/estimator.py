@@ -3,11 +3,8 @@
 from __future__ import print_function, division
 
 import experiment
-import pickle
 
-from os import mkdir
-from os.path import splitext, exists
-import platform
+from os.path import splitext
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -30,23 +27,11 @@ if args.output is None:
   base, ext = splitext(args.exp)
   args.output = base + "-est" + ext
 
-CACHE_DIR = "caches"
-CACHE_PATH = CACHE_DIR + ("/%s-runtime-estimates.pickle" % platform.node())
+CACHE_PATH = experiment.CACHE_DIR + ("/%s-runtime-estimates.pickle" %
+    experiment.hostname())
 
 # cache jobs that have already been estimated
-try:
-  runtimeEstimates = experiment.load(CACHE_PATH)
-except Exception:
-  runtimeEstimates = {}
-
-def saveEstimates():
-  if not exists(CACHE_DIR):
-    mkdir(CACHE_DIR)
-  try:
-    with open(CACHE_PATH, "w") as f:
-      pickle.dump(runtimeEstimates, f)
-  except Exception:
-    print("could not cache runtime estimates!")
+runtimeEstimates = experiment.loadEstimates(CACHE_PATH)
 
 exp = experiment.load(args.exp)
 experiment.clearHDFS()
@@ -60,6 +45,6 @@ for runNum, run in enumerate(exp):
     estimatedJob = experiment.EstimatedJob(job, runtimeEstimate)
     exp.runs[runNum].jobs[jobNum] = estimatedJob
 
-saveEstimates()
+experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
 
 exp.write(args.output)

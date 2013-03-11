@@ -3,6 +3,7 @@
 from __future__ import print_function, division
 import experiment
 import json, pickle
+import random
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -67,8 +68,14 @@ if __name__ == "__main__":
         reduceRatio = reduce_slots_millis/queueScaling["reduceNormalize"]
         numMaps = int(columns["num_maps"])
         numReduces = int(columns["num_reduces"])
-# these paramters are passed as arguments to run-jobs-script, using the keys as
-# argument names
+        epsilonModel = queueScaling["epsilon"]
+        if epsilonModel["distribution"] not in ["uniform"]:
+          raise ValueError("unsupported distribution: " +
+              epsilonModel["distribution"])
+        epsilon = random.uniform(epsilonModel["min"], epsilonModel["max"])
+# These paramters are passed as arguments to run-jobs-script, using the keys as
+# argument names. Epsilon is treated specially and converted to an appropriate
+# deadline parameter.
         params = {
             "queue": queue,
             "jobs": name,
@@ -76,6 +83,7 @@ if __name__ == "__main__":
             "redratio": reduceRatio,
             "nummaps": numMaps,
             "numreduces": numReduces,
+            "epsilon": epsilon,
             }
         jobs.append(experiment.TraceJob(params))
         if lastTime is not None:

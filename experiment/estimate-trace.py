@@ -3,6 +3,12 @@
 import pickle
 
 from os.path import splitext
+import experiment
+
+CACHE_PATH = experiment.CACHE_DIR + ("/%s-trace-runtime-estimates.pickle" %
+    experiment.hostname())
+
+runtimeEstimates = experiment.loadEstimates(CACHE_PATH)
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -30,8 +36,15 @@ with open(args.trace) as f:
   waitTimes = pickle.load(f)
 
 for jobNum, job in enumerate(jobs):
-  estimatedJob = job.estimate(args.host, args.numruns)
-  jobs[jobNum] = estimatedJob
+  if job.size() in runtimeEstimates:
+    runtimeEstimate = runtimeEstimates[job.size()]
+  else:
+    runtimeEstimate = job.estimate(args.host, args.numruns)
+    runtimeEstimates[job.size()] = runtimeEstimate
+  job.runtime = runtimeEstimate
+  jobs[jobNum] = job
+
+experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
 
 with open(args.output, "w") as f:
   pickle.dump(jobs, f)
