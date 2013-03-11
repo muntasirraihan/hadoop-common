@@ -2,6 +2,7 @@
 
 import pickle
 
+import sys
 from os.path import splitext
 import experiment
 
@@ -12,6 +13,7 @@ runtimeEstimates = experiment.loadEstimates(CACHE_PATH)
 
 import argparse
 parser = argparse.ArgumentParser(
+    add_help=False,
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-f", "--trace",
     default="trace-jobs.pickle",
@@ -25,7 +27,14 @@ parser.add_argument("-n", "--numruns",
     help="number of runs to use for estimate")
 parser.add_argument("-o", "--output",
     help="output estimated trace file (default is <input>-est.pickle)")
+parser.add_argument("--help",
+    action="store_true",
+    help="print out usage")
 args = parser.parse_args()
+
+if args.help:
+  parser.print_help()
+  sys.exit(0)
 
 if args.output is None:
   base, ext = splitext(args.exp)
