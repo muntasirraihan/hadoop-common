@@ -37,7 +37,7 @@ if args.help:
   sys.exit(0)
 
 if args.output is None:
-  base, ext = splitext(args.exp)
+  base, ext = splitext(args.trace)
   args.output = base + "-est" + ext
 
 with open(args.trace) as f:
