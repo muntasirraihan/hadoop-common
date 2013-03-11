@@ -167,13 +167,18 @@ class TraceJob(EstimatableJob):
   def run(self, jobnum):
     """ Run this trace job.
 
-    Before running, the job's runtime must be estimated and stored in the object first.
+    Before running, the job's runtime must be estimated and stored in the
+    object first. Otherwise 0 will be used as the deadline.
     """
     dirs = GlobalConfig.get("dirs")
     script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
     args = [script]
     epsilon = self.params.pop("epsilon")
-    deadline = int(time.time()) + self.runtime.mean() * (1 + epsilon)
+    if self.runtime.n == 0:
+      deadline = 0
+    else:
+      runtime = self.runtime.mean()
+      deadline = int(time.time()) + runtime * (1 + epsilon)
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
 # the jobs key must go last for the script to parse the job correctly
