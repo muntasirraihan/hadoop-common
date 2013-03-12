@@ -50,10 +50,9 @@ for jobNum, job in enumerate(jobs):
   else:
     runtimeEstimate = job.estimate(args.host, args.numruns)
     runtimeEstimates[job.size()] = runtimeEstimate
+    experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
   job.runtime = runtimeEstimate
   jobs[jobNum] = job
-
-experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
 
 with open(args.output, "w") as f:
   pickle.dump(jobs, f)

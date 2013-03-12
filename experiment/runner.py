@@ -76,10 +76,10 @@ for run in exp:
     print("scheduled %0.1f jobs" % s)
     print("~%s remaining" %
         showTime(remainingTime(startTime, runNum, totalRuns)))
-  results[run.param] = {
-      "s": s_hat,
-      "margins": margins_hat,
-      "infos": finalInfo,
-      }
+    results[run.param] = {
+        "s": s_hat,
+        "margins": margins_hat,
+        "infos": finalInfo,
+        }
 printExecutionTime()
 outputResults()
