@@ -6,6 +6,7 @@ import experiment
 from experiment import showTime, remainingTime
 import time
 import pickle
+import sys, signal
 
 from os.path import splitext
 import argparse
@@ -30,12 +31,26 @@ if args.output is None:
   base, ext = splitext(args.exp)
   args.output = base + "-results.pickle"
 
+def exitHandler(signum, frame):
+  printExecutionTime()
+  outputResults()
+  sys.exit(1)
+
+def printExecutionTime():
+  print("total time: %s" % showTime(time.time() - startTime))
+
+def outputResults():
+  with open(args.output, "w") as f:
+    pickle.dump(exp, f)
+    pickle.dump(results, f)
+
 exp = experiment.load(args.exp)
 experiment.clearHDFS()
 results = {}
 runNum = 0
 totalRuns = len(exp) * args.numruns
 startTime = time.time()
+signal.signal(signal.SIGINT, exitHandler)
 for run in exp:
   print("running %s" % run)
   s_hat = experiment.Estimate()
@@ -66,7 +81,5 @@ for run in exp:
       "margins": margins_hat,
       "infos": finalInfo,
       }
-print("total time: %s" % showTime(time.time() - startTime))
-with open(args.output, "w") as f:
-  pickle.dump(exp, f)
-  pickle.dump(results, f)
+printExecutionTime()
+outputResults()
