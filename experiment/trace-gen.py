@@ -4,6 +4,7 @@ from __future__ import print_function, division
 import experiment
 import json, pickle
 import random
+import math
 
 import argparse
 parser = argparse.ArgumentParser(
@@ -61,13 +62,16 @@ if __name__ == "__main__":
         if not queue == QUEUE:
           continue
         queueScaling = scaling["queues"][queue]
+        multiplier = queueScaling["multiplier"]
         name = columns["id"]
         map_slots_millis = float(columns["map_slots_millis"])
         reduce_slots_millis = float(columns["reduce_slots_millis"])
         mapRatio = map_slots_millis/queueScaling["mapNormalize"]
         reduceRatio = reduce_slots_millis/queueScaling["reduceNormalize"]
-        numMaps = int(columns["num_maps"])
-        numReduces = int(columns["num_reduces"])
+        numMaps = int(columns["num_maps"]) * multiplier
+        numMaps = int(math.ceil(numMaps))
+        numReduces = int(columns["num_reduces"]) * multiplier
+        numReduces = int(math.ceil(numReduces))
         epsilonModel = queueScaling["epsilon"]
         if epsilonModel["distribution"] not in ["uniform"]:
           raise ValueError("unsupported distribution: " +
@@ -86,6 +90,7 @@ if __name__ == "__main__":
             "numreduces": numReduces,
             "epsilon": epsilon,
             }
+        print(params)
         jobs.append(experiment.TraceJob(params))
         if lastTime is not None:
 # wait times should be written in seconds

@@ -2,8 +2,8 @@
   "queues": {
     "production": {
       "multiplier": 0.0015,
-      "mapNormalize": 1,
-      "reduceNormalize": 1,
+      "mapNormalize": 20000,
+      "reduceNormalize": 20000,
       "epsilon": {
         "distribution": "uniform",
         "min": 1.1,
