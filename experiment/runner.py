@@ -64,8 +64,8 @@ for run in exp:
     runNum += 1
     updateNum = 0
     while not info.is_run_over():
-      info.update(log=(updateNum % 5 == 0))
-      time.sleep(2)
+      info.update(log=(updateNum % 1 == 0))
+      time.sleep(10)
       updateNum += 1
     finalInfo.append(info.appInfo())
     s = info.scheduledPerc()
