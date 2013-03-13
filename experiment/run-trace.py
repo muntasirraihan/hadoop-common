@@ -18,7 +18,9 @@ with open(args.trace) as f:
   jobs = pickle.load(f)
   waitTimes = pickle.load(f)
 
+jobNum = 0
 for job, wait in zip(jobs, waitTimes):
-  job.run()
+  job.run(jobNum)
+  jobNum += 1
 # wait times are written in seconds
   time.sleep(wait)

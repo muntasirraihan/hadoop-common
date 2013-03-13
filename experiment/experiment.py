@@ -150,7 +150,7 @@ class Job(EstimatableJob):
     args.extend(["--redratio", jobParams["reduceRatio"]])
     args.extend(["--jobs", num])
     args = [str(arg) for arg in args]
-    call(args)
+    return call(args)
   def __repr__(self):
     return "e=%0.1f size=%0.0f" % (self.epsilon, self.mapRatio)
   def __eq__(self, other):
@@ -179,7 +179,7 @@ class TraceJob(EstimatableJob):
       deadline = 0
     else:
       runtime = self.runtime.mean()
-      deadline = int(time.time()) + runtime * (1 + epsilon)
+      deadline = int(int(time.time()*1e3) + runtime * (1 + epsilon))
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
 # the jobs key must go last for the script to parse the job correctly
@@ -189,7 +189,8 @@ class TraceJob(EstimatableJob):
     args.append(jobnum)
     args.extend(["--jobs", self.params["jobs"]])
     args = [str(arg) for arg in args]
-    return call(args)
+    print(args)
+    call(args)
   def size(self):
     return tuple([self.params[key] for key in 
       [ "mapratio",

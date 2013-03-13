@@ -103,9 +103,10 @@ if __name__ == "__main__":
             }
         print(params)
         jobs.append(experiment.TraceJob(params))
+        sleepNormalize = queueScaling["sleepNormalize"]
         if lastTime is not None:
 # wait times should be written in seconds
-          waitTimes.append( (submitTime - lastTime)/1e3)
+          waitTimes.append( (submitTime - lastTime)/1e3/sleepNormalize)
         lastTime = submitTime
 
 # make waitTimes and jobs the same length

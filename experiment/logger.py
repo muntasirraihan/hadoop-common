@@ -119,9 +119,10 @@ class AppInfo:
         info = {}
         conf = self._job_conf(app_id)
         conf_map = {}
-        for prop in conf['property']:
-          if prop['name'] in ["mapreduce.job.deadline"]:
-            conf_map[prop['name']] = prop['value']
+        if conf is not None:
+          for prop in conf['property']:
+            if prop['name'] in ["mapreduce.job.deadline"]:
+              conf_map[prop['name']] = prop['value']
         info['conf'] = conf_map
         info['finishInfo'] = self._job_history_info(app_id)
         if "mapreduce.job.deadline" not in conf_map:
@@ -191,10 +192,14 @@ if __name__ == "__main__":
         )
     args = parser.parse_args()
     info = AppInfo(args.host)
-    while not info.is_run_over():
-      info.update()
-      time.sleep(args.period)
-    with open(args.json, 'w') as f:
-      info.dump(f)
+    try:
+      while True:
+        info.update()
+        time.sleep(args.period)
+    except KeyboardInterrupt:
+      pass
+    finally:
+      with open(args.json, 'w') as f:
+        info.dump(f)
   main()
 
