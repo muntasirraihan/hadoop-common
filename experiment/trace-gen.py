@@ -72,6 +72,17 @@ if __name__ == "__main__":
         numMaps = int(math.ceil(numMaps))
         numReduces = int(columns["num_reduces"]) * multiplier
         numReduces = int(math.ceil(numReduces))
+# skip this job, doesn't involve any computation
+        if numMaps == 0 and numReduces == 0:
+          continue
+        if numMaps == 0:
+          # Simulate no mapping
+          numMaps = 1
+          mapRatio = 0.0
+        if numReduces == 0:
+# Simulate no reducing
+          numReduces = 1
+          reduceRatio = 0.0
         epsilonModel = queueScaling["epsilon"]
         if epsilonModel["distribution"] not in ["uniform"]:
           raise ValueError("unsupported distribution: " +
