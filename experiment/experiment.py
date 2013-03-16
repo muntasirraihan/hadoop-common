@@ -4,13 +4,13 @@
 from __future__ import print_function, division
 from subprocess import call
 from os import mkdir
-from os.path import expanduser, expandvars, exists
+from os.path import expanduser, expandvars, exists, isdir
+import shutil
 from math import sqrt
 import json, pickle
 import time
 import logger
 import platform
-
 
 # caching tools
 CACHE_DIR = "caches"
@@ -34,6 +34,23 @@ def loadEstimates(path):
     return estimates
   except Exception:
     return {}
+
+class Scripts:
+  prepared = False
+  RUN_JOB = "/tmp/run-job.sh"
+  RUN_JOBS_SCRIPT = "/tmp/run-jobs-script.sh"
+  LOG_DIR = "/tmp/workGenLogs"
+  @classmethod
+  def prepare(cls):
+    if not cls.prepared:
+      dirs = GlobalConfig.get("dirs")
+      script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
+      shutil.copy(script, cls.RUN_JOB)
+      script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
+      shutil.copy(script, cls.RUN_JOBS_SCRIPT)
+      if not isdir(cls.LOG_DIR):
+        mkdir(cls.LOG_DIR)
+      cls.prepared = True
 
 class GlobalConfig(object):
   """ Singleton reference to the global configuration. """
@@ -138,9 +155,8 @@ class Job(EstimatableJob):
       deadline = 0
     else:
       deadline = args[1]
-    dirs = GlobalConfig.get("dirs")
-    script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
-    args = [script]
+    Scripts.prepare()
+    args = [Scripts.RUN_JOB]
     args.extend(["--queue", "low"])
     args.extend(["--deadline", int(deadline)])
     jobParams = GlobalConfig.get("jobParams")
@@ -171,9 +187,8 @@ class TraceJob(EstimatableJob):
     Before running, the job's runtime must be estimated and stored in the
     object first. Otherwise 0 will be used as the deadline.
     """
-    dirs = GlobalConfig.get("dirs")
-    script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
-    args = [script]
+    Scripts.prepare()
+    args = [Scripts.RUN_JOB]
     epsilon = self.params.pop("epsilon")
     if self.runtime.n == 0:
       deadline = 0
@@ -190,7 +205,12 @@ class TraceJob(EstimatableJob):
     args.extend(["--jobs", self.params["jobs"]])
     args = [str(arg) for arg in args]
     print(args)
-    call(args)
+    try:
+      call(args)
+    except OSError:
+# retry, emulab NFS sometimes has issues
+      time.sleep(0.5)
+      call(args)
   def size(self):
     return tuple([self.params[key] for key in 
       [ "mapratio",
