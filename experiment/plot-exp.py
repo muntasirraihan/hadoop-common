@@ -38,4 +38,4 @@ plot_script = join(os.path.realpath(os.path.dirname(__file__)), "csv.plt")
 with open("exp.csv", "w") as f:
   f.write(csv_data)
 call([plot_script, "exp", args.title, exp.details["param"], "margin (s)"])
-os.remove("exp.csv")
+#os.remove("exp.csv")
