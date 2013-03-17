@@ -33,8 +33,8 @@ def cleartree(path):
     except Exception:
       pass
 
-# Represent a command that is part of this script.
 class Command:
+  """ Represent a command that is part of this script. """
   # track registration order with a class counter
   num = 0
   def __init__(self, fn):
@@ -56,8 +56,8 @@ class Command:
 
 commands = {}
 
-# Decorator that registers a function as a command.
 def command(f):
+  """ Decorator that registers the function as a command. """
   commands[f.__name__] = Command(f)
   return f
 
