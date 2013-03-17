@@ -4,7 +4,7 @@
       "multiplier": 0.0015,
       "mapNormalize": 600000,
       "reduceNormalize": 600000,
-      "sleepNormalize": 1.5,
+      "sleepNormalize": 1,
       "epsilon": {
         "distribution": "uniform",
         "min": 1.1,
