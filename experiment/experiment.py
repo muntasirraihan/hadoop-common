@@ -103,8 +103,6 @@ class Estimate(object):
   def __repr__(self):
     if self.n == 0:
       return "0.0"
-    if self.n == 1:
-      return "%0.2f±inf" % self.mean()
     return "%0.2f±%0.2f" % (self.mean(), self.stddev())
   def __str__(self):
     return repr(self)
@@ -181,6 +179,13 @@ class TraceJob(EstimatableJob):
     self.params = params
     self.runtime = Estimate()
     super(TraceJob, self).__init__()
+  def rel_deadline(self):
+    if self.runtime.n == 0:
+      runtime = 0
+    else:
+      runtime = self.runtime.mean()
+    epsilon = self.params["epsilon"]
+    return int(runtime * (1 + epsilon))
   def run(self, jobnum):
     """ Run this trace job.
 
@@ -189,12 +194,8 @@ class TraceJob(EstimatableJob):
     """
     Scripts.prepare()
     args = [Scripts.RUN_JOB]
-    epsilon = self.params.pop("epsilon")
-    if self.runtime.n == 0:
-      deadline = 0
-    else:
-      runtime = self.runtime.mean()
-      deadline = int(int(time.time()*1e3) + runtime * (1 + epsilon))
+    deadline = int(time.time())*1e3 + self.rel_deadline()
+    del self.params["epsilon"]
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
 # the jobs key must go last for the script to parse the job correctly

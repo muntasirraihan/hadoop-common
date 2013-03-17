@@ -22,7 +22,7 @@ args = parser.parse_args()
 QUEUE = "production"
 
 # 0-based column indices
-# this is the the 1-hr trace; don't know how to parse the separate
+# this is for the 1-hr trace; don't know how to parse the separate
 # research/production traces
 column_indices = {
     "id": 0,
