@@ -58,8 +58,8 @@ def deadlineInversions(jobs, waitTimes):
     for idx2 in range(idx1+1, len(jobs)):
       job1 = jobs[idx1]
       job2 = jobs[idx2]
-      deadline1 = starts[idx1] + job1.rel_deadline()
-      deadline2 = starts[idx2] + job2.rel_deadline()
+      deadline1 = job1.deadline(starts[idx1])
+      deadline2 = job2.deadline(starts[idx2])
       if deadline2 < deadline1:
         inversions += 1
         # job1 cannot finish faster than its standalone runtime, so if this is

@@ -35,7 +35,7 @@ def loadEstimates(path):
   except Exception:
     return {}
 
-class Scripts:
+class Scripts(object):
   prepared = False
   RUN_JOB = "/tmp/run-job.sh"
   RUN_JOBS_SCRIPT = "/tmp/run-jobs-script.sh"
@@ -44,9 +44,11 @@ class Scripts:
   def prepare(cls):
     if not cls.prepared:
       dirs = GlobalConfig.get("dirs")
-      script = expanduser(dirs["common"]) + "/workload/scripts/run-job.sh"
+      script = expanduser(dirs["common"]) + \
+        "/workload/scripts/run-job.sh"
       shutil.copy(script, cls.RUN_JOB)
-      script = expanduser(dirs["common"]) + "/workload/scripts/run-jobs-script.sh"
+      script = expanduser(dirs["common"]) + \
+        "/workload/scripts/run-jobs-script.sh"
       shutil.copy(script, cls.RUN_JOBS_SCRIPT)
       if not isdir(cls.LOG_DIR):
         mkdir(cls.LOG_DIR)
@@ -179,6 +181,8 @@ class TraceJob(EstimatableJob):
     self.params = params
     self.runtime = Estimate()
     super(TraceJob, self).__init__()
+  def deadline(self, now):
+    return int(now + self.rel_deadline())
   def rel_deadline(self):
     if self.runtime.n == 0:
       runtime = 0
@@ -194,7 +198,7 @@ class TraceJob(EstimatableJob):
     """
     Scripts.prepare()
     args = [Scripts.RUN_JOB]
-    deadline = time.time() + self.rel_deadline()
+    deadline = self.deadline(time.time())
     del self.params["epsilon"]
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
