@@ -30,25 +30,44 @@ def runtimeSeries(jobs, waitTimes):
     table.append(["%0.2f" % runtime])
   return table
 
-def deadlineInversions(jobs, waitTimes):
-  table = [["inversions"]]
-  inversions = 0
+def startTimes(waitTimes):
+  """ Integrate wait times to obtain relative start times. """
   lastStart = 0
 # Optimisitic start times of jobs (converted to ms); assumes all jobs can run
 # immediately
-  startTimes = []
+  starts = []
   for waitTime in waitTimes:
-    startTimes.append(lastStart)
+    starts.append(lastStart)
     lastStart += waitTime * 1e3
+  return starts
+
+def deadlineInversions(jobs, waitTimes):
+  """ Count pairs of jobs that are submitted with the low deadline job
+  following the high deadline job.
+  
+  Also reports how many inversions occur within a short enough time that
+  preemption will occur.
+  """
+  table = [["type", "inversions"]]
+  starts = startTimes(waitTimes)
+  inversions = 0
+  inTime = 0
+# O(n^2) algorithm; there's a O(n log n) algorithm that's basically merge sort
+# tracking inversions but this analysis need not be fast, just correct.
   for idx1 in range(len(jobs)):
     for idx2 in range(idx1+1, len(jobs)):
       job1 = jobs[idx1]
       job2 = jobs[idx2]
-      deadline1 = startTimes[idx1] + job1.rel_deadline()
-      deadline2 = startTimes[idx2] + job2.rel_deadline()
+      deadline1 = starts[idx1] + job1.rel_deadline()
+      deadline2 = starts[idx2] + job2.rel_deadline()
       if deadline2 < deadline1:
         inversions += 1
-  table.append([inversions])
+        # job1 cannot finish faster than its standalone runtime, so if this is
+        # true then there's a definite preemption opportunity
+        if starts[idx2] < starts[idx1] + job1.runtime.mean():
+          inTime += 1
+  table.append(["any", inversions])
+  table.append(["in-time", inTime])
   return table
 
 import argparse
@@ -64,6 +83,7 @@ parser.add_argument("-o", "--output",
     help="output file for tsv data")
 args = parser.parse_args()
 
+# lookup appropriate analysis function by argument name
 dispatchTable = {
     "runtime-stats": runtimeStats,
     "runtime-series": runtimeSeries,
@@ -74,7 +94,8 @@ with open(args.trace) as f:
   jobs = pickle.load(f)
   waitTimes = pickle.load(f)
 
-table = dispatchTable[args.analysis](jobs, waitTimes)
+analysisFn = dispatchTable[args.analysis]
+table = analysisFn(jobs, waitTimes)
 
 if args.output == "-":
   outF = sys.stdout
