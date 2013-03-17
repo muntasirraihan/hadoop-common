@@ -194,7 +194,7 @@ class TraceJob(EstimatableJob):
     """
     Scripts.prepare()
     args = [Scripts.RUN_JOB]
-    deadline = int(time.time())*1e3 + self.rel_deadline()
+    deadline = now + self.rel_deadline()
     del self.params["epsilon"]
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
@@ -256,7 +256,7 @@ class Run(object):
     job0 = self.jobs[0]
     job1 = self.jobs[1]
     deadlineDelta = GlobalConfig.get("runParams")["deadlineDelta"]
-    now = float(time.time())*1e3
+    now = time.time()*1e3
     # deadline(job0) <= deadline(job1)
     deadlines = [now + job0.rel_deadline()]
     deadlines.append(deadlines[0] + deadlineDelta)
