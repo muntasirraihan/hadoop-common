@@ -31,7 +31,7 @@ def runtimeSeries(jobs, waitTimes):
   return table
 
 def startTimes(waitTimes):
-  """ Integrate wait times to obtain relative start times. """
+  """ Integrate wait times to obtain relative start times, in ms. """
   lastStart = 0
 # Optimisitic start times of jobs (converted to ms); assumes all jobs can run
 # immediately

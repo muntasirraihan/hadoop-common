@@ -198,7 +198,7 @@ class TraceJob(EstimatableJob):
     """
     Scripts.prepare()
     args = [Scripts.RUN_JOB]
-    deadline = self.deadline(time.time())
+    deadline = self.deadline(time.time()*1e3)
     del self.params["epsilon"]
     self.params["deadline"] = deadline
     for k, v in self.params.iteritems():
