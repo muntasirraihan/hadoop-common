@@ -214,6 +214,7 @@ class TraceJob(EstimatableJob):
       call(args)
     except OSError:
 # retry, emulab NFS sometimes has issues
+      print("retrying due to OSError...")
       time.sleep(0.5)
       call(args)
   def size(self):

@@ -5,6 +5,8 @@ import pickle
 import sys
 from os.path import splitext
 import experiment
+from experiment import showTime, remainingTime
+import time
 
 CACHE_PATH = experiment.CACHE_DIR + ("/%s-trace-runtime-estimates.pickle" %
     experiment.hostname())
@@ -44,6 +46,16 @@ with open(args.trace) as f:
   jobs = pickle.load(f)
   waitTimes = pickle.load(f)
 
+unestimatedJobs = 0
+estimatedJobs = 0
+for job in jobs:
+  if job.size() in runtimeEstimates:
+    estimatedJobs += 1
+  else:
+    unestimatedJobs += 1
+jobsDone = 0
+
+startTime = time.time()
 for jobNum, job in enumerate(jobs):
   if job.size() in runtimeEstimates:
     runtimeEstimate = runtimeEstimates[job.size()]
@@ -51,8 +63,12 @@ for jobNum, job in enumerate(jobs):
     runtimeEstimate = job.estimate(args.host, args.numruns)
     runtimeEstimates[job.size()] = runtimeEstimate
     experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
+    jobsDone += 1
   job.runtime = runtimeEstimate
   jobs[jobNum] = job
+  print("%d/%d jobs done" % (estimatedJobs + jobsDone, len(jobs)))
+  print("~%s remaining" %
+      showTime(remainingTime(startTime, jobsDone, unestimatedJobs)))
 
 with open(args.output, "w") as f:
   pickle.dump(jobs, f)
