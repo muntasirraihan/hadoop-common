@@ -308,6 +308,9 @@ def loadResults(fname):
 def showTime(s):
   # round out microseconds
   s = int(s)
+# if time is over 1.5 hrs, display hours separately
+  if s > 1.5 * 60 * 60:
+    return "%d:%02d:%02d" % ((s // 3600), (s // 60), (s % 60))
   return "%d:%02d" % ((s // 60), (s % 60))
 
 def remainingTime(startTime, done, outOf):
@@ -317,6 +320,9 @@ def remainingTime(startTime, done, outOf):
   """
   elapsed = time.time() - startTime
   progress = done/outOf
+# avoid divide by zero error
+  if progress == 0.0:
+    return 0.0
   return elapsed * (1 - progress) / progress
 
 def clearHDFS():

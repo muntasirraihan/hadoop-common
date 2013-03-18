@@ -64,11 +64,11 @@ for jobNum, job in enumerate(jobs):
     runtimeEstimates[job.size()] = runtimeEstimate
     experiment.saveEstimates(runtimeEstimates, CACHE_PATH)
     jobsDone += 1
+    print("%d/%d jobs done" % (estimatedJobs + jobsDone, len(jobs)))
+    print("~%s remaining" %
+        showTime(remainingTime(startTime, jobsDone, unestimatedJobs)))
   job.runtime = runtimeEstimate
   jobs[jobNum] = job
-  print("%d/%d jobs done" % (estimatedJobs + jobsDone, len(jobs)))
-  print("~%s remaining" %
-      showTime(remainingTime(startTime, jobsDone, unestimatedJobs)))
 
 with open(args.output, "w") as f:
   pickle.dump(jobs, f)
