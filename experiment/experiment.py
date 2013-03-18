@@ -310,7 +310,7 @@ def showTime(s):
   s = int(s)
 # if time is over 1.5 hrs, display hours separately
   if s > 1.5 * 60 * 60:
-    return "%d:%02d:%02d" % ((s // 3600), (s // 60), (s % 60))
+    return "%d:%02d:%02d" % ((s // 3600), (s // 60) % 60, (s % 60))
   return "%d:%02d" % ((s // 60), (s % 60))
 
 def remainingTime(startTime, done, outOf):
