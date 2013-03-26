@@ -6,6 +6,7 @@ import time
 import json
 import httplib2
 import re
+import subprocess
 
 class URLResolver:
   def __init__(self, host):
@@ -22,6 +23,16 @@ class URLResolver:
     return self.history + "/ws/v1/history/mapreduce/jobs/" + job_id
   def conf(self, app_id):
     return self.history_info(app_id) + "/conf"
+
+def progressBar(perc, width):
+# use up 2 spaces for the delimiters
+  width -= 2
+  completed = int(perc * width + 0.5)
+  bar = "["
+  bar += "=" * completed
+  bar += (width - completed) * " "
+  bar += "]"
+  return bar
 
 class AppInfo:
   """ Interface to the cluster's metadata about applications. """
@@ -99,13 +110,17 @@ class AppInfo:
         if app['id'] not in self.historical_apps]
     self.apps |= set([app['id'] for app in apps_list])
     info = {}
+    subprocess.call(["clear"])
     for app in sorted(apps_list):
       this_info = self._job_info(app)
       info[app['id']] = this_info
       if this_info is not None and logStatus:
-        log_message = "app " + app['id'][-4:]
-        log_message += " map: %(mapProgress)0.1f"
-        log_message += " reduce: %(reduceProgress)0.1f"
+        for key in ["map", "reduce"]:
+          this_info[key + "Bar"] = progressBar(this_info[key + "Progress"]/100, 50)
+        log_prefix = "app " + app['id'][-4:]
+        log_message = log_prefix
+        log_message += " map: %(mapBar)s %(mapProgress)0.1f\n"
+        log_message += " " * len(log_prefix) + " red: %(reduceBar)s %(reduceProgress)0.1f"
         print(log_message % this_info)
       if app['state'] in ["FINISHED", "FAILED", "KILLED"]:
         self.finished_apps.add(app['id'])
@@ -132,7 +147,6 @@ class AppInfo:
           finishTime = info['finishInfo']['finishTime']
           deadline = int(conf_map["mapreduce.job.deadline"])
           margin = deadline - finishTime
-          print("margin: %0.0fs" % (margin/1e3))
           scheduled = margin > 0
         info['scheduled'] = scheduled
         info['margin'] = margin
@@ -201,5 +215,11 @@ if __name__ == "__main__":
     finally:
       with open(args.json, 'w') as f:
         info.dump(f)
+        appInfo = info.appInfo()
+        for app_id in info.apps:
+          if 'margin' in appInfo[app_id]:
+            margin = appInfo[app_id]['margin']
+            print("margin: %0.0fs" % (margin/1e3))
+
   main()
 
