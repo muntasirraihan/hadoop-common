@@ -541,6 +541,7 @@ public class YarnConfiguration extends Configuration {
 
   /** Container temp directory */
   public static final String DEFAULT_CONTAINER_TEMP_DIR = "./tmp";
+  
 
   public YarnConfiguration() {
     super();

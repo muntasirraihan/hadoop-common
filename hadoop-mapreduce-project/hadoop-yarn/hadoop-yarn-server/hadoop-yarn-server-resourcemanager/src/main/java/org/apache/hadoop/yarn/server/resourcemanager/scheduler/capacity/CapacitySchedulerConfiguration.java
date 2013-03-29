@@ -33,6 +33,8 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 
+import com.sun.org.apache.regexp.internal.RE;
+
 public class CapacitySchedulerConfiguration extends Configuration {
 
   private static final Log LOG = 
@@ -79,6 +81,12 @@ public class CapacitySchedulerConfiguration extends Configuration {
 
   @Private
   public static final String STATE = "state";
+  
+  @Private
+  public static final String RESORT_INTERVAL = "resort-interval-ms";
+  
+  @Private
+  public static final long DEFAULT_RESORT_INTERVAL = 1000L;
 
   @Private
   public static final int DEFAULT_MAXIMUM_SYSTEM_APPLICATIIONS = 10000;
@@ -301,5 +309,12 @@ public class CapacitySchedulerConfiguration extends Configuration {
 
   public boolean getEnableUserMetrics() {
     return getBoolean(ENABLE_USER_METRICS, DEFAULT_ENABLE_USER_METRICS);
+  }
+
+  public long getResortInterval(String queue) {
+    long resortInterval =
+        getLong(getQueuePrefix(queue) + RESORT_INTERVAL,
+            DEFAULT_RESORT_INTERVAL);
+    return resortInterval;
   }
 }

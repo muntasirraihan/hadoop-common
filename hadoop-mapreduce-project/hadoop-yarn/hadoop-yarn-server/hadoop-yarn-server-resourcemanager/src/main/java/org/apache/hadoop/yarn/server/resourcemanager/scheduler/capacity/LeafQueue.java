@@ -99,6 +99,7 @@ public class LeafQueue implements CSQueue {
   private float usedCapacity = 0.0f;
   private volatile int numContainers;
   
+
   /**
    * The sort order for the activeApplications determines what order they are
    * given assignments in. This order is determined by the CapacityScheduler,
@@ -108,6 +109,11 @@ public class LeafQueue implements CSQueue {
   Map<ApplicationAttemptId, SchedulerApp> applicationsMap = 
       new HashMap<ApplicationAttemptId, SchedulerApp>();
   private Comparator<SchedulerApp> applicationComparator;
+  
+  // Last time activeApplications was sorted
+  private long lastSort = 0L;
+  // Configurable interval to resort at (will not resort faster than this interval)
+  private long resortInterval;
   
   SortedSet<SchedulerApp> pendingApplications;
   
@@ -136,6 +142,8 @@ public class LeafQueue implements CSQueue {
   private CapacitySchedulerContext scheduler;
   
   private final ActiveUsersManager activeUsersManager;
+
+  
   
   /**
    * Create a LeafQueue.
@@ -210,6 +218,7 @@ public class LeafQueue implements CSQueue {
 
     this.resumeLocalOnly = cs.getConfiguration().getBoolean(YarnConfiguration.RESUME_LOCAL_ONLY,
                                                             YarnConfiguration.DEFAULT_RESUME_LOCAL_ONLY);
+    this.resortInterval = cs.getConfiguration().getResortInterval(getQueuePath());
     
     setupQueueConfigs(
         cs.getClusterResources(),
@@ -229,6 +238,7 @@ public class LeafQueue implements CSQueue {
     this.pendingApplications = 
         new TreeSet<SchedulerApp>(applicationComparator);
     this.activeApplications = new TreeSet<SchedulerApp>(applicationComparator);
+    this.lastSort = System.currentTimeMillis();
   }
 
   private synchronized void setupQueueConfigs(
@@ -774,10 +784,17 @@ public class LeafQueue implements CSQueue {
   assignContainers(Resource clusterResource, SchedulerNode node) {
     
     /**
-     * Create a new sorted set of applications so that the applications are re-sorted.
+     * Create a new sorted set of applications so that the applications are
+     * re-sorted. Replace the list of activeApplications to save the sorting
+     * work done here.
      */
-    SortedSet<SchedulerApp> applications = ImmutableSortedSet
-        .orderedBy(applicationComparator).addAll(activeApplications).build();
+    SortedSet<SchedulerApp> applications;
+    if (System.currentTimeMillis() - this.lastSort > this.resortInterval) {
+      applications = new TreeSet<SchedulerApp>(activeApplications);
+      activeApplications = applications;
+    } else {
+      applications = activeApplications;
+    }
 
     if(LOG.isDebugEnabled()) {
       LOG.debug("assignContainers: node=" + node.getHostName()
