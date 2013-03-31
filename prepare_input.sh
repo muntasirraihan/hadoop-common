@@ -1,6 +1,4 @@
 #!/bin/bash
-clear
-
 EXPECTED_ARGS=1
 
 if [ $# -ne $EXPECTED_ARGS ]
@@ -10,7 +8,7 @@ then
     exit 1
 fi
 
-VERSION=0.23.3
+VERSION=0.23.3-SNAPSHOT
 
 CLUSTER_NAME=$1
 

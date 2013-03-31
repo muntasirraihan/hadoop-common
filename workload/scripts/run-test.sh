@@ -56,10 +56,10 @@ cd $SCRIPTDIR
  --verbose true \
  --hdfs-input-num 100 \
  --sleep 0 \
- --queue low --mapratio 1.0 --redratio 20 --nummaps 4 --numreduces 30 \
+ --queue low --mapratio 1.0 --redratio 20 --nummaps 2 --numreduces 15 \
  --jobs 0\
  --sleep 15 \
- --queue high --mapratio 1.0 --redratio 5 --nummaps 4 --numreduces 10 \
+ --queue high --mapratio 1.0 --redratio 5 --nummaps 2 --numreduces 5 \
  --jobs 1
 
 cd $CURRDIR
