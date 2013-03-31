@@ -6,6 +6,7 @@ import time
 import json
 import httplib2
 import re
+import sys
 import subprocess
 
 class URLResolver:
@@ -200,11 +201,21 @@ if __name__ == "__main__":
         default=2,
         help="sampling period, in seconds"
         )
+    parser.add_argument("-p", "--print",
+        choices=["deadline", "time"],
+        default="time",
+        help="what to print at end")
     parser.add_argument("-h", "--host",
         default="localhost",
         help="host name of resourcemanager/history server"
         )
+    parser.add_argument("--help",
+        action="store_true",
+        help="print help")
     args = parser.parse_args()
+    if args.help:
+      parser.print_help()
+      sys.exit(0)
     info = AppInfo(args.host)
     try:
       while True:
@@ -217,9 +228,15 @@ if __name__ == "__main__":
         info.dump(f)
         appInfo = info.appInfo()
         for app_id in info.apps:
-          if 'margin' in appInfo[app_id]:
-            margin = appInfo[app_id]['margin']
-            print("margin: %0.0fs" % (margin/1e3))
+          if args.print == "margin":
+            if 'margin' in appInfo[app_id]:
+              margin = appInfo[app_id]['margin']
+              print("margin: %0.0fs" % (margin/1e3))
+          if args.print == "time":
+            finishInfo = appInfo[app_id]['finishInfo']
+            if finishInfo is not None:
+              time_taken = finishInfo['finishTime'] - finishInfo['startTime']
+              print("time: %0.0fs" % (time_taken/1e3))
 
   main()
 
