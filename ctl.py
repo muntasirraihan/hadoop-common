@@ -131,6 +131,11 @@ def restart_hdfs():
   start_hdfs()
 
 @command
+def clear_input():
+  """ Clear the input folders in HDFS. """
+  call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs", "-rm", "-r", "-f", expandvars("/user/$USER/workGenInput*")])
+
+@command
 def clear_output():
   """ Clear the output folders (/output*) in HDFS. """
   call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs",
