@@ -50,10 +50,15 @@
         <value>false</value>
     </property>
 
+    <property>
+    <name>yarn.nodemanager.vmem-pmem-ratio</name>
+    <value>3</value>
+    </property>
+
 <!-- medium containers--> 
     <property>
         <name>yarn.nodemanager.resource.memory-mb</name>
-        <value>2072</value>
+        <value>3072</value>
     </property>
 
 </configuration>

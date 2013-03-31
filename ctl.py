@@ -137,6 +137,12 @@ def clear_output():
     "-rm", "-r", "-f", "/output*"])
   call(["%(target)s/%(h-ver)s/bin/hdfs" % env, "dfs",
     "-rm", "-r", "-f", expandvars("/user/$USER/out*")])
+
+@command
+def refresh_queues():
+  """ Refresh Queue configurations. Remember to update capacityscheduler.xml"""
+  call(["%(target)s/%(h-ver)s/bin/yarn" % env, "rmadmin", "-refreshQueues"])
+
 @command
 def format_hdfs():
   """ Format HDFS. """

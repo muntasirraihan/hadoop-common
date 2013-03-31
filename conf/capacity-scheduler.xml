@@ -11,11 +11,11 @@
   </property>
   <property>
     <name>yarn.scheduler.capacity.root.high.capacity</name>
-    <value>80</value>
+    <value>60</value>
   </property>
   <property>
     <name>yarn.scheduler.capacity.root.low.capacity</name>
-    <value>20</value>
+    <value>40</value>
   </property>
   <!--<property>
     <name>yarn.scheduler.capacity.root.inter.queues</name>
@@ -60,12 +60,12 @@
   </property>
   <property>
     <name>yarn.scheduler.capacity.preempt.suspend.strategy</name>
-    <value>edf</value>
+    <value>most-resources</value>
     <!-- random, probabilistic, least-resources, most-resources -->
   </property>
   <property>
     <name>yarn.scheduler.capacity.queues.policy</name>
-    <value>edf</value>
+    <value>fifo</value>
   </property>
   <property>
     <name>yarn.scheduler.capacity.preempt.suspend</name>

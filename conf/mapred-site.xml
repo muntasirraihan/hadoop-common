@@ -17,7 +17,7 @@
   </property>
   <property>
     <name>yarn.app.mapreduce.am.resource.mb</name>
-    <value>256</value> <!-- changed from 1536 10/5/2012 --><!-- changed from 1024 2/19/2013 -->
+    <value>1024</value> <!-- changed from 1536 10/5/2012 --><!-- changed from 1024 2/19/2013 -->
   </property>
   <!-- Added these properties so killing enabled jobs don't fail -->
   <property>
