@@ -314,7 +314,7 @@ public class CSPreemptor implements Runnable { // TODO: make this abstract, crea
     
     // TODO: is there a better way?
     QueueMetrics metrics = root.getMetrics();
-    int rootMB = 
+    rootMB = 
       metrics.getAvailableMB() +
       metrics.getReservedMB() +
       metrics.getAllocatedMB();
