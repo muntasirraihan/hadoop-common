@@ -46,6 +46,9 @@ done
 if [ -d "$OUTDIR" ]; then rm -r "$OUTDIR"; fi
 mkdir "$OUTDIR"
 
+# clear output from previous jobs
+$BINDIR/hdfs dfs -rm -r -f /user/$USER/out* &>/dev/null
+
 cd $SCRIPTDIR
 ./run-jobs-script.sh \
  --bindir $BINDIR --outdir $OUTDIR \
@@ -56,7 +59,7 @@ cd $SCRIPTDIR
  --verbose true \
  --hdfs-input-num 100 \
  --sleep 0 \
- --queue low --mapratio 3 --redratio 200 --nummaps 4 --numreduces 20 \
+ --queue low --mapratio 3 --redratio 150 --nummaps 4 --numreduces 20 \
  --jobs 0 \
  --sleep 25 \
  --queue high --mapratio 1 --redratio 30 --nummaps 4 --numreduces 30 \

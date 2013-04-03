@@ -112,7 +112,7 @@ class AppInfo:
     self.apps |= set([app['id'] for app in apps_list])
     info = {}
     subprocess.call(["clear"])
-    for app in sorted(apps_list):
+    for app in sorted(apps_list, key=lambda app: app['id']):
       this_info = self._job_info(app)
       info[app['id']] = this_info
       if this_info is not None and logStatus:
@@ -131,13 +131,15 @@ class AppInfo:
   def appInfo(self):
     if self._appInfo is None:
       appInfo = {}
-      for app_id in self.apps:
+      for app_id in sorted(self.apps):
         info = {}
         conf = self._job_conf(app_id)
         conf_map = {}
         if conf is not None:
           for prop in conf['property']:
-            if prop['name'] in ["mapreduce.job.deadline"]:
+            if prop['name'] in [
+                "mapreduce.job.deadline",
+                "mapreduce.job.queuename"]:
               conf_map[prop['name']] = prop['value']
         info['conf'] = conf_map
         info['finishInfo'] = self._job_history_info(app_id)
@@ -151,6 +153,10 @@ class AppInfo:
           scheduled = margin > 0
         info['scheduled'] = scheduled
         info['margin'] = margin
+        if "mapreduce.job.queuename" in conf_map:
+          info['queue'] = conf_map["mapreduce.job.queuename"]
+        else:
+          info['queue'] = ""
         appInfo[app_id] = info
       self._appInfo = appInfo
     return self._appInfo
@@ -201,6 +207,9 @@ if __name__ == "__main__":
         default=2,
         help="sampling period, in seconds"
         )
+    parser.add_argument("-f", "--forever",
+        action="store_true",
+        help="run forever, even after all jobs have finished")
     parser.add_argument("-p", "--print",
         choices=["deadline", "time"],
         default="time",
@@ -218,7 +227,7 @@ if __name__ == "__main__":
       sys.exit(0)
     info = AppInfo(args.host)
     try:
-      while True:
+      while args.forever or not info.is_run_over():
         info.update()
         time.sleep(args.period)
     except KeyboardInterrupt:
@@ -227,7 +236,7 @@ if __name__ == "__main__":
       with open(args.json, 'w') as f:
         info.dump(f)
         appInfo = info.appInfo()
-        for app_id in info.apps:
+        for app_id in sorted(info.apps):
           if args.print == "margin":
             if 'margin' in appInfo[app_id]:
               margin = appInfo[app_id]['margin']
@@ -235,8 +244,9 @@ if __name__ == "__main__":
           if args.print == "time":
             finishInfo = appInfo[app_id]['finishInfo']
             if finishInfo is not None:
+              queueName = appInfo[app_id]['queue']
               time_taken = finishInfo['finishTime'] - finishInfo['startTime']
-              print("time: %0.0fs" % (time_taken/1e3))
+              print("[queue: %s] time: %0.0fs" % (queueName, time_taken/1e3))
 
   main()
 
